@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Certification - 5. Data Transformations (Part 1: SQL)</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-07-29",
+    "intent": "Snowflake SnowPro Core - Domain 5 Part 1: SQL Fundamentals, Advanced SQL, Semi-Structured Data",
+    "sections": [
+      { "id": "sql-fundamentals", "title": "SQL Fundamentals (DDL/DML)" },
+      { "id": "snowflake-specific", "title": "Snowflake-Specific SQL" },
+      { "id": "window-functions", "title": "Window Functions" },
+      { "id": "semi-structured", "title": "Semi-Structured Data" },
+      { "id": "advanced-patterns", "title": "Advanced SQL Patterns" },
+      { "id": "hands-on", "title": "Hands-On Scripts" },
+      { "id": "interview-qa", "title": "Interview Q&A" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, system-ui, 'Segoe UI', sans-serif; max-width: 960px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #111827); line-height: 1.7; }
+    h1 { color: light-dark(#1e40af, #93c5fd); border-bottom: 3px solid light-dark(#3b82f6, #1d4ed8); padding-bottom: 12px; }
+    h2 { color: light-dark(#1e3a5f, #7dd3fc); margin-top: 40px; border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding-left: 12px; }
+    h3 { color: light-dark(#374151, #d1d5db); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9em; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#eff6ff, #1e3a5f); font-weight: 600; }
+    tr:nth-child(even) { background: light-dark(#f8fafc, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+    pre { background: light-dark(#0f172a, #0f172a); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; line-height: 1.5; }
+    .highlight { background: light-dark(#fef3c7, #422006); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#f59e0b, #fbbf24); margin: 16px 0; }
+    .key-point { background: light-dark(#ecfdf5, #022c22); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#10b981, #34d399); margin: 16px 0; }
+    .warning { background: light-dark(#fef2f2, #450a0a); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#ef4444, #f87171); margin: 16px 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+    .badge-cert { background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); }
+    .badge-interview { background: light-dark(#fce7f3, #500724); color: light-dark(#be185d, #f9a8d4); }
+    .badge-new { background: light-dark(#d1fae5, #022c22); color: light-dark(#065f46, #6ee7b7); }
+    .qa-block { margin: 20px 0; padding: 16px; background: light-dark(#f8fafc, #1a2332); border-radius: 8px; }
+    .qa-block strong { color: light-dark(#1e40af, #93c5fd); }
+  </style>
+</head>
+<body>
+
+  <h1>Domain 5: Data Transformations (Part 1)</h1>
+  <p><span class="badge badge-cert">SnowPro Core (20-25%)</span> <span class="badge badge-interview">Interview Essential</span></p>
+  <p><strong>Covers:</strong> SQL Fundamentals, Snowflake-Specific SQL, Window Functions, Semi-Structured Data</p>
+  <p><strong>Date:</strong> July 29, 2026</p>
+
+  <hr/>
+
+  <h2 id="sql-fundamentals">1. SQL Fundamentals (DDL/DML)</h2>
+
+  <h3>DDL Unique to Snowflake</h3>
+  <pre>
+-- CREATE OR REPLACE (atomic swap - no downtime)
+CREATE OR REPLACE TABLE my_table (id INT, name VARCHAR);
+-- Drops old table + creates new in one atomic operation
+-- Old table goes to Time Travel (can UNDROP)
+
+-- CREATE TABLE ... AS SELECT (CTAS)
+CREATE TABLE summary AS SELECT category, SUM(amount) AS total FROM orders GROUP BY category;
+
+-- CREATE TABLE ... LIKE (structure only, no data)
+CREATE TABLE orders_backup LIKE orders;
+
+-- CREATE TABLE ... CLONE (zero-copy with data)
+CREATE TABLE orders_dev CLONE orders;
+
+-- UNDROP (recover from accidental drops)
+DROP TABLE my_table;
+UNDROP TABLE my_table;  -- Recovered from Time Travel!
+
+-- SWAP (atomic table swap)
+ALTER TABLE staging_orders SWAP WITH production_orders;
+-- Both tables exchanged instantly - great for blue/green deployments
+  </pre>
+
+  <h3>DML Essentials</h3>
+  <pre>
+-- MERGE (upsert - most important DML for pipelines)
+MERGE INTO target USING source ON target.id = source.id
+WHEN MATCHED THEN UPDATE SET target.amount = source.amount
+WHEN NOT MATCHED THEN INSERT (id, amount) VALUES (source.id, source.amount);
+
+-- INSERT OVERWRITE (replace partition-like behavior)
+INSERT OVERWRITE INTO daily_summary
+SELECT order_date, SUM(amount) FROM orders 
+WHERE order_date = CURRENT_DATE() GROUP BY order_date;
+
+-- Multi-table INSERT (one scan, multiple targets)
+INSERT ALL
+  WHEN amount > 1000 THEN INTO high_value_orders
+  WHEN amount <= 1000 THEN INTO standard_orders
+SELECT * FROM new_orders;
+
+-- TRUNCATE vs DELETE
+TRUNCATE TABLE my_table;  -- Instant, no Time Travel (immediately purges)
+DELETE FROM my_table;      -- Row by row, creates Time Travel versions
+  </pre>
+
+  <div class="warning">
+    <strong>Exam Gotcha - TRUNCATE vs DELETE:</strong>
+    <ul>
+      <li><code>TRUNCATE</code>: Instant, removes ALL data, minimal Time Travel (metadata only), cannot filter rows</li>
+      <li><code>DELETE</code>: Can use WHERE clause, creates Time Travel copies of removed partitions, slower on large tables</li>
+      <li>Both are DML. TRUNCATE is NOT DDL in Snowflake (unlike some databases).</li>
+    </ul>
+  </div>
+
+  <h2 id="snowflake-specific">2. Snowflake-Specific SQL Features</h2>
+
+  <h3>QUALIFY Clause (Snowflake Extension)</h3>
+  <pre>
+-- QUALIFY: Filter on window function results (like HAVING for aggregates)
+-- Instead of wrapping in subquery:
+
+-- Traditional (verbose):
+SELECT * FROM (
+  SELECT *, ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC) AS rn
+  FROM employees
+) WHERE rn = 1;
+
+-- Snowflake QUALIFY (elegant):
+SELECT * FROM employees
+QUALIFY ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC) = 1;
+
+-- Get top 3 per category
+SELECT * FROM products
+QUALIFY RANK() OVER (PARTITION BY category ORDER BY revenue DESC) <= 3;
+
+-- Deduplicate (keep latest per key)
+SELECT * FROM raw_events
+QUALIFY ROW_NUMBER() OVER (PARTITION BY event_id ORDER BY event_ts DESC) = 1;
+  </pre>
+
+  <div class="highlight">
+    <strong>Exam Tip:</strong> QUALIFY is Snowflake-specific (not standard SQL). It executes AFTER window functions are computed. Execution order: FROM > WHERE > GROUP BY > HAVING > Window Functions > <strong>QUALIFY</strong> > ORDER BY > LIMIT.
+  </div>
+
+  <h3>GENERATOR & Sequences</h3>
+  <pre>
+-- Generate rows (synthetic data, date spines)
+SELECT SEQ4() AS row_num, 
+       DATEADD(day, SEQ4(), '2024-01-01')::DATE AS date_val
+FROM TABLE(GENERATOR(ROWCOUNT => 365));
+
+-- Date spine (all dates in a range)
+SELECT DATEADD(day, ROW_NUMBER() OVER (ORDER BY 1) - 1, '2024-01-01')::DATE AS dt
+FROM TABLE(GENERATOR(ROWCOUNT => 365));
+
+-- Sequences
+CREATE SEQUENCE order_seq START = 1000 INCREMENT = 1;
+SELECT order_seq.NEXTVAL;  -- 1000, 1001, 1002...
+  </pre>
+
+  <h3>SAMPLE / TABLESAMPLE</h3>
+  <pre>
+-- Random sample (different methods)
+SELECT * FROM large_table SAMPLE (10);           -- 10% of rows (approximate)
+SELECT * FROM large_table SAMPLE (100 ROWS);     -- Exactly 100 rows
+SELECT * FROM large_table TABLESAMPLE BERNOULLI (1);  -- 1% Bernoulli sampling
+SELECT * FROM large_table TABLESAMPLE SYSTEM (10);    -- 10% block-level (faster)
+  </pre>
+
+  <h3>FLATTEN (Semi-structured - also used in general)</h3>
+  <pre>
+-- LATERAL FLATTEN: Explode arrays/objects into rows
+SELECT 
+  order_id,
+  f.value:product_id::INT AS product_id,
+  f.value:quantity::INT AS quantity
+FROM orders,
+LATERAL FLATTEN(input => order_items) f;
+  </pre>
+
+  <h3>PIVOT and UNPIVOT</h3>
+  <pre>
+-- PIVOT: Rows to columns
+SELECT * FROM monthly_sales
+PIVOT (SUM(revenue) FOR month IN ('JAN', 'FEB', 'MAR', 'APR'))
+AS p;
+
+-- UNPIVOT: Columns to rows
+SELECT * FROM quarterly_report
+UNPIVOT (revenue FOR quarter IN (Q1, Q2, Q3, Q4));
+  </pre>
+
+  <h2 id="window-functions">3. Window Functions (Critical for Exam)</h2>
+
+  <h3>Window Function Categories</h3>
+  <table>
+    <thead><tr><th>Category</th><th>Functions</th><th>Use Case</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Ranking</strong></td><td>ROW_NUMBER, RANK, DENSE_RANK, NTILE</td><td>Assign positions, top-N, deduplication</td></tr>
+      <tr><td><strong>Offset</strong></td><td>LAG, LEAD, FIRST_VALUE, LAST_VALUE, NTH_VALUE</td><td>Compare with previous/next rows</td></tr>
+      <tr><td><strong>Aggregate</strong></td><td>SUM, AVG, COUNT, MIN, MAX (with OVER)</td><td>Running totals, moving averages</td></tr>
+      <tr><td><strong>Distribution</strong></td><td>PERCENT_RANK, CUME_DIST, PERCENTILE_CONT/DISC</td><td>Statistical distributions</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Ranking Functions Compared</h3>
+  <pre>
+  DATA: Scores = [100, 90, 90, 80, 70]
+
+  ROW_NUMBER: 1, 2, 3, 4, 5  (always unique, arbitrary for ties)
+  RANK:       1, 2, 2, 4, 5  (same rank for ties, gaps after)
+  DENSE_RANK: 1, 2, 2, 3, 4  (same rank for ties, NO gaps)
+  NTILE(2):   1, 1, 1, 2, 2  (divide into N equal groups)
+  </pre>
+
+  <pre>
+-- Running total
+SELECT order_date, amount,
+  SUM(amount) OVER (ORDER BY order_date) AS running_total
+FROM orders;
+
+-- Moving average (last 7 days)
+SELECT order_date, amount,
+  AVG(amount) OVER (ORDER BY order_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS ma_7day
+FROM daily_sales;
+
+-- Year-over-year comparison with LAG
+SELECT month, revenue,
+  LAG(revenue, 12) OVER (ORDER BY month) AS revenue_last_year,
+  revenue - LAG(revenue, 12) OVER (ORDER BY month) AS yoy_change
+FROM monthly_revenue;
+
+-- Percent of total per group
+SELECT dept, employee, salary,
+  ROUND(salary / SUM(salary) OVER (PARTITION BY dept) * 100, 1) AS pct_of_dept
+FROM employees;
+  </pre>
+
+  <h2 id="semi-structured">4. Semi-Structured Data</h2>
+
+  <h3>VARIANT, OBJECT, ARRAY Data Types</h3>
+  <table>
+    <thead><tr><th>Type</th><th>Stores</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td><strong>VARIANT</strong></td><td>Any JSON value (object, array, scalar)</td><td><code>{"name":"Alice","age":30}</code></td></tr>
+      <tr><td><strong>OBJECT</strong></td><td>JSON object (key-value pairs)</td><td><code>{"key1":"val1","key2":"val2"}</code></td></tr>
+      <tr><td><strong>ARRAY</strong></td><td>JSON array (ordered list)</td><td><code>[1, 2, 3, "four"]</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Accessing Semi-Structured Data</h3>
+  <pre>
+-- Given: column "data" contains {"customer":{"name":"Alice","addresses":[{"city":"NYC"},{"city":"LA"}]}}
+
+-- Dot notation (case-insensitive by default for VARIANT)
+SELECT data:customer:name::VARCHAR AS customer_name FROM my_table;
+
+-- Bracket notation (case-sensitive)
+SELECT data['customer']['name']::VARCHAR AS customer_name FROM my_table;
+
+-- Array access (0-based index)
+SELECT data:customer:addresses[0]:city::VARCHAR AS first_city FROM my_table;
+
+-- IMPORTANT: Always CAST (::) when extracting from VARIANT!
+-- Without cast: returns VARIANT type (won't work in WHERE efficiently)
+-- With cast (::VARCHAR, ::INT, ::DATE): proper type, enables pruning
+  </pre>
+
+  <h3>FLATTEN - The Key Function</h3>
+  <pre>
+-- Example JSON: {"order_id":1,"items":[{"sku":"A1","qty":2},{"sku":"B2","qty":1}]}
+
+-- FLATTEN explodes array into rows
+SELECT 
+  raw:order_id::INT AS order_id,
+  f.index AS item_index,
+  f.value:sku::VARCHAR AS sku,
+  f.value:qty::INT AS qty
+FROM orders_json,
+LATERAL FLATTEN(input => raw:items) f;
+
+-- Result:
+-- order_id | item_index | sku | qty
+-- 1        | 0          | A1  | 2
+-- 1        | 1          | B2  | 1
+
+-- FLATTEN with OUTER (keep rows even if array is NULL/empty)
+SELECT o.id, f.value::VARCHAR AS tag
+FROM orders o,
+LATERAL FLATTEN(input => o.tags, OUTER => TRUE) f;
+
+-- Recursive FLATTEN (nested objects)
+SELECT 
+  f.key AS field_name,
+  f.value::VARCHAR AS field_value,
+  f.path AS json_path
+FROM my_table,
+LATERAL FLATTEN(input => raw_json, RECURSIVE => TRUE) f
+WHERE f.value IS NOT NULL;
+  </pre>
+
+  <h3>Construction Functions</h3>
+  <pre>
+-- Build JSON objects
+SELECT OBJECT_CONSTRUCT('name', name, 'email', email, 'active', TRUE) AS json_obj
+FROM customers;
+
+-- Build arrays
+SELECT ARRAY_CONSTRUCT(1, 2, 3, 4, 5) AS my_array;
+SELECT ARRAY_AGG(product_name) AS all_products FROM orders GROUP BY order_id;
+
+-- Parse/convert
+SELECT PARSE_JSON('{"key": "value"}') AS parsed;
+SELECT TO_JSON(OBJECT_CONSTRUCT('a', 1, 'b', 2)) AS json_string;
+SELECT TRY_PARSE_JSON(maybe_json_column) AS safe_parsed;  -- Returns NULL if invalid
+  </pre>
+
+  <div class="key-point">
+    <strong>Semi-Structured Key Facts for Exam:</strong>
+    <ul>
+      <li>VARIANT can store up to <strong>16 MB</strong> per value</li>
+      <li>Snowflake <strong>auto-optimizes</strong> VARIANT (detects repeated keys, stores columnar internally)</li>
+      <li>Always <strong>CAST</strong> when extracting (::VARCHAR, ::INT) for performance and type safety</li>
+      <li>FLATTEN = most important function for semi-structured processing</li>
+      <li>LATERAL keyword required before FLATTEN in FROM clause</li>
+      <li>OUTER => TRUE in FLATTEN = preserve parent rows if array is null/empty</li>
+      <li>Can query VARIANT with standard WHERE/GROUP BY after casting</li>
+    </ul>
+  </div>
+
+  <h2 id="advanced-patterns">5. Advanced SQL Patterns</h2>
+
+  <h3>CTEs and Recursive CTEs</h3>
+  <pre>
+-- Standard CTE (WITH clause)
+WITH monthly_totals AS (
+  SELECT DATE_TRUNC('month', order_date) AS month, SUM(amount) AS total
+  FROM orders GROUP BY 1
+),
+running AS (
+  SELECT month, total, SUM(total) OVER (ORDER BY month) AS cumulative
+  FROM monthly_totals
+)
+SELECT * FROM running;
+
+-- Recursive CTE (tree/hierarchy traversal)
+WITH RECURSIVE org_chart AS (
+  -- Anchor: top-level managers (no manager)
+  SELECT employee_id, name, manager_id, 1 AS level
+  FROM employees WHERE manager_id IS NULL
+  
+  UNION ALL
+  
+  -- Recursive: join to find direct reports
+  SELECT e.employee_id, e.name, e.manager_id, oc.level + 1
+  FROM employees e
+  JOIN org_chart oc ON e.manager_id = oc.employee_id
+)
+SELECT * FROM org_chart ORDER BY level, name;
+  </pre>
+
+  <h3>GROUP BY Extensions</h3>
+  <pre>
+-- GROUPING SETS (multiple groupings in one query)
+SELECT region, category, SUM(sales)
+FROM sales_data
+GROUP BY GROUPING SETS ((region, category), (region), (category), ())
+ORDER BY region, category;
+-- Returns: per region+category, per region, per category, and grand total
+
+-- ROLLUP (hierarchical subtotals)
+SELECT region, category, SUM(sales)
+FROM sales_data
+GROUP BY ROLLUP (region, category);
+-- Returns: per region+category, subtotal per region, grand total
+
+-- CUBE (all possible combinations)
+SELECT region, category, SUM(sales)
+FROM sales_data
+GROUP BY CUBE (region, category);
+  </pre>
+
+  <h3>MATCH_RECOGNIZE (Pattern Matching)</h3>
+  <pre>
+-- Find sequences in ordered data (e.g., stock price patterns)
+SELECT * FROM stock_prices
+MATCH_RECOGNIZE (
+  PARTITION BY symbol
+  ORDER BY trading_date
+  MEASURES
+    FIRST(DOWN.trading_date) AS start_date,
+    LAST(UP.trading_date) AS end_date,
+    COUNT(*) AS pattern_length
+  ONE ROW PER MATCH
+  PATTERN (DOWN+ UP+)  -- One or more downs followed by one or more ups
+  DEFINE
+    DOWN AS price < LAG(price),
+    UP AS price > LAG(price)
+);
+  </pre>
+
+  <h2 id="hands-on">6. Hands-On SQL Scripts</h2>
+
+  <h3>Script 1: Window Functions Demo</h3>
+  <pre>
+USE SCHEMA CERT_STUDY_DB.ARCHITECTURE;
+
+-- Using our sample_data table
+SELECT 
+  category,
+  order_date,
+  amount,
+  -- Running total per category
+  SUM(amount) OVER (PARTITION BY category ORDER BY order_date) AS running_total,
+  -- Rank within category
+  RANK() OVER (PARTITION BY category ORDER BY amount DESC) AS amount_rank,
+  -- Previous day's amount
+  LAG(amount) OVER (PARTITION BY category ORDER BY order_date) AS prev_amount,
+  -- Percent of category total
+  ROUND(amount / SUM(amount) OVER (PARTITION BY category) * 100, 4) AS pct_of_category
+FROM sample_data
+WHERE order_date BETWEEN '2024-06-01' AND '2024-06-07'
+  AND category = 'Electronics'
+QUALIFY RANK() OVER (PARTITION BY category ORDER BY amount DESC) <= 5
+ORDER BY amount DESC;
+  </pre>
+
+  <h3>Script 2: Semi-Structured Data</h3>
+  <pre>
+-- Create table with JSON data
+CREATE OR REPLACE TABLE json_demo (raw VARIANT);
+
+INSERT INTO json_demo SELECT PARSE_JSON(column1) FROM VALUES
+('{"order_id":1,"customer":"Alice","items":[{"sku":"LAPTOP","qty":1,"price":999},{"sku":"MOUSE","qty":2,"price":29}],"shipping":{"method":"express","address":{"city":"NYC","zip":"10001"}}}'),
+('{"order_id":2,"customer":"Bob","items":[{"sku":"PHONE","qty":1,"price":799}],"shipping":{"method":"standard","address":{"city":"LA","zip":"90001"}}}'),
+('{"order_id":3,"customer":"Carol","items":[{"sku":"TABLET","qty":1,"price":499},{"sku":"CASE","qty":1,"price":39},{"sku":"CHARGER","qty":2,"price":19}],"shipping":{"method":"express","address":{"city":"Chicago","zip":"60601"}}}');
+
+-- Extract scalar values
+SELECT 
+  raw:order_id::INT AS order_id,
+  raw:customer::VARCHAR AS customer,
+  raw:shipping:method::VARCHAR AS ship_method,
+  raw:shipping:address:city::VARCHAR AS city
+FROM json_demo;
+
+-- FLATTEN array to rows
+SELECT 
+  raw:order_id::INT AS order_id,
+  raw:customer::VARCHAR AS customer,
+  f.value:sku::VARCHAR AS product_sku,
+  f.value:qty::INT AS quantity,
+  f.value:price::DECIMAL(10,2) AS unit_price,
+  f.value:qty::INT * f.value:price::DECIMAL(10,2) AS line_total
+FROM json_demo,
+LATERAL FLATTEN(input => raw:items) f;
+  </pre>
+
+  <h3>Script 3: QUALIFY and Deduplication</h3>
+  <pre>
+-- Top 3 highest amounts per category (QUALIFY)
+SELECT category, order_date, amount
+FROM sample_data
+QUALIFY ROW_NUMBER() OVER (PARTITION BY category ORDER BY amount DESC) <= 3
+ORDER BY category, amount DESC;
+
+-- Dedup pattern
+SELECT * FROM sample_data
+QUALIFY ROW_NUMBER() OVER (PARTITION BY id ORDER BY order_date DESC) = 1;
+  </pre>
+
+  <h3>Script 4: PIVOT and GROUPING SETS</h3>
+  <pre>
+-- Monthly summary by category
+WITH monthly AS (
+  SELECT category, DATE_TRUNC('month', order_date)::DATE AS month, SUM(amount) AS total
+  FROM sample_data 
+  WHERE order_date BETWEEN '2024-01-01' AND '2024-06-30'
+  GROUP BY category, month
+)
+SELECT * FROM monthly
+PIVOT (SUM(total) FOR month IN ('2024-01-01','2024-02-01','2024-03-01','2024-04-01','2024-05-01','2024-06-01'))
+ORDER BY category;
+  </pre>
+
+  <h2 id="interview-qa">7. Interview & Certification Q&A</h2>
+
+  <div class="qa-block">
+    <strong>Q1: What is the QUALIFY clause and when do you use it?</strong>
+    <p><strong>A:</strong> QUALIFY filters results of window functions (like HAVING filters aggregates). It's Snowflake-specific:
+    <ul>
+      <li>Executes AFTER window functions are computed</li>
+      <li>Replaces the need for subquery wrappers</li>
+      <li>Most common use: TOP-N per group, deduplication</li>
+      <li>Example: <code>SELECT * FROM t QUALIFY ROW_NUMBER() OVER (PARTITION BY key ORDER BY ts DESC) = 1</code></li>
+    </ul>
+    Execution order: FROM > WHERE > GROUP BY > HAVING > Window Functions > QUALIFY > ORDER BY > LIMIT</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q2: How do you handle JSON data in Snowflake?</strong>
+    <p><strong>A:</strong>
+    <ol>
+      <li><strong>Storage:</strong> Use VARIANT column type (stores any JSON, up to 16 MB per value)</li>
+      <li><strong>Loading:</strong> COPY INTO with TYPE=JSON, or PARSE_JSON() for inline</li>
+      <li><strong>Querying:</strong> Dot notation (<code>col:key::TYPE</code>) or bracket (<code>col['key']</code>)</li>
+      <li><strong>Flattening:</strong> LATERAL FLATTEN to explode arrays into rows</li>
+      <li><strong>Performance:</strong> Snowflake auto-detects repeated JSON keys and optimizes storage (columnar-like)</li>
+      <li><strong>Always cast:</strong> Use <code>::VARCHAR</code>, <code>::INT</code> etc. for proper typing and pruning</li>
+    </ol></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q3: Explain the difference between ROW_NUMBER, RANK, and DENSE_RANK.</strong>
+    <p><strong>A:</strong> For values [100, 90, 90, 80]:
+    <ul>
+      <li><strong>ROW_NUMBER:</strong> 1, 2, 3, 4 - Always unique. Ties broken arbitrarily. Use for dedup.</li>
+      <li><strong>RANK:</strong> 1, 2, 2, 4 - Same rank for ties, then SKIP (gap). Use for competition ranking.</li>
+      <li><strong>DENSE_RANK:</strong> 1, 2, 2, 3 - Same rank for ties, NO gap. Use when you need consecutive ranks.</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q4: What is LATERAL FLATTEN and when do you use OUTER => TRUE?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>LATERAL FLATTEN:</strong> Explodes a VARIANT array/object into multiple rows (one per element). LATERAL means it references the outer table's columns.</li>
+      <li><strong>OUTER => TRUE:</strong> Preserves the parent row even if the array is NULL or empty (like LEFT JOIN behavior). Without it, rows with NULL/empty arrays are dropped.</li>
+      <li>Example: Order has no items array → with OUTER=TRUE: order row kept with NULL item values. Without: order row disappears.</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q5: What's the difference between CREATE OR REPLACE and DROP + CREATE?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>CREATE OR REPLACE:</strong> Atomic operation. Old table drops and new one creates in one transaction. Old table is in Time Travel. Any grants on the old table are LOST.</li>
+      <li><strong>DROP + CREATE:</strong> Two separate operations. Brief moment where table doesn't exist. Same end result but not atomic.</li>
+      <li><strong>Key gotcha:</strong> CREATE OR REPLACE removes all existing GRANTs! If roles had SELECT on the old table, they lose it. Use ALTER TABLE if you need to keep grants.</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q6: How do you do a running total and moving average in Snowflake?</strong>
+    <p><strong>A:</strong>
+    <pre>
+-- Running total (cumulative sum)
+SUM(amount) OVER (ORDER BY date_col ROWS UNBOUNDED PRECEDING)
+
+-- Moving average (last 7 rows)
+AVG(amount) OVER (ORDER BY date_col ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)
+
+-- Moving average (last 7 days - time-based)
+AVG(amount) OVER (ORDER BY date_col RANGE BETWEEN INTERVAL '6 days' PRECEDING AND CURRENT ROW)
+    </pre>
+    Key difference: ROWS = physical row count, RANGE = logical value range.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q7: How does INSERT OVERWRITE differ from DELETE + INSERT?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>INSERT OVERWRITE:</strong> Atomically replaces ALL data in the table with the new query results. One transaction. Used for full-refresh patterns.</li>
+      <li><strong>DELETE + INSERT:</strong> Two operations. Data temporarily gone between them (if not in a transaction). More Time Travel storage (delete creates versions).</li>
+      <li><strong>INSERT OVERWRITE advantages:</strong> Atomic, less Time Travel storage, simpler logic for full-refresh tables.</li>
+    </ul></p>
+  </div>
+
+  <hr/>
+
+  <h2>Quick Revision Checklist</h2>
+  <table>
+    <thead><tr><th>#</th><th>Concept</th><th>Remember</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>QUALIFY</td><td>Filter on window functions (Snowflake-specific)</td></tr>
+      <tr><td>2</td><td>Execution order</td><td>FROM>WHERE>GROUP>HAVING>Window>QUALIFY>ORDER>LIMIT</td></tr>
+      <tr><td>3</td><td>VARIANT max size</td><td>16 MB per value</td></tr>
+      <tr><td>4</td><td>JSON access</td><td>Dot notation: col:key::TYPE or bracket: col['key']</td></tr>
+      <tr><td>5</td><td>FLATTEN keyword</td><td>LATERAL FLATTEN(input => col) in FROM clause</td></tr>
+      <tr><td>6</td><td>OUTER => TRUE</td><td>Keep parent rows when array is NULL/empty</td></tr>
+      <tr><td>7</td><td>ROW_NUMBER for dedup</td><td>Always unique, PARTITION BY key ORDER BY ts DESC</td></tr>
+      <tr><td>8</td><td>RANK has gaps</td><td>1,2,2,4 (skip after tie)</td></tr>
+      <tr><td>9</td><td>DENSE_RANK no gaps</td><td>1,2,2,3 (consecutive)</td></tr>
+      <tr><td>10</td><td>CREATE OR REPLACE</td><td>Atomic swap BUT removes all grants!</td></tr>
+      <tr><td>11</td><td>SWAP WITH</td><td>Atomic exchange of two tables' contents</td></tr>
+      <tr><td>12</td><td>GENERATOR</td><td>TABLE(GENERATOR(ROWCOUNT => N)) for synthetic rows</td></tr>
+      <tr><td>13</td><td>PARSE_JSON</td><td>String to VARIANT; TRY_PARSE_JSON for safe parse</td></tr>
+      <tr><td>14</td><td>ARRAY_AGG</td><td>Aggregate rows into array</td></tr>
+      <tr><td>15</td><td>OBJECT_CONSTRUCT</td><td>Build JSON object from key-value pairs</td></tr>
+    </tbody>
+  </table>
+
+  <hr/>
+  <p style="text-align:center; font-size: 0.85em; color: light-dark(#6b7280, #9ca3af);">
+    Snowflake SnowPro Core Certification Study Guide | Domain 5 Part 1: SQL & Semi-Structured Data<br/>
+    Generated: July 29, 2026 | Account: ZITTTER-AT35969
+  </p>
+
+</body>
+</html>

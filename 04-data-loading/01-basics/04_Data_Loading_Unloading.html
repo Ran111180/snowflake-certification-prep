@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Certification - 4. Data Loading & Unloading</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-07-29",
+    "intent": "Snowflake SnowPro Core Certification - Domain 4 Data Loading & Unloading",
+    "sections": [
+      { "id": "stages", "title": "Stages" },
+      { "id": "file-formats", "title": "File Formats" },
+      { "id": "copy-into", "title": "COPY INTO (Loading)" },
+      { "id": "snowpipe", "title": "Snowpipe & Streaming" },
+      { "id": "unloading", "title": "Data Unloading" },
+      { "id": "best-practices", "title": "Best Practices" },
+      { "id": "hands-on", "title": "Hands-On Scripts" },
+      { "id": "interview-qa", "title": "Interview Q&A" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, system-ui, 'Segoe UI', sans-serif; max-width: 960px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #111827); line-height: 1.7; }
+    h1 { color: light-dark(#1e40af, #93c5fd); border-bottom: 3px solid light-dark(#3b82f6, #1d4ed8); padding-bottom: 12px; }
+    h2 { color: light-dark(#1e3a5f, #7dd3fc); margin-top: 40px; border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding-left: 12px; }
+    h3 { color: light-dark(#374151, #d1d5db); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9em; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#eff6ff, #1e3a5f); font-weight: 600; }
+    tr:nth-child(even) { background: light-dark(#f8fafc, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+    pre { background: light-dark(#0f172a, #0f172a); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; line-height: 1.5; }
+    .highlight { background: light-dark(#fef3c7, #422006); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#f59e0b, #fbbf24); margin: 16px 0; }
+    .key-point { background: light-dark(#ecfdf5, #022c22); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#10b981, #34d399); margin: 16px 0; }
+    .warning { background: light-dark(#fef2f2, #450a0a); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#ef4444, #f87171); margin: 16px 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+    .badge-cert { background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); }
+    .badge-interview { background: light-dark(#fce7f3, #500724); color: light-dark(#be185d, #f9a8d4); }
+    .badge-new { background: light-dark(#d1fae5, #022c22); color: light-dark(#065f46, #6ee7b7); }
+    .qa-block { margin: 20px 0; padding: 16px; background: light-dark(#f8fafc, #1a2332); border-radius: 8px; }
+    .qa-block strong { color: light-dark(#1e40af, #93c5fd); }
+  </style>
+</head>
+<body>
+
+  <h1>Domain 4: Data Loading & Unloading</h1>
+  <p><span class="badge badge-cert">SnowPro Core (10-15%)</span> <span class="badge badge-interview">Interview Essential</span> <span class="badge badge-new">Includes Snowpipe Streaming</span></p>
+  <p><strong>Date:</strong> July 29, 2026</p>
+
+  <hr/>
+
+  <h2 id="stages">1. Stages</h2>
+
+  <h3>What Are Stages?</h3>
+  <p>Stages are locations where data files are stored before being loaded into Snowflake tables (or after being unloaded). Think of them as "landing zones."</p>
+
+  <h3>Stage Types</h3>
+  <table>
+    <thead><tr><th>Stage Type</th><th>Location</th><th>Created By</th><th>Syntax Reference</th></tr></thead>
+    <tbody>
+      <tr><td><strong>User Stage</strong></td><td>Snowflake internal (per user)</td><td>Auto-created per user</td><td><code>@~</code></td></tr>
+      <tr><td><strong>Table Stage</strong></td><td>Snowflake internal (per table)</td><td>Auto-created per table</td><td><code>@%table_name</code></td></tr>
+      <tr><td><strong>Named Internal Stage</strong></td><td>Snowflake internal (explicit)</td><td>CREATE STAGE</td><td><code>@stage_name</code></td></tr>
+      <tr><td><strong>External Stage</strong></td><td>S3 / Azure Blob / GCS</td><td>CREATE STAGE + credentials</td><td><code>@ext_stage_name</code></td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+  STAGE COMPARISON:
+
+  +------------------+------------------+------------------+------------------+
+  | USER STAGE (@~)  | TABLE STAGE      | NAMED INTERNAL   | EXTERNAL STAGE   |
+  |                  | (@%table)        | (@my_stage)      | (@ext_stage)     |
+  +------------------+------------------+------------------+------------------+
+  | One per user     | One per table    | Create multiple  | Points to cloud  |
+  | Can't be shared  | Can't share      | Can share (GRANT)| Can share (GRANT)|
+  | No file format   | No file format   | Has file format  | Has file format  |
+  | Can't ALTER      | Can't ALTER      | Full control     | Full control     |
+  | PUT/GET only     | COPY from it     | Most flexible    | No PUT (direct)  |
+  +------------------+------------------+------------------+------------------+
+  </pre>
+
+  <h3>Creating Stages</h3>
+  <pre>
+-- Named Internal Stage
+CREATE STAGE my_internal_stage
+  FILE_FORMAT = (TYPE = CSV FIELD_DELIMITER = ',' SKIP_HEADER = 1)
+  COMMENT = 'Internal stage for CSV loads';
+
+-- External Stage (AWS S3)
+CREATE STAGE my_s3_stage
+  URL = 's3://my-bucket/path/'
+  STORAGE_INTEGRATION = my_s3_integration  -- or CREDENTIALS
+  FILE_FORMAT = (TYPE = PARQUET);
+
+-- External Stage (Azure Blob)
+CREATE STAGE my_azure_stage
+  URL = 'azure://myaccount.blob.core.windows.net/container/path/'
+  STORAGE_INTEGRATION = my_azure_integration;
+
+-- External Stage (GCS)
+CREATE STAGE my_gcs_stage
+  URL = 'gcs://my-bucket/path/'
+  STORAGE_INTEGRATION = my_gcs_integration;
+
+-- List files in a stage
+LIST @my_internal_stage;
+LIST @~;  -- user stage
+LIST @%my_table;  -- table stage
+  </pre>
+
+  <div class="highlight">
+    <strong>Exam Tip - Stage Symbols:</strong>
+    <ul>
+      <li><code>@~</code> = User stage (tilde = personal)</li>
+      <li><code>@%table_name</code> = Table stage (percent = per-table)</li>
+      <li><code>@stage_name</code> = Named stage (at + name)</li>
+      <li>PUT command: Only works with <strong>internal stages</strong> (not external)</li>
+      <li>External stages: Files uploaded directly to cloud storage (not via PUT)</li>
+    </ul>
+  </div>
+
+  <h3>Storage Integration (for External Stages)</h3>
+  <pre>
+-- Storage Integration eliminates embedded credentials
+CREATE STORAGE INTEGRATION my_s3_integration
+  TYPE = EXTERNAL_STAGE
+  STORAGE_PROVIDER = 'S3'
+  STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::123456789:role/snowflake-role'
+  ENABLED = TRUE
+  STORAGE_ALLOWED_LOCATIONS = ('s3://my-bucket/allowed-path/');
+
+-- Benefits over inline credentials:
+-- 1. Centralized credential management
+-- 2. Can restrict to specific paths (STORAGE_ALLOWED_LOCATIONS)
+-- 3. Uses IAM role assumption (no access keys in SQL)
+-- 4. ACCOUNTADMIN creates once, grants USAGE to other roles
+  </pre>
+
+  <h2 id="file-formats">2. File Formats</h2>
+
+  <h3>Supported File Formats</h3>
+  <table>
+    <thead><tr><th>Format</th><th>Type</th><th>Key Options</th><th>Best For</th></tr></thead>
+    <tbody>
+      <tr><td><strong>CSV/TSV</strong></td><td>Structured</td><td>FIELD_DELIMITER, SKIP_HEADER, NULL_IF, ESCAPE</td><td>Simple tabular data, legacy systems</td></tr>
+      <tr><td><strong>JSON</strong></td><td>Semi-structured</td><td>STRIP_OUTER_ARRAY, STRIP_NULL_VALUES</td><td>API responses, NoSQL exports</td></tr>
+      <tr><td><strong>Parquet</strong></td><td>Columnar binary</td><td>SNAPPY_COMPRESSION, AUTO_DETECT_COLUMNS</td><td>Analytics, data lakes, best performance</td></tr>
+      <tr><td><strong>Avro</strong></td><td>Row binary</td><td>COMPRESSION</td><td>Kafka streams, schema evolution</td></tr>
+      <tr><td><strong>ORC</strong></td><td>Columnar binary</td><td>TRIM_SPACE</td><td>Hive/Hadoop ecosystem</td></tr>
+      <tr><td><strong>XML</strong></td><td>Semi-structured</td><td>STRIP_OUTER_ELEMENT</td><td>Legacy enterprise systems</td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+-- Create named file format (reusable)
+CREATE FILE FORMAT my_csv_format
+  TYPE = CSV
+  FIELD_DELIMITER = ','
+  RECORD_DELIMITER = '\n'
+  SKIP_HEADER = 1
+  NULL_IF = ('NULL', 'null', '')
+  EMPTY_FIELD_AS_NULL = TRUE
+  FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+  COMPRESSION = AUTO;
+
+CREATE FILE FORMAT my_json_format
+  TYPE = JSON
+  STRIP_OUTER_ARRAY = TRUE
+  STRIP_NULL_VALUES = FALSE;
+
+CREATE FILE FORMAT my_parquet_format
+  TYPE = PARQUET
+  SNAPPY_COMPRESSION = TRUE;
+
+-- Use inline (without named format)
+COPY INTO my_table FROM @my_stage
+  FILE_FORMAT = (TYPE = CSV SKIP_HEADER = 1 FIELD_DELIMITER = '|');
+  </pre>
+
+  <div class="key-point">
+    <strong>File Format Key Facts:</strong>
+    <ul>
+      <li>Can be defined: inline in COPY, in stage definition, or as named object</li>
+      <li>Priority: COPY statement > Stage definition > Named format</li>
+      <li>Parquet/Avro/ORC: Schema embedded in file (auto-detected)</li>
+      <li>CSV: Schema must match target table column order</li>
+      <li>COMPRESSION = AUTO: Snowflake auto-detects gzip, bzip2, deflate, etc.</li>
+    </ul>
+  </div>
+
+  <h2 id="copy-into">3. COPY INTO (Data Loading)</h2>
+
+  <h3>Basic COPY INTO Syntax</h3>
+  <pre>
+-- Basic load from stage
+COPY INTO my_table
+  FROM @my_stage/path/
+  FILE_FORMAT = (FORMAT_NAME = my_csv_format)
+  PATTERN = '.*\.csv'          -- regex for file selection
+  ON_ERROR = 'CONTINUE'        -- error handling
+  PURGE = TRUE;                -- delete files after load
+
+-- Load with transformations (column reordering, casting)
+COPY INTO my_table (col1, col3, col2)
+  FROM (
+    SELECT $1, $3::DATE, $2::NUMBER
+    FROM @my_stage/data.csv
+  )
+  FILE_FORMAT = (TYPE = CSV SKIP_HEADER = 1);
+
+-- Load JSON into VARIANT column
+COPY INTO json_table (raw_data)
+  FROM @my_stage/data.json
+  FILE_FORMAT = (TYPE = JSON);
+
+-- Load Parquet with column matching
+COPY INTO my_table
+  FROM @my_stage/
+  FILE_FORMAT = (TYPE = PARQUET)
+  MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;
+  </pre>
+
+  <h3>COPY INTO Options</h3>
+  <table>
+    <thead><tr><th>Option</th><th>Values</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><strong>ON_ERROR</strong></td><td>ABORT_STATEMENT, CONTINUE, SKIP_FILE, SKIP_FILE_n%</td><td>What to do when errors occur</td></tr>
+      <tr><td><strong>PURGE</strong></td><td>TRUE/FALSE</td><td>Delete staged files after successful load</td></tr>
+      <tr><td><strong>FORCE</strong></td><td>TRUE/FALSE</td><td>Reload files even if already loaded (bypasses dedup)</td></tr>
+      <tr><td><strong>PATTERN</strong></td><td>Regex string</td><td>Filter which files to load</td></tr>
+      <tr><td><strong>FILES</strong></td><td>List of filenames</td><td>Load specific files only</td></tr>
+      <tr><td><strong>VALIDATION_MODE</strong></td><td>RETURN_ERRORS, RETURN_n_ROWS</td><td>Dry run - validate without loading</td></tr>
+      <tr><td><strong>SIZE_LIMIT</strong></td><td>Bytes</td><td>Max data size to load per statement</td></tr>
+      <tr><td><strong>MATCH_BY_COLUMN_NAME</strong></td><td>CASE_SENSITIVE, CASE_INSENSITIVE, NONE</td><td>Match Parquet/Avro columns by name</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warning">
+    <strong>COPY Deduplication:</strong> Snowflake tracks which files have been loaded (64-day metadata). Re-running COPY on the same file does NOTHING (silently skips). Use <code>FORCE = TRUE</code> to reload, or <code>PURGE = TRUE</code> to remove after load.
+  </div>
+
+  <h3>Load History & Error Handling</h3>
+  <pre>
+-- Check load history
+SELECT * FROM SNOWFLAKE.ACCOUNT_USAGE.COPY_HISTORY
+WHERE table_name = 'MY_TABLE'
+ORDER BY last_load_time DESC LIMIT 10;
+
+-- Validate before loading (dry run)
+COPY INTO my_table FROM @my_stage
+  FILE_FORMAT = my_csv_format
+  VALIDATION_MODE = 'RETURN_ERRORS';
+
+-- VALIDATE function (check after load)
+SELECT * FROM TABLE(VALIDATE(my_table, JOB_ID => '_last'));
+  </pre>
+
+  <h2 id="snowpipe">4. Snowpipe & Snowpipe Streaming</h2>
+
+  <h3>Snowpipe (Continuous Loading)</h3>
+  <pre>
+  BATCH LOADING (COPY):              CONTINUOUS LOADING (Snowpipe):
+  
+  Manual/Scheduled                   Automatic/Event-driven
+  User runs COPY command             Files auto-loaded on arrival
+  Uses YOUR warehouse                Uses SERVERLESS compute
+  Good for: large batches            Good for: continuous streams
+  Latency: minutes-hours             Latency: seconds-minutes
+  Cost: warehouse credits            Cost: serverless credits
+  </pre>
+
+  <pre>
+-- Create a Snowpipe
+CREATE PIPE my_pipe
+  AUTO_INGEST = TRUE      -- Trigger on S3 event notification
+  AS
+  COPY INTO my_table
+  FROM @my_external_stage
+  FILE_FORMAT = (TYPE = JSON);
+
+-- Check pipe status
+SELECT SYSTEM$PIPE_STATUS('my_pipe');
+
+-- View pipe history
+SELECT * FROM SNOWFLAKE.ACCOUNT_USAGE.PIPE_USAGE_HISTORY
+WHERE pipe_name = 'MY_PIPE'
+ORDER BY start_time DESC;
+
+-- Manually trigger (for internal stages or REST API)
+ALTER PIPE my_pipe REFRESH;
+  </pre>
+
+  <h3>Snowpipe Trigger Methods</h3>
+  <table>
+    <thead><tr><th>Method</th><th>How It Works</th><th>Cloud</th></tr></thead>
+    <tbody>
+      <tr><td><strong>AUTO_INGEST (S3)</strong></td><td>S3 Event Notification --> SQS --> Snowpipe</td><td>AWS</td></tr>
+      <tr><td><strong>AUTO_INGEST (Azure)</strong></td><td>Azure Event Grid --> Snowpipe</td><td>Azure</td></tr>
+      <tr><td><strong>AUTO_INGEST (GCS)</strong></td><td>GCS Pub/Sub --> Snowpipe</td><td>GCP</td></tr>
+      <tr><td><strong>REST API</strong></td><td>Call insertFiles endpoint to trigger</td><td>Any</td></tr>
+      <tr><td><strong>REFRESH</strong></td><td>ALTER PIPE REFRESH (scan stage for new files)</td><td>Any</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Snowpipe Streaming</h3>
+  <p><span class="badge badge-new">NEW - High-Performance Architecture</span></p>
+  <pre>
+  SNOWPIPE (file-based):              SNOWPIPE STREAMING (row-based):
+  
+  Files staged --> loaded             Rows inserted directly via SDK
+  Seconds-minute latency              Sub-second latency
+  File-at-a-time                      Row-at-a-time
+  Any file format                     SDK-based (Java/Python)
+  Uses stages as landing zone         NO staging needed!
+  
+  USE CASES FOR STREAMING:
+  - IoT sensor data (sub-second ingestion)
+  - Real-time clickstream
+  - CDC (Change Data Capture) events
+  - Kafka integration (Snowflake Kafka Connector uses this)
+  </pre>
+
+  <pre>
+-- Snowpipe Streaming uses the Snowflake Ingest SDK (Java/Python)
+-- No SQL CREATE needed - it's API-driven
+
+-- Java example (conceptual):
+-- SnowflakeStreamingIngestChannel channel = client.openChannel(...);
+-- channel.insertRows(rows);
+
+-- The Kafka Connector (v2+) uses Snowpipe Streaming internally
+-- Configuration in Kafka Connect:
+-- "snowflake.ingestion.method": "SNOWPIPE_STREAMING"
+  </pre>
+
+  <div class="key-point">
+    <strong>Snowpipe vs Snowpipe Streaming vs COPY:</strong>
+    <table>
+      <tr><th></th><th>COPY INTO</th><th>Snowpipe</th><th>Snowpipe Streaming</th></tr>
+      <tr><td>Trigger</td><td>Manual/scheduled</td><td>File arrival event</td><td>API/SDK call</td></tr>
+      <tr><td>Compute</td><td>Your warehouse</td><td>Serverless</td><td>Serverless</td></tr>
+      <tr><td>Latency</td><td>Minutes-hours</td><td>~1 minute</td><td>Sub-second</td></tr>
+      <tr><td>Input</td><td>Files in stage</td><td>Files in stage</td><td>Rows via SDK</td></tr>
+      <tr><td>Best for</td><td>Large batches</td><td>Continuous file streams</td><td>Real-time row ingestion</td></tr>
+    </table>
+  </div>
+
+  <h2 id="unloading">5. Data Unloading</h2>
+
+  <pre>
+-- Unload to internal stage
+COPY INTO @my_stage/output/
+  FROM my_table
+  FILE_FORMAT = (TYPE = CSV HEADER = TRUE)
+  OVERWRITE = TRUE
+  MAX_FILE_SIZE = 67108864;  -- 64 MB per file
+
+-- Unload with query transformation
+COPY INTO @my_stage/report/
+  FROM (
+    SELECT category, SUM(amount) AS total
+    FROM my_table
+    GROUP BY category
+  )
+  FILE_FORMAT = (TYPE = PARQUET)
+  HEADER = TRUE;
+
+-- Unload to external stage (S3)
+COPY INTO 's3://my-bucket/exports/'
+  FROM my_table
+  STORAGE_INTEGRATION = my_s3_integration
+  FILE_FORMAT = (TYPE = CSV)
+  PARTITION BY ('date_col')  -- creates subdirectories by date
+  MAX_FILE_SIZE = 104857600;  -- 100 MB
+
+-- Single file output (use SINGLE = TRUE)
+COPY INTO @my_stage/single_file
+  FROM my_table
+  FILE_FORMAT = (TYPE = CSV)
+  SINGLE = TRUE
+  MAX_FILE_SIZE = 5368709120;  -- 5 GB max for single
+  </pre>
+
+  <h3>Unloading Options</h3>
+  <table>
+    <thead><tr><th>Option</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>PARTITION BY</td><td>Create subdirectories by column value (e.g., by date)</td></tr>
+      <tr><td>MAX_FILE_SIZE</td><td>Split output into files of this max size</td></tr>
+      <tr><td>SINGLE = TRUE</td><td>Output as one file (limited to 5 GB)</td></tr>
+      <tr><td>OVERWRITE = TRUE</td><td>Replace existing files in stage</td></tr>
+      <tr><td>HEADER = TRUE</td><td>Include column headers (CSV)</td></tr>
+      <tr><td>COMPRESSION</td><td>gzip, bzip2, deflate, none, etc.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="best-practices">6. Loading Best Practices</h2>
+
+  <div class="key-point">
+    <strong>Optimal File Sizing:</strong>
+    <ul>
+      <li>Target: <strong>100-250 MB compressed</strong> per file</li>
+      <li>Too small (&lt; 10 MB): Overhead per file, slow loading</li>
+      <li>Too large (&gt; 5 GB): Can't parallelize within one file</li>
+      <li>Snowflake loads files in PARALLEL across warehouse nodes</li>
+      <li>Number of files >= number of warehouse nodes for max parallelism</li>
+    </ul>
+  </div>
+
+  <table>
+    <thead><tr><th>Practice</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Split large files into 100-250 MB chunks</td><td>Enables parallel loading across nodes</td></tr>
+      <tr><td>Use compressed files (gzip, snappy)</td><td>Faster transfer, auto-decompressed</td></tr>
+      <tr><td>Use Parquet/Avro over CSV for analytics</td><td>Better compression, schema enforcement, faster</td></tr>
+      <tr><td>Use COPY with VALIDATION_MODE first</td><td>Catch errors before loading production</td></tr>
+      <tr><td>Use PURGE = TRUE in production</td><td>Clean up after successful load</td></tr>
+      <tr><td>Match warehouse size to load volume</td><td>More nodes = more parallel file loading</td></tr>
+      <tr><td>Use Snowpipe for continuous loads</td><td>Automatic, serverless, no scheduling needed</td></tr>
+      <tr><td>Use Storage Integration over credentials</td><td>More secure, centralized, auditable</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="hands-on">7. Hands-On SQL Scripts</h2>
+
+  <h3>Script 1: Create Stages and File Formats</h3>
+  <pre>
+USE SCHEMA CERT_STUDY_DB.ARCHITECTURE;
+
+-- Create a named internal stage
+CREATE OR REPLACE STAGE cert_data_stage
+  FILE_FORMAT = (TYPE = CSV FIELD_DELIMITER = ',' SKIP_HEADER = 1)
+  COMMENT = 'Internal stage for certification study';
+
+-- Create file formats
+CREATE OR REPLACE FILE FORMAT csv_format
+  TYPE = CSV FIELD_DELIMITER = ',' SKIP_HEADER = 1
+  NULL_IF = ('NULL', '') EMPTY_FIELD_AS_NULL = TRUE;
+
+CREATE OR REPLACE FILE FORMAT json_format
+  TYPE = JSON STRIP_OUTER_ARRAY = TRUE;
+
+CREATE OR REPLACE FILE FORMAT parquet_format
+  TYPE = PARQUET;
+
+-- List stages
+SHOW STAGES IN SCHEMA CERT_STUDY_DB.ARCHITECTURE;
+SHOW FILE FORMATS IN SCHEMA CERT_STUDY_DB.ARCHITECTURE;
+  </pre>
+
+  <h3>Script 2: Unload Data to Stage</h3>
+  <pre>
+-- Unload sample data to internal stage as CSV
+COPY INTO @cert_data_stage/csv_export/
+  FROM (SELECT id, category, amount, order_date FROM sample_data LIMIT 1000)
+  FILE_FORMAT = (TYPE = CSV HEADER = TRUE)
+  OVERWRITE = TRUE;
+
+-- List files in stage
+LIST @cert_data_stage/csv_export/;
+
+-- Unload as Parquet
+COPY INTO @cert_data_stage/parquet_export/
+  FROM (SELECT * FROM sample_data LIMIT 5000)
+  FILE_FORMAT = (TYPE = PARQUET)
+  OVERWRITE = TRUE;
+
+LIST @cert_data_stage/parquet_export/;
+  </pre>
+
+  <h3>Script 3: Load Data Back from Stage</h3>
+  <pre>
+-- Create target table
+CREATE OR REPLACE TABLE loaded_from_csv (
+  id NUMBER, category VARCHAR, amount NUMBER, order_date DATE
+);
+
+-- Load from stage
+COPY INTO loaded_from_csv
+  FROM @cert_data_stage/csv_export/
+  FILE_FORMAT = (TYPE = CSV SKIP_HEADER = 1)
+  ON_ERROR = 'CONTINUE';
+
+-- Verify
+SELECT COUNT(*) FROM loaded_from_csv;
+SELECT * FROM loaded_from_csv LIMIT 5;
+  </pre>
+
+  <h3>Script 4: Load History and Validation</h3>
+  <pre>
+-- Check COPY history for recent loads
+SELECT file_name, status, row_count, row_parsed, 
+       first_error_message, first_error_line_number
+FROM TABLE(INFORMATION_SCHEMA.COPY_HISTORY(
+  TABLE_NAME => 'LOADED_FROM_CSV',
+  START_TIME => DATEADD('hour', -1, CURRENT_TIMESTAMP())
+));
+
+-- Validate without loading (dry run)
+COPY INTO loaded_from_csv
+  FROM @cert_data_stage/csv_export/
+  FILE_FORMAT = (TYPE = CSV SKIP_HEADER = 1)
+  VALIDATION_MODE = 'RETURN_ERRORS'
+  FORCE = TRUE;
+  </pre>
+
+  <h3>Script 5: Directory Tables</h3>
+  <pre>
+-- Enable directory table on stage (for file catalog)
+ALTER STAGE cert_data_stage SET DIRECTORY = (ENABLE = TRUE);
+ALTER STAGE cert_data_stage REFRESH;
+
+-- Query directory table (catalog of staged files)
+SELECT * FROM DIRECTORY(@cert_data_stage);
+  </pre>
+
+  <h2 id="interview-qa">8. Interview & Certification Q&A</h2>
+
+  <div class="qa-block">
+    <strong>Q1: What are the different types of stages and when to use each?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>User Stage (@~):</strong> Personal staging area. Quick ad-hoc uploads. Can't be shared or granted to others. Good for individual analyst file uploads.</li>
+      <li><strong>Table Stage (@%table):</strong> Auto-created per table. Files loaded ONLY to that table. Can't be shared. Good for table-specific loads.</li>
+      <li><strong>Named Internal Stage (@name):</strong> Most flexible. Can define file format, can GRANT access to roles. Good for shared team loading, organized data pipelines.</li>
+      <li><strong>External Stage:</strong> Points to S3/Azure/GCS. Data stays in cloud storage. Good for data lakes, cross-system access, large-scale loads.</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q2: What's the difference between Snowpipe and COPY INTO?</strong>
+    <p><strong>A:</strong>
+    <table>
+      <tr><th></th><th>COPY INTO</th><th>Snowpipe</th></tr>
+      <tr><td>Trigger</td><td>Manual (user runs SQL)</td><td>Automatic (file arrival event)</td></tr>
+      <tr><td>Compute</td><td>Your warehouse (credits)</td><td>Serverless (separate billing)</td></tr>
+      <tr><td>Scheduling</td><td>Cron/Tasks or manual</td><td>Event-driven (real-time)</td></tr>
+      <tr><td>Best for</td><td>Large scheduled batches</td><td>Continuous small file streams</td></tr>
+      <tr><td>File tracking</td><td>64-day dedup window</td><td>14-day dedup window</td></tr>
+    </table></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q3: What happens if you run COPY INTO on a file that was already loaded?</strong>
+    <p><strong>A:</strong> Snowflake maintains a 64-day load metadata history. If the same file (by name + checksum) was already loaded:
+    <ul>
+      <li>Default behavior: <strong>Silently skipped</strong> (no error, no duplicate rows)</li>
+      <li>With <code>FORCE = TRUE</code>: Loads again (creates duplicates!)</li>
+      <li>This dedup prevents accidental re-loads</li>
+      <li>After 64 days: metadata expires, file CAN be re-loaded accidentally</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q4: What's the optimal file size for loading data?</strong>
+    <p><strong>A:</strong> <strong>100-250 MB compressed</strong> per file is optimal:
+    <ul>
+      <li>Each file is loaded by one thread on one warehouse node</li>
+      <li>Multiple files = parallel loading across all nodes</li>
+      <li>Ideal: number of files >= number of nodes (e.g., Medium WH has 4 nodes, use 4+ files)</li>
+      <li>Too small (&lt;10 MB): per-file overhead dominates</li>
+      <li>Too large (&gt;5 GB): single node bottleneck, no parallelism within file</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q5: How do you load semi-structured data (JSON/Parquet) into Snowflake?</strong>
+    <p><strong>A:</strong> Two approaches:
+    <ol>
+      <li><strong>Load into VARIANT column:</strong> Preserves raw structure
+        <pre>COPY INTO json_table (raw_json) FROM @stage FILE_FORMAT = (TYPE=JSON);</pre>
+        Then query with dot notation: <code>raw_json:name::STRING</code>
+      </li>
+      <li><strong>Load with column matching (Parquet/Avro):</strong> Auto-maps to typed columns
+        <pre>COPY INTO typed_table FROM @stage FILE_FORMAT = (TYPE=PARQUET) MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;</pre>
+      </li>
+    </ol>
+    Parquet is preferred for analytics (columnar, compressed, typed). JSON into VARIANT for flexibility.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q6: What is a Storage Integration and why use it over credentials?</strong>
+    <p><strong>A:</strong> A Storage Integration is a Snowflake object that securely connects to external cloud storage:
+    <ul>
+      <li><strong>Security:</strong> Uses IAM role assumption (not access keys in SQL)</li>
+      <li><strong>Centralization:</strong> One integration, many stages</li>
+      <li><strong>Restriction:</strong> STORAGE_ALLOWED_LOCATIONS limits which paths can be accessed</li>
+      <li><strong>Audit:</strong> Integration usage tracked in access logs</li>
+      <li><strong>Separation of duties:</strong> ACCOUNTADMIN creates integration, other roles use it</li>
+    </ul>
+    Always prefer Storage Integration over inline CREDENTIALS in production.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q7: What is Snowpipe Streaming and how is it different from regular Snowpipe?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>Regular Snowpipe:</strong> File-based. Files land in stage --> event triggers --> Snowpipe loads file. ~1 minute latency.</li>
+      <li><strong>Snowpipe Streaming:</strong> Row-based. Application sends rows directly via SDK (Java/Python). No file staging needed. Sub-second latency.</li>
+    </ul>
+    Streaming is used by the Snowflake Kafka Connector v2+ and is ideal for IoT, clickstream, CDC where sub-second ingestion matters. Both use serverless compute.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q8: How do you troubleshoot a failed COPY INTO?</strong>
+    <p><strong>A:</strong>
+    <ol>
+      <li><strong>VALIDATE function:</strong> <code>SELECT * FROM TABLE(VALIDATE(table, JOB_ID=>'_last'))</code> - shows errors from last load</li>
+      <li><strong>COPY_HISTORY:</strong> Check <code>INFORMATION_SCHEMA.COPY_HISTORY</code> for status and error messages</li>
+      <li><strong>VALIDATION_MODE:</strong> Re-run with <code>VALIDATION_MODE='RETURN_ERRORS'</code> to see what would fail</li>
+      <li><strong>Common issues:</strong> Data type mismatch, extra columns, null in NOT NULL column, date format wrong, encoding issues</li>
+      <li><strong>ON_ERROR options:</strong> CONTINUE (skip bad rows), SKIP_FILE (skip entire file), ABORT_STATEMENT (fail all)</li>
+    </ol></p>
+  </div>
+
+  <hr/>
+
+  <h2>Quick Revision Checklist</h2>
+  <table>
+    <thead><tr><th>#</th><th>Concept</th><th>Remember</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>User stage symbol</td><td>@~ (tilde)</td></tr>
+      <tr><td>2</td><td>Table stage symbol</td><td>@%table_name (percent)</td></tr>
+      <tr><td>3</td><td>PUT command works with</td><td>Internal stages ONLY (not external)</td></tr>
+      <tr><td>4</td><td>Optimal file size</td><td>100-250 MB compressed</td></tr>
+      <tr><td>5</td><td>COPY dedup window</td><td>64 days (file metadata tracked)</td></tr>
+      <tr><td>6</td><td>FORCE = TRUE</td><td>Bypasses dedup, reloads file (may create duplicates)</td></tr>
+      <tr><td>7</td><td>PURGE = TRUE</td><td>Deletes staged files after successful load</td></tr>
+      <tr><td>8</td><td>Snowpipe compute</td><td>Serverless (not your warehouse)</td></tr>
+      <tr><td>9</td><td>Snowpipe trigger (AWS)</td><td>S3 Event --> SQS --> Snowpipe</td></tr>
+      <tr><td>10</td><td>Snowpipe Streaming latency</td><td>Sub-second (row-level, no files)</td></tr>
+      <tr><td>11</td><td>Storage Integration benefit</td><td>No credentials in SQL, IAM role-based</td></tr>
+      <tr><td>12</td><td>VALIDATION_MODE</td><td>Dry run - validate without loading</td></tr>
+      <tr><td>13</td><td>ON_ERROR default</td><td>ABORT_STATEMENT (fail entire load)</td></tr>
+      <tr><td>14</td><td>MATCH_BY_COLUMN_NAME</td><td>For Parquet/Avro - map columns by name not position</td></tr>
+      <tr><td>15</td><td>Unload PARTITION BY</td><td>Creates subdirectories by column value</td></tr>
+    </tbody>
+  </table>
+
+  <hr/>
+  <p style="text-align:center; font-size: 0.85em; color: light-dark(#6b7280, #9ca3af);">
+    Snowflake SnowPro Core Certification Study Guide | Domain 4: Data Loading & Unloading<br/>
+    Generated: July 29, 2026 | Account: ZITTTER-AT35969
+  </p>
+
+</body>
+</html>

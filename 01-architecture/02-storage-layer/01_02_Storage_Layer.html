@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Certification - 1.2 Storage Layer</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-07-29",
+    "intent": "Snowflake SnowPro Core Certification - Domain 1.2 Storage Layer deep dive",
+    "sections": [
+      { "id": "micro-partitions", "title": "Micro-Partitions" },
+      { "id": "columnar-storage", "title": "Columnar Storage" },
+      { "id": "metadata", "title": "Metadata & Pruning" },
+      { "id": "data-lifecycle", "title": "Data Lifecycle (Time Travel, Fail-safe)" },
+      { "id": "storage-costs", "title": "Storage Costs" },
+      { "id": "hands-on", "title": "Hands-On Scripts" },
+      { "id": "interview-qa", "title": "Interview Q&A" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, system-ui, 'Segoe UI', sans-serif; max-width: 960px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #111827); line-height: 1.7; }
+    h1 { color: light-dark(#1e40af, #93c5fd); border-bottom: 3px solid light-dark(#3b82f6, #1d4ed8); padding-bottom: 12px; }
+    h2 { color: light-dark(#1e3a5f, #7dd3fc); margin-top: 40px; border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding-left: 12px; }
+    h3 { color: light-dark(#374151, #d1d5db); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9em; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#eff6ff, #1e3a5f); font-weight: 600; }
+    tr:nth-child(even) { background: light-dark(#f8fafc, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+    pre { background: light-dark(#0f172a, #0f172a); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; line-height: 1.5; }
+    .highlight { background: light-dark(#fef3c7, #422006); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#f59e0b, #fbbf24); margin: 16px 0; }
+    .key-point { background: light-dark(#ecfdf5, #022c22); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#10b981, #34d399); margin: 16px 0; }
+    .warning { background: light-dark(#fef2f2, #450a0a); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#ef4444, #f87171); margin: 16px 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+    .badge-cert { background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); }
+    .badge-interview { background: light-dark(#fce7f3, #500724); color: light-dark(#be185d, #f9a8d4); }
+    .qa-block { margin: 20px 0; padding: 16px; background: light-dark(#f8fafc, #1a2332); border-radius: 8px; }
+    .qa-block strong { color: light-dark(#1e40af, #93c5fd); }
+  </style>
+</head>
+<body>
+
+  <h1>Domain 1.2: Storage Layer</h1>
+  <p><span class="badge badge-cert">SnowPro Core</span> <span class="badge badge-interview">Interview Essential</span></p>
+  <p><strong>Date:</strong> July 29, 2026</p>
+
+  <hr/>
+
+  <h2 id="micro-partitions">1. Micro-Partitions - The Foundation</h2>
+
+  <h3>What Are Micro-Partitions?</h3>
+  <p>Micro-partitions are Snowflake's fundamental unit of data storage. When data is written to Snowflake, it's automatically organized into these small, immutable files.</p>
+
+  <div class="key-point">
+    <strong>Core Properties of Micro-Partitions:</strong>
+    <ul>
+      <li><strong>Size:</strong> 50-500 MB of uncompressed data (typically 10-20 MB after compression)</li>
+      <li><strong>Format:</strong> Proprietary columnar format (NOT Parquet/ORC)</li>
+      <li><strong>Immutable:</strong> Once written, never modified - updates create NEW partitions</li>
+      <li><strong>Automatic:</strong> Snowflake handles all partitioning - no manual intervention</li>
+      <li><strong>Contiguous:</strong> Rows in a partition are stored contiguously by insertion order</li>
+    </ul>
+  </div>
+
+  <h3>How Data is Organized Within a Micro-Partition</h3>
+  <pre>
+  MICRO-PARTITION #1 (50-500 MB uncompressed)
+  +--------------------------------------------------+
+  |  HEADER (metadata about this partition)           |
+  +--------------------------------------------------+
+  |  Column A data  [compressed, encoded]            |
+  |  Column B data  [compressed, encoded]            |
+  |  Column C data  [compressed, encoded]            |
+  |  ...                                             |
+  +--------------------------------------------------+
+  |  Column statistics (min, max, count, nulls)      |
+  +--------------------------------------------------+
+  
+  Key: Each column stored SEPARATELY within the partition
+       Allows reading only needed columns (columnar benefit)
+  </pre>
+
+  <h3>Partition Assignment: Natural Clustering</h3>
+  <p>Data is assigned to micro-partitions based on <strong>insertion order</strong>. This means:</p>
+  <ul>
+    <li>Data loaded together ends up in the same or adjacent partitions</li>
+    <li>If data is loaded chronologically (e.g., daily logs), dates are naturally clustered</li>
+    <li>This "natural clustering" often provides good pruning without explicit clustering keys</li>
+  </ul>
+
+  <div class="highlight">
+    <strong>Exam Tip:</strong> Snowflake does NOT use traditional partitioning (like Hive). You cannot specify partition columns at table creation. Micro-partitioning is always automatic. You CAN define <code>CLUSTER BY</code> to RE-ORGANIZE existing data for better pruning.
+  </div>
+
+  <h2 id="columnar-storage">2. Columnar Storage Format</h2>
+
+  <h3>Row-Based vs Columnar Storage</h3>
+  <table>
+    <thead><tr><th>Aspect</th><th>Row-Based (OLTP)</th><th>Columnar (Snowflake/OLAP)</th></tr></thead>
+    <tbody>
+      <tr><td>Storage Order</td><td>All columns of a row together</td><td>All values of a column together</td></tr>
+      <tr><td>Best For</td><td>Single-row lookups, inserts</td><td>Aggregations, analytics, scans</td></tr>
+      <tr><td>Compression</td><td>Poor (mixed data types per block)</td><td>Excellent (same type = better encoding)</td></tr>
+      <tr><td>Read Efficiency</td><td>Reads entire row even if 1 col needed</td><td>Reads only required columns</td></tr>
+      <tr><td>Example</td><td>MySQL, PostgreSQL, Oracle</td><td>Snowflake, Redshift, BigQuery</td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+  ROW-BASED STORAGE:                    COLUMNAR STORAGE (Snowflake):
+  +------+-------+--------+            Column: ID    | Column: NAME  | Column: AMT
+  | ID=1 | Alice | 100.50 |            +------+      +-------+       +--------+
+  | ID=2 | Bob   | 200.75 |            | 1    |      | Alice |       | 100.50 |
+  | ID=3 | Carol | 150.25 |            | 2    |      | Bob   |       | 200.75 |
+  +------+-------+--------+            | 3    |      | Carol |       | 150.25 |
+                                        +------+      +-------+       +--------+
+
+  SELECT SUM(AMT) FROM table;
+  Row-based: reads ALL columns (wasteful)
+  Columnar: reads ONLY AMT column (efficient!)
+  </pre>
+
+  <h3>Compression in Snowflake</h3>
+  <p>Snowflake applies multiple compression techniques per column:</p>
+  <table>
+    <thead><tr><th>Technique</th><th>Best For</th><th>How It Works</th></tr></thead>
+    <tbody>
+      <tr><td>Dictionary Encoding</td><td>Low-cardinality columns (status, category)</td><td>Stores unique values once, references by ID</td></tr>
+      <tr><td>Run-Length Encoding (RLE)</td><td>Sorted/clustered columns with repeats</td><td>Stores value + count of consecutive repeats</td></tr>
+      <tr><td>Bit Packing</td><td>Integers with limited range</td><td>Uses minimum bits needed per value</td></tr>
+      <tr><td>Delta Encoding</td><td>Sequential/timestamp data</td><td>Stores differences between values</td></tr>
+      <tr><td>LZ4/ZSTD</td><td>General-purpose</td><td>Block compression after encoding</td></tr>
+    </tbody>
+  </table>
+
+  <div class="key-point">
+    <strong>Key Facts for Exam:</strong>
+    <ul>
+      <li>Compression is <strong>automatic</strong> - Snowflake chooses the best algorithm per column</li>
+      <li>Typical compression ratio: <strong>3x-5x</strong> (sometimes 10x+)</li>
+      <li>Storage billing is based on <strong>compressed</strong> data size</li>
+      <li>You CANNOT choose or disable compression</li>
+    </ul>
+  </div>
+
+  <h2 id="metadata">3. Metadata & Partition Pruning</h2>
+
+  <h3>What Metadata Does Snowflake Store?</h3>
+  <p>For EVERY micro-partition, Snowflake's Cloud Services layer maintains:</p>
+  <table>
+    <thead><tr><th>Metadata Type</th><th>Per Column, Per Partition</th><th>Use Case</th></tr></thead>
+    <tbody>
+      <tr><td>Min Value</td><td>Minimum value in that column</td><td>Range-based pruning</td></tr>
+      <tr><td>Max Value</td><td>Maximum value in that column</td><td>Range-based pruning</td></tr>
+      <tr><td>NULL Count</td><td>Number of NULLs</td><td>IS NULL / IS NOT NULL optimization</td></tr>
+      <tr><td>Distinct Count</td><td>Approximate distinct values</td><td>Join optimization</td></tr>
+      <tr><td>Number of Rows</td><td>Total rows in partition</td><td>COUNT(*) without scanning</td></tr>
+    </tbody>
+  </table>
+
+  <h3>How Partition Pruning Works</h3>
+  <pre>
+  Table: ORDERS (10 million rows, 100 micro-partitions)
+  Query: SELECT * FROM orders WHERE order_date = '2024-06-15'
+
+  Step 1: Cloud Services checks metadata for each partition:
+    - Partition #1: order_date min='2024-01-01', max='2024-01-31' --> SKIP!
+    - Partition #2: order_date min='2024-02-01', max='2024-02-28' --> SKIP!
+    ...
+    - Partition #47: order_date min='2024-06-01', max='2024-06-30' --> SCAN!
+    ...
+    - Partition #100: order_date min='2024-12-01', max='2024-12-31' --> SKIP!
+
+  Result: Only 1-2 partitions scanned instead of 100!
+  This is "partition pruning" - the most important optimization in Snowflake.
+  </pre>
+
+  <div class="highlight">
+    <strong>Exam Tip:</strong> Pruning happens in the <strong>Cloud Services layer</strong> (not the warehouse). It's FREE - no compute credits consumed for pruning decisions. The better your data is clustered, the more effective pruning becomes.
+  </div>
+
+  <h3>Clustering Keys</h3>
+  <p>When natural clustering isn't sufficient, you can define explicit clustering:</p>
+  <table>
+    <thead><tr><th>Aspect</th><th>Natural Clustering</th><th>Explicit Clustering Key</th></tr></thead>
+    <tbody>
+      <tr><td>How it happens</td><td>Automatically by load order</td><td>Manual: ALTER TABLE ... CLUSTER BY</td></tr>
+      <tr><td>Cost</td><td>Free</td><td>Automatic Clustering Service (credits)</td></tr>
+      <tr><td>When needed</td><td>Small-medium tables, sequential loads</td><td>Large tables with filter columns different from load order</td></tr>
+      <tr><td>Maintenance</td><td>None</td><td>Background Automatic Clustering service</td></tr>
+      <tr><td>Edition</td><td>All editions</td><td>All editions (service costs apply)</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="data-lifecycle">4. Data Lifecycle in Storage</h2>
+
+  <h3>The Immutability Model</h3>
+  <pre>
+  INSERT 3 rows:
+    Creates Partition P1 [row1, row2, row3]
+
+  UPDATE row2:
+    P1 is NOT modified
+    Creates new Partition P2 [row1, row2_updated, row3]
+    P1 is marked for Time Travel (still accessible)
+
+  DELETE row3:
+    P2 is NOT modified  
+    Creates new Partition P3 [row1, row2_updated]
+    P2 is marked for Time Travel
+
+  Timeline: P1 --> P2 --> P3 (current)
+            ^       ^
+            |       |--- accessible via Time Travel
+            |--- accessible via Time Travel
+  </pre>
+
+  <h3>Storage Lifecycle States</h3>
+  <table>
+    <thead><tr><th>State</th><th>Duration</th><th>Accessible By</th><th>Billed?</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Active/Current</strong></td><td>Until changed</td><td>Normal queries</td><td>Yes</td></tr>
+      <tr><td><strong>Time Travel</strong></td><td>0-90 days (configurable)</td><td>AT/BEFORE queries, UNDROP</td><td>Yes</td></tr>
+      <tr><td><strong>Fail-safe</strong></td><td>7 days (after Time Travel)</td><td>Snowflake support ONLY</td><td>Yes</td></tr>
+      <tr><td><strong>Purged</strong></td><td>After Fail-safe</td><td>Gone forever</td><td>No</td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+  Data Written --> [Active] --> Data Changed --> [Time Travel: 0-90 days] --> [Fail-safe: 7 days] --> Purged
+                                                 (user accessible)            (Snowflake only)
+
+  Total retention for Permanent table (Enterprise):
+  Active + Up to 90 days Time Travel + 7 days Fail-safe = up to 97 days of old data stored
+
+  Transient table: Time Travel (0-1 day) + NO Fail-safe
+  Temporary table: Time Travel (0-1 day) + NO Fail-safe + dropped at session end
+  </pre>
+
+  <div class="warning">
+    <strong>Storage Cost Impact:</strong> A table with 100 GB active data, 90-day Time Travel, and many DML operations could store significantly more than 100 GB total. Each UPDATE/DELETE creates new partitions while old ones remain in Time Travel. Monitor with <code>TABLE_STORAGE_METRICS</code>.
+  </div>
+
+  <h3>Table Types and Storage Implications</h3>
+  <table>
+    <thead><tr><th>Table Type</th><th>Time Travel</th><th>Fail-safe</th><th>Use Case</th></tr></thead>
+    <tbody>
+      <tr><td>Permanent (default)</td><td>0-90 days</td><td>7 days</td><td>Production data, critical tables</td></tr>
+      <tr><td>Transient</td><td>0-1 day</td><td>None</td><td>ETL staging, intermediate results</td></tr>
+      <tr><td>Temporary</td><td>0-1 day</td><td>None</td><td>Session-scoped work, temp calculations</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="storage-costs">5. Storage Costs</h2>
+
+  <h3>What You Pay For</h3>
+  <table>
+    <thead><tr><th>Component</th><th>Billed?</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Active data (compressed)</td><td>Yes</td><td>Monthly per-TB rate</td></tr>
+      <tr><td>Time Travel data</td><td>Yes</td><td>Old partition versions retained</td></tr>
+      <tr><td>Fail-safe data</td><td>Yes</td><td>Cannot avoid for permanent tables</td></tr>
+      <tr><td>Internal stages</td><td>Yes</td><td>Files uploaded to stages</td></tr>
+      <tr><td>Cloned data (shared)</td><td>No</td><td>Zero-copy clones share partitions</td></tr>
+      <tr><td>Cloned data (diverged)</td><td>Yes</td><td>Only changed partitions after clone</td></tr>
+    </tbody>
+  </table>
+
+  <div class="key-point">
+    <strong>On-Demand vs Capacity Pricing:</strong>
+    <ul>
+      <li><strong>On-Demand:</strong> ~$40/TB/month (varies by region/cloud)</li>
+      <li><strong>Capacity:</strong> ~$23/TB/month (pre-purchased, discounted)</li>
+      <li>Storage is billed on <strong>average daily compressed data</strong></li>
+    </ul>
+  </div>
+
+  <h2 id="hands-on">6. Hands-On SQL Scripts</h2>
+
+  <h3>Script 1: Explore Micro-Partitions and Pruning</h3>
+  <pre>
+USE SCHEMA CERT_STUDY_DB.ARCHITECTURE;
+
+-- Check how many partitions and depth for our sample table
+SELECT 
+  SYSTEM$CLUSTERING_DEPTH('SAMPLE_DATA', '(order_date)') AS clustering_depth;
+
+-- Query with filter - observe pruning in Query Profile
+SELECT category, SUM(amount) AS total
+FROM sample_data
+WHERE order_date BETWEEN '2024-03-01' AND '2024-03-31'
+GROUP BY category;
+
+-- Check query profile for partitions scanned vs total
+-- Go to Query History > Click Query > Query Profile tab
+  </pre>
+
+  <h3>Script 2: Demonstrate Immutability and Time Travel Storage</h3>
+  <pre>
+-- Create a table and track storage
+CREATE OR REPLACE TABLE storage_demo (
+  id INT, name VARCHAR, value NUMBER
+);
+
+INSERT INTO storage_demo VALUES (1, 'Alpha', 100), (2, 'Beta', 200), (3, 'Gamma', 300);
+
+-- Check current storage
+SELECT * FROM TABLE(INFORMATION_SCHEMA.TABLE_STORAGE_METRICS())
+WHERE TABLE_NAME = 'STORAGE_DEMO' AND TABLE_SCHEMA = 'ARCHITECTURE';
+
+-- Update data (creates new partitions, old ones go to Time Travel)
+UPDATE storage_demo SET value = 999 WHERE id = 1;
+
+-- Delete data (again, new partitions)
+DELETE FROM storage_demo WHERE id = 3;
+
+-- Access old version via Time Travel
+SELECT * FROM storage_demo AT(OFFSET => -60);  -- 60 seconds ago
+  </pre>
+
+  <h3>Script 3: Compare Table Types Storage</h3>
+  <pre>
+-- Permanent table (default) - full Time Travel + Fail-safe
+CREATE OR REPLACE TABLE perm_table (id INT, data VARCHAR) 
+  DATA_RETENTION_TIME_IN_DAYS = 7;
+
+-- Transient table - max 1 day Time Travel, NO Fail-safe
+CREATE OR REPLACE TRANSIENT TABLE transient_table (id INT, data VARCHAR)
+  DATA_RETENTION_TIME_IN_DAYS = 1;
+
+-- Temporary table - session only, max 1 day TT, NO Fail-safe
+CREATE OR REPLACE TEMPORARY TABLE temp_table (id INT, data VARCHAR)
+  DATA_RETENTION_TIME_IN_DAYS = 0;
+
+-- Check retention settings
+SHOW TABLES LIKE '%_TABLE' IN SCHEMA CERT_STUDY_DB.ARCHITECTURE;
+  </pre>
+
+  <h3>Script 4: Storage Metrics Deep Dive</h3>
+  <pre>
+-- Comprehensive storage view for all tables
+SELECT 
+  TABLE_NAME,
+  ACTIVE_BYTES / (1024*1024) AS active_mb,
+  TIME_TRAVEL_BYTES / (1024*1024) AS time_travel_mb,
+  FAILSAFE_BYTES / (1024*1024) AS failsafe_mb,
+  RETAINED_FOR_CLONE_BYTES / (1024*1024) AS clone_retained_mb,
+  (ACTIVE_BYTES + TIME_TRAVEL_BYTES + FAILSAFE_BYTES) / (1024*1024) AS total_billed_mb
+FROM TABLE(INFORMATION_SCHEMA.TABLE_STORAGE_METRICS())
+WHERE TABLE_CATALOG = 'CERT_STUDY_DB' 
+  AND TABLE_SCHEMA = 'ARCHITECTURE'
+  AND ACTIVE_BYTES > 0
+ORDER BY total_billed_mb DESC;
+
+-- Account-level storage usage
+SELECT * FROM SNOWFLAKE.ACCOUNT_USAGE.STORAGE_USAGE
+ORDER BY USAGE_DATE DESC LIMIT 7;
+  </pre>
+
+  <h3>Script 5: Clustering Key Demo</h3>
+  <pre>
+-- Create a larger table to demonstrate clustering
+CREATE OR REPLACE TABLE clustering_demo AS
+SELECT 
+  SEQ4() AS id,
+  UNIFORM(1, 100, RANDOM()) AS customer_id,
+  DATEADD(day, UNIFORM(1, 730, RANDOM()), '2023-01-01')::DATE AS order_date,
+  UNIFORM(10, 5000, RANDOM())::DECIMAL(10,2) AS order_amount
+FROM TABLE(GENERATOR(ROWCOUNT => 5000000));
+
+-- Check natural clustering on order_date
+SELECT SYSTEM$CLUSTERING_INFORMATION('clustering_demo', '(order_date)');
+
+-- Add explicit clustering key
+ALTER TABLE clustering_demo CLUSTER BY (order_date);
+
+-- Check clustering depth (lower = better, 1 = perfectly clustered)
+SELECT SYSTEM$CLUSTERING_DEPTH('clustering_demo', '(order_date)');
+
+-- Drop clustering key (stop automatic re-clustering)
+ALTER TABLE clustering_demo DROP CLUSTERING KEY;
+  </pre>
+
+  <h2 id="interview-qa">7. Interview & Certification Q&A</h2>
+
+  <div class="qa-block">
+    <strong>Q1: What is a micro-partition and how is it different from traditional partitioning?</strong>
+    <p><strong>A:</strong> A micro-partition is Snowflake's proprietary storage unit (50-500 MB uncompressed). Key differences from traditional partitioning:
+    <ul>
+      <li>Traditional: User defines partition columns (e.g., PARTITION BY date). Snowflake: Automatic, based on insertion order.</li>
+      <li>Traditional: Partitions can be very large. Snowflake: Always small (50-500 MB) for parallelism.</li>
+      <li>Traditional: User manages partition maintenance. Snowflake: Fully managed.</li>
+      <li>Traditional: Mutable (in-place updates). Snowflake: Immutable (COW - Copy-On-Write).</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q2: Why does Snowflake use columnar storage? When might row-based be better?</strong>
+    <p><strong>A:</strong> Columnar storage benefits for analytics:
+    <ul>
+      <li>Only reads columns referenced in query (I/O reduction)</li>
+      <li>Same-type data compresses much better (3-10x compression)</li>
+      <li>SIMD and vectorized operations on homogeneous data</li>
+      <li>Better cache utilization for analytical scans</li>
+    </ul>
+    Row-based would be better for: single-row lookups by primary key, OLTP workloads with many small inserts/updates, queries that always SELECT *. That's why Snowflake also offers <strong>Hybrid Tables</strong> (row-based) for OLTP-like workloads.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q3: Explain partition pruning. How does it differ from indexing?</strong>
+    <p><strong>A:</strong> Partition pruning uses min/max metadata per column per partition to eliminate partitions that cannot contain matching data. Differences from indexing:
+    <ul>
+      <li><strong>No user management:</strong> Pruning metadata is automatic; indexes must be created/maintained</li>
+      <li><strong>No storage overhead:</strong> Metadata is small; indexes can be as large as the data</li>
+      <li><strong>Granularity:</strong> Pruning is partition-level; indexes can be row-level</li>
+      <li><strong>Write overhead:</strong> Pruning metadata has minimal write cost; indexes slow down writes</li>
+      <li><strong>Effectiveness:</strong> Pruning works best on range filters on clustered columns; indexes work on point lookups</li>
+    </ul>
+    Snowflake has NO traditional indexes. It relies on pruning + Search Optimization Service for point lookups.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q4: What happens to storage when you UPDATE a row in Snowflake?</strong>
+    <p><strong>A:</strong> Due to immutability:
+    <ol>
+      <li>The partition containing the modified row is NOT changed</li>
+      <li>A NEW partition is created with the updated data</li>
+      <li>The old partition moves to Time Travel state</li>
+      <li>The old partition is billed as Time Travel storage for the retention period</li>
+      <li>After Time Travel expires, it moves to Fail-safe (7 days, permanent tables only)</li>
+      <li>After Fail-safe, it's purged and storage is freed</li>
+    </ol>
+    This means frequent UPDATEs on large tables can significantly increase storage usage.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q5: What's the difference between Transient and Temporary tables?</strong>
+    <p><strong>A:</strong>
+    <table>
+      <tr><th></th><th>Transient</th><th>Temporary</th></tr>
+      <tr><td>Fail-safe</td><td>None</td><td>None</td></tr>
+      <tr><td>Max Time Travel</td><td>1 day</td><td>1 day</td></tr>
+      <tr><td>Visibility</td><td>All users with access</td><td>Session-only (creating session)</td></tr>
+      <tr><td>Persistence</td><td>Until explicitly dropped</td><td>Dropped at session end</td></tr>
+      <tr><td>Appears in SHOW TABLES</td><td>Yes</td><td>Only in creating session</td></tr>
+      <tr><td>Use case</td><td>Staging tables, ETL intermediate</td><td>Session calculations, temp results</td></tr>
+    </table></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q6: How does zero-copy cloning work with storage?</strong>
+    <p><strong>A:</strong> When you clone a table:
+    <ul>
+      <li>NO data is physically copied - clone references same micro-partitions</li>
+      <li>Initial storage cost of clone = 0 (shares all partitions with source)</li>
+      <li>When either table is modified, only the CHANGED partitions diverge</li>
+      <li>Storage grows only for diverged partitions</li>
+      <li>Dropping the source doesn't affect clone (partitions remain as long as referenced)</li>
+    </ul>
+    This enables instant database/schema/table cloning for dev/test environments.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q7: How does Snowflake achieve its compression ratios?</strong>
+    <p><strong>A:</strong> Multiple layers of compression:
+    <ol>
+      <li><strong>Columnar organization:</strong> Same data type stored together = better patterns</li>
+      <li><strong>Encoding:</strong> Dictionary (low cardinality), RLE (sorted data), Delta (timestamps), Bit-packing (small integers)</li>
+      <li><strong>Block compression:</strong> LZ4 or ZSTD applied after encoding</li>
+      <li><strong>Automatic selection:</strong> Snowflake's optimizer picks best combination per column per partition</li>
+    </ol>
+    Result: Typical 3-5x compression. Highly repetitive data (status columns) can see 10-50x.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q8: When should you define a clustering key?</strong>
+    <p><strong>A:</strong> Define clustering keys when:
+    <ul>
+      <li>Table is large (multi-TB) AND queries consistently filter on specific columns</li>
+      <li>Query Profile shows poor pruning (scanning most partitions)</li>
+      <li>Data is loaded in an order different from how it's queried</li>
+      <li>Clustering depth is high (poor natural clustering on filter columns)</li>
+    </ul>
+    Do NOT cluster when: table is small (&lt;1 GB), queries don't have consistent filters, or data is already naturally well-clustered by the filter column.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q9: Can you store unstructured data in Snowflake's storage layer?</strong>
+    <p><strong>A:</strong> Semi-structured data (JSON, XML, Avro, Parquet, ORC) is stored natively in VARIANT columns within micro-partitions. Snowflake optimizes this by detecting repeated keys and storing them columnar-like when possible. For truly unstructured files (PDFs, images, videos), you store them in Snowflake <strong>stages</strong> (internal or external) - they're in cloud object storage but managed by Snowflake. Directory tables let you catalog staged files.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q10: What is the Snowflake Search Optimization Service?</strong>
+    <p><strong>A:</strong> Search Optimization Service (SOS) is an add-on that creates persistent data structures (like auxiliary indexes) to speed up:
+    <ul>
+      <li>Point lookups (WHERE id = 12345)</li>
+      <li>Substring searches (WHERE col LIKE '%pattern%')</li>
+      <li>Selective filters on high-cardinality columns</li>
+      <li>VARIANT field access and GEO functions</li>
+    </ul>
+    It supplements partition pruning. Requires Enterprise edition. Has additional storage and compute costs for maintenance.</p>
+  </div>
+
+  <hr/>
+
+  <h2>Quick Revision Checklist</h2>
+  <table>
+    <thead><tr><th>#</th><th>Concept</th><th>Remember</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Micro-partition size</td><td>50-500 MB uncompressed, ~10-20 MB compressed</td></tr>
+      <tr><td>2</td><td>Storage format</td><td>Proprietary columnar (NOT Parquet/ORC)</td></tr>
+      <tr><td>3</td><td>Immutability</td><td>Never modified; updates create new partitions</td></tr>
+      <tr><td>4</td><td>Metadata per partition</td><td>Min, Max, NULL count, distinct count, row count</td></tr>
+      <tr><td>5</td><td>Pruning happens in</td><td>Cloud Services layer (free, no warehouse)</td></tr>
+      <tr><td>6</td><td>Compression ratio</td><td>Typically 3-5x, sometimes 10x+</td></tr>
+      <tr><td>7</td><td>Billing based on</td><td>Compressed data (not uncompressed)</td></tr>
+      <tr><td>8</td><td>Time Travel max (Standard)</td><td>1 day</td></tr>
+      <tr><td>9</td><td>Time Travel max (Enterprise)</td><td>90 days</td></tr>
+      <tr><td>10</td><td>Fail-safe duration</td><td>7 days (permanent tables only)</td></tr>
+      <tr><td>11</td><td>Transient table Fail-safe</td><td>None (0 days)</td></tr>
+      <tr><td>12</td><td>Temp table lifespan</td><td>Session end (auto-dropped)</td></tr>
+      <tr><td>13</td><td>Zero-copy clone cost</td><td>0 initially; pays only for diverged data</td></tr>
+      <tr><td>14</td><td>Natural clustering</td><td>Based on insertion order</td></tr>
+      <tr><td>15</td><td>Clustering key edition</td><td>All editions (but costs credits for auto-reclustering)</td></tr>
+    </tbody>
+  </table>
+
+  <hr/>
+  <p style="text-align:center; font-size: 0.85em; color: light-dark(#6b7280, #9ca3af);">
+    Snowflake SnowPro Core Certification Study Guide | Domain 1.2: Storage Layer<br/>
+    Generated: July 29, 2026 | Account: ZITTTER-AT35969
+  </p>
+
+</body>
+</html>

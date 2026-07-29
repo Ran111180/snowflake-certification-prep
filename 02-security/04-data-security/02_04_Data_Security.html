@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Certification - 2.4 Data Security</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-07-29",
+    "intent": "Snowflake SnowPro Core Certification - Domain 2.4 Data Security",
+    "sections": [
+      { "id": "encryption", "title": "Encryption" },
+      { "id": "masking", "title": "Dynamic Data Masking" },
+      { "id": "row-access", "title": "Row Access Policies" },
+      { "id": "tagging", "title": "Object Tagging & Classification" },
+      { "id": "new-policies", "title": "New Policy Types" },
+      { "id": "hands-on", "title": "Hands-On Scripts" },
+      { "id": "interview-qa", "title": "Interview Q&A" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, system-ui, 'Segoe UI', sans-serif; max-width: 960px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #111827); line-height: 1.7; }
+    h1 { color: light-dark(#1e40af, #93c5fd); border-bottom: 3px solid light-dark(#3b82f6, #1d4ed8); padding-bottom: 12px; }
+    h2 { color: light-dark(#1e3a5f, #7dd3fc); margin-top: 40px; border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding-left: 12px; }
+    h3 { color: light-dark(#374151, #d1d5db); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9em; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#eff6ff, #1e3a5f); font-weight: 600; }
+    tr:nth-child(even) { background: light-dark(#f8fafc, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+    pre { background: light-dark(#0f172a, #0f172a); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; line-height: 1.5; }
+    .highlight { background: light-dark(#fef3c7, #422006); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#f59e0b, #fbbf24); margin: 16px 0; }
+    .key-point { background: light-dark(#ecfdf5, #022c22); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#10b981, #34d399); margin: 16px 0; }
+    .warning { background: light-dark(#fef2f2, #450a0a); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#ef4444, #f87171); margin: 16px 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+    .badge-cert { background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); }
+    .badge-interview { background: light-dark(#fce7f3, #500724); color: light-dark(#be185d, #f9a8d4); }
+    .badge-new { background: light-dark(#d1fae5, #022c22); color: light-dark(#065f46, #6ee7b7); }
+    .qa-block { margin: 20px 0; padding: 16px; background: light-dark(#f8fafc, #1a2332); border-radius: 8px; }
+    .qa-block strong { color: light-dark(#1e40af, #93c5fd); }
+  </style>
+</head>
+<body>
+
+  <h1>Domain 2.4: Data Security</h1>
+  <p><span class="badge badge-cert">SnowPro Core</span> <span class="badge badge-interview">Interview Essential</span> <span class="badge badge-new">Includes New Policy Types</span></p>
+  <p><strong>Date:</strong> July 29, 2026</p>
+
+  <hr/>
+
+  <h2 id="encryption">1. Encryption</h2>
+
+  <h3>Encryption at Every Layer</h3>
+  <table>
+    <thead><tr><th>Layer</th><th>Encryption Type</th><th>Managed By</th><th>Can Disable?</th></tr></thead>
+    <tbody>
+      <tr><td><strong>In Transit</strong></td><td>TLS 1.2+ (HTTPS)</td><td>Snowflake (automatic)</td><td>No</td></tr>
+      <tr><td><strong>At Rest</strong></td><td>AES-256</td><td>Snowflake (automatic)</td><td>No</td></tr>
+      <tr><td><strong>Key Management</strong></td><td>Hierarchical key model</td><td>Snowflake (automatic rotation)</td><td>No</td></tr>
+      <tr><td><strong>Tri-Secret Secure</strong></td><td>Customer + Snowflake composite key</td><td>Customer + Snowflake</td><td>Customer can revoke</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Hierarchical Key Model</h3>
+  <pre>
+  +-------------------+
+  | ROOT KEY          |  (Snowflake HSM - highest level)
+  +--------+----------+
+           |
+  +--------+----------+
+  | ACCOUNT KEY       |  (Per-account, rotates annually)
+  +--------+----------+
+           |
+  +--------+----------+
+  | TABLE KEY         |  (Per-table, rotates annually)
+  +--------+----------+
+           |
+  +--------+----------+
+  | FILE KEY          |  (Per micro-partition file)
+  +-------------------+
+
+  - Each level encrypts the key below it (envelope encryption)
+  - Automatic annual rotation at all levels
+  - Periodic re-keying of data (re-encrypts with new keys)
+  - Customer NEVER manages keys (unless Tri-Secret Secure)
+  </pre>
+
+  <h3>Tri-Secret Secure</h3>
+  <p><span class="badge badge-cert">Business Critical+ Only</span></p>
+  <pre>
+  STANDARD ENCRYPTION:
+  Data encrypted with Snowflake-managed keys only
+  Customer trusts Snowflake entirely
+
+  TRI-SECRET SECURE:
+  Composite master key = Snowflake key + Customer key (from cloud KMS)
+  
+  Customer provides key via:
+  - AWS KMS (Key Management Service)
+  - Azure Key Vault
+  - GCP Cloud KMS
+
+  BENEFIT: Customer can REVOKE their key --> Snowflake CANNOT read the data
+  This gives customers ultimate control even over Snowflake employees.
+  </pre>
+
+  <div class="key-point">
+    <strong>Encryption Key Facts:</strong>
+    <ul>
+      <li>ALL data always encrypted at rest (AES-256) and in transit (TLS 1.2+)</li>
+      <li>Cannot be disabled - encryption is mandatory</li>
+      <li>Key rotation: automatic, annual</li>
+      <li>Periodic re-keying: Snowflake re-encrypts old data with new keys</li>
+      <li>Tri-Secret Secure: Business Critical+ only; customer holds part of the key</li>
+    </ul>
+  </div>
+
+  <h2 id="masking">2. Dynamic Data Masking</h2>
+  <p><span class="badge badge-cert">Enterprise+ Only</span></p>
+
+  <h3>What Is Dynamic Data Masking?</h3>
+  <p>Column-level security that masks sensitive data at query time based on the user's role. Data is stored unmasked but <strong>appears masked</strong> to unauthorized roles.</p>
+
+  <pre>
+  TABLE: CUSTOMERS
+  +----+----------+------------------+-----------+
+  | ID | NAME     | EMAIL            | SSN       |
+  +----+----------+------------------+-----------+
+  | 1  | Alice    | alice@corp.com   | 123-45-6789 |
+  | 2  | Bob      | bob@corp.com     | 987-65-4321 |
+
+  ROLE: ADMIN (unmask privilege)     ROLE: ANALYST (no unmask)
+  +----+--------+----------------+   +----+--------+------------+
+  | 1  | Alice  | alice@corp.com |   | 1  | Alice  | ***@***.com|
+  | 2  | Bob    | bob@corp.com   |   | 2  | Bob    | ***@***.com|
+  +----+--------+----------------+   +----+--------+------------+
+
+  Same query, same table, different results based on ROLE!
+  </pre>
+
+  <h3>Masking Policy Syntax</h3>
+  <pre>
+-- Create a masking policy for email
+CREATE OR REPLACE MASKING POLICY email_mask AS
+  (val STRING) RETURNS STRING ->
+  CASE
+    WHEN CURRENT_ROLE() IN ('ADMIN_ROLE', 'HR_ROLE') THEN val
+    ELSE REGEXP_REPLACE(val, '.+@', '***@')
+  END;
+
+-- Apply to a column
+ALTER TABLE customers MODIFY COLUMN email 
+  SET MASKING POLICY email_mask;
+
+-- Create a masking policy for SSN (full mask)
+CREATE OR REPLACE MASKING POLICY ssn_mask AS
+  (val STRING) RETURNS STRING ->
+  CASE
+    WHEN CURRENT_ROLE() IN ('HR_ROLE') THEN val
+    WHEN CURRENT_ROLE() IN ('ANALYST_ROLE') THEN 'XXX-XX-' || SUBSTR(val, 8)
+    ELSE '***-**-****'
+  END;
+
+-- Conditional masking (based on another column)
+CREATE OR REPLACE MASKING POLICY conditional_mask AS
+  (val STRING, country STRING) RETURNS STRING ->
+  CASE
+    WHEN country = 'US' AND CURRENT_ROLE() NOT IN ('COMPLIANCE') THEN '***'
+    ELSE val
+  END;
+
+-- Unset masking policy
+ALTER TABLE customers MODIFY COLUMN email UNSET MASKING POLICY;
+  </pre>
+
+  <div class="highlight">
+    <strong>Exam Tips - Masking Policies:</strong>
+    <ul>
+      <li>Enterprise edition or higher required</li>
+      <li>Applied at the <strong>column level</strong> (not row, not table)</li>
+      <li>Policy return type MUST match column data type</li>
+      <li>Evaluated at <strong>query time</strong> (dynamic, not physical masking)</li>
+      <li>Data is stored UNMASKED - policy just controls what's shown</li>
+      <li>One masking policy per column (cannot stack multiple)</li>
+      <li>Can use CURRENT_ROLE(), IS_ROLE_IN_SESSION(), system functions in conditions</li>
+      <li>Works with views, clones, and data sharing</li>
+    </ul>
+  </div>
+
+  <h2 id="row-access">3. Row Access Policies</h2>
+  <p><span class="badge badge-cert">Enterprise+ Only</span></p>
+
+  <h3>What Are Row Access Policies?</h3>
+  <p>Row-level security that filters which ROWS a user can see based on their role or attributes. Like an invisible WHERE clause automatically applied.</p>
+
+  <pre>
+  TABLE: SALES_DATA
+  +----+--------+---------+--------+
+  | ID | REGION | REVENUE | REP    |
+  +----+--------+---------+--------+
+  | 1  | EAST   | 50000   | Alice  |
+  | 2  | WEST   | 75000   | Bob    |
+  | 3  | EAST   | 30000   | Carol  |
+  | 4  | NORTH  | 45000   | Dave   |
+
+  ROLE: EAST_MANAGER sees:         ROLE: ADMIN sees:
+  +----+------+---------+-------+  +----+-------+---------+------+
+  | 1  | EAST | 50000   | Alice |  | 1  | EAST  | 50000   | Alice|
+  | 3  | EAST | 30000   | Carol |  | 2  | WEST  | 75000   | Bob  |
+                                   | 3  | EAST  | 30000   | Carol|
+                                   | 4  | NORTH | 45000   | Dave |
+  </pre>
+
+  <h3>Row Access Policy Syntax</h3>
+  <pre>
+-- Create a mapping table (which role sees which region)
+CREATE TABLE region_access (role_name VARCHAR, region VARCHAR);
+INSERT INTO region_access VALUES 
+  ('EAST_MANAGER', 'EAST'),
+  ('WEST_MANAGER', 'WEST'),
+  ('ADMIN_ROLE', 'EAST'), ('ADMIN_ROLE', 'WEST'), ('ADMIN_ROLE', 'NORTH');
+
+-- Create row access policy
+CREATE OR REPLACE ROW ACCESS POLICY region_policy AS
+  (region_val VARCHAR) RETURNS BOOLEAN ->
+  CURRENT_ROLE() = 'ADMIN_ROLE'
+  OR EXISTS (
+    SELECT 1 FROM region_access 
+    WHERE role_name = CURRENT_ROLE() 
+      AND region = region_val
+  );
+
+-- Apply to table
+ALTER TABLE sales_data ADD ROW ACCESS POLICY region_policy ON (region);
+
+-- Remove
+ALTER TABLE sales_data DROP ROW ACCESS POLICY region_policy;
+  </pre>
+
+  <div class="key-point">
+    <strong>Row Access Policy Key Facts:</strong>
+    <ul>
+      <li>Returns BOOLEAN: TRUE = row visible, FALSE = row filtered out</li>
+      <li>Applied to tables/views - acts like invisible WHERE clause</li>
+      <li>ONE row access policy per table (but policy can reference multiple columns)</li>
+      <li>Evaluated BEFORE any user-specified WHERE clause</li>
+      <li>Cannot be bypassed (even table owner sees filtered results unless policy allows)</li>
+      <li>Use mapping tables for flexible role-to-data assignments</li>
+      <li>Enterprise edition required</li>
+    </ul>
+  </div>
+
+  <h2 id="tagging">4. Object Tagging & Data Classification</h2>
+
+  <h3>Object Tags</h3>
+  <p>Tags are key-value metadata attached to Snowflake objects for governance, cost tracking, and policy management.</p>
+  <pre>
+-- Create a tag
+CREATE TAG sensitivity_level ALLOWED_VALUES = ('PUBLIC', 'INTERNAL', 'CONFIDENTIAL', 'RESTRICTED');
+CREATE TAG cost_center;
+CREATE TAG data_owner;
+
+-- Apply tags to objects
+ALTER TABLE customers SET TAG sensitivity_level = 'CONFIDENTIAL';
+ALTER TABLE customers MODIFY COLUMN ssn SET TAG sensitivity_level = 'RESTRICTED';
+ALTER WAREHOUSE compute_wh SET TAG cost_center = 'ENGINEERING';
+
+-- Query tags
+SELECT * FROM TABLE(INFORMATION_SCHEMA.TAG_REFERENCES('customers', 'TABLE'));
+
+-- Tag-based masking policies (apply policy to all tagged columns!)
+ALTER TAG sensitivity_level SET MASKING POLICY ssn_mask;
+-- Now ANY column tagged 'RESTRICTED' automatically gets the masking policy!
+  </pre>
+
+  <h3>Data Classification</h3>
+  <p>Snowflake can automatically detect and classify sensitive data:</p>
+  <pre>
+-- Classify a table (auto-detect PII, PHI, etc.)
+SELECT * FROM TABLE(
+  SNOWFLAKE.CORE.CLASSIFY('my_table', {'auto_tag': true})
+);
+
+-- Classification categories detected:
+-- IDENTIFIER: SSN, email, phone, credit card
+-- QUASI_IDENTIFIER: name, address, date of birth
+-- SENSITIVE: salary, medical records
+-- SYSTEM: internal IDs, timestamps
+
+-- View classification results
+SELECT * FROM TABLE(
+  INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS('my_table', 'TABLE')
+);
+  </pre>
+
+  <div class="highlight">
+    <strong>Tag-Based Policies (Powerful Feature):</strong>
+    <p>Instead of applying a masking policy column-by-column, you can attach it to a TAG. Then every column with that tag automatically gets the policy. This scales across thousands of columns/tables.</p>
+  </div>
+
+  <h2 id="new-policies">5. Additional Policy Types</h2>
+  <p><span class="badge badge-new">Enterprise+ 2025-2026</span></p>
+
+  <table>
+    <thead><tr><th>Policy Type</th><th>What It Controls</th><th>Example Use Case</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Masking Policy</strong></td><td>What VALUE is returned for a column</td><td>Mask SSN, email, salary for non-privileged roles</td></tr>
+      <tr><td><strong>Row Access Policy</strong></td><td>Which ROWS are visible</td><td>Regional managers see only their region's data</td></tr>
+      <tr><td><strong>Projection Policy</strong></td><td>Whether a column CAN APPEAR in results</td><td>Prevent SELECT * from including sensitive columns</td></tr>
+      <tr><td><strong>Aggregation Policy</strong></td><td>Require MIN group size for queries</td><td>k-anonymity: must aggregate at least 5 records</td></tr>
+      <tr><td><strong>Join Policy</strong></td><td>Control which tables can be JOINed</td><td>Prevent joining PII table with public dataset</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Projection Policy (Prevents Column Selection)</h3>
+  <pre>
+-- Prevent non-admins from seeing SSN column at all
+CREATE PROJECTION POLICY hide_sensitive AS () RETURNS PROJECTION_CONSTRAINT ->
+  CASE
+    WHEN CURRENT_ROLE() IN ('ADMIN_ROLE') THEN PROJECTION_CONSTRAINT(ALLOW => true)
+    ELSE PROJECTION_CONSTRAINT(ALLOW => false)
+  END;
+
+ALTER TABLE customers MODIFY COLUMN ssn SET PROJECTION POLICY hide_sensitive;
+-- Non-admins can't even SELECT ssn (not just masked - completely hidden)
+  </pre>
+
+  <h3>Aggregation Policy (k-Anonymity)</h3>
+  <pre>
+-- Require queries to aggregate at least 5 rows
+CREATE AGGREGATION POLICY min_group_size AS () RETURNS AGGREGATION_CONSTRAINT ->
+  AGGREGATION_CONSTRAINT(MIN_GROUP_SIZE => 5);
+
+ALTER TABLE patients SET AGGREGATION POLICY min_group_size;
+-- Queries must GROUP BY with groups of 5+ rows, or they fail
+-- Prevents re-identification of individuals
+  </pre>
+
+  <h2 id="hands-on">6. Hands-On SQL Scripts</h2>
+
+  <h3>Script 1: Create and Test Dynamic Data Masking</h3>
+  <pre>
+USE ROLE ACCOUNTADMIN;
+USE SCHEMA CERT_STUDY_DB.ARCHITECTURE;
+
+-- Create a table with sensitive data
+CREATE OR REPLACE TABLE employees (
+  id INT,
+  name VARCHAR,
+  email VARCHAR,
+  salary NUMBER,
+  ssn VARCHAR
+);
+
+INSERT INTO employees VALUES
+  (1, 'Alice Johnson', 'alice@company.com', 95000, '123-45-6789'),
+  (2, 'Bob Smith', 'bob@company.com', 87000, '987-65-4321'),
+  (3, 'Carol Davis', 'carol@company.com', 102000, '456-78-9012');
+
+-- Create masking policies
+CREATE OR REPLACE MASKING POLICY email_mask AS
+  (val STRING) RETURNS STRING ->
+  CASE
+    WHEN CURRENT_ROLE() IN ('ACCOUNTADMIN') THEN val
+    ELSE REGEXP_REPLACE(val, '.+@', '***@')
+  END;
+
+CREATE OR REPLACE MASKING POLICY salary_mask AS
+  (val NUMBER) RETURNS NUMBER ->
+  CASE
+    WHEN CURRENT_ROLE() IN ('ACCOUNTADMIN') THEN val
+    ELSE 0
+  END;
+
+-- Apply policies
+ALTER TABLE employees MODIFY COLUMN email SET MASKING POLICY email_mask;
+ALTER TABLE employees MODIFY COLUMN salary SET MASKING POLICY salary_mask;
+
+-- Test as ACCOUNTADMIN (should see real data)
+SELECT * FROM employees;
+  </pre>
+
+  <h3>Script 2: Test Masking with Different Role</h3>
+  <pre>
+-- Grant access to analyst role
+GRANT SELECT ON TABLE CERT_STUDY_DB.ARCHITECTURE.employees TO ROLE CERT_READ_ROLE;
+
+-- Switch to analyst role
+USE ROLE CERT_ANALYST_ROLE;
+SELECT * FROM CERT_STUDY_DB.ARCHITECTURE.employees;
+-- Email should be masked: ***@company.com
+-- Salary should be: 0
+
+-- Switch back
+USE ROLE ACCOUNTADMIN;
+  </pre>
+
+  <h3>Script 3: Row Access Policy Demo</h3>
+  <pre>
+USE ROLE ACCOUNTADMIN;
+USE SCHEMA CERT_STUDY_DB.ARCHITECTURE;
+
+-- Create sales data with regions
+CREATE OR REPLACE TABLE sales_data (
+  id INT, region VARCHAR, revenue NUMBER, rep VARCHAR
+);
+INSERT INTO sales_data VALUES
+  (1, 'EAST', 50000, 'Alice'), (2, 'WEST', 75000, 'Bob'),
+  (3, 'EAST', 30000, 'Carol'), (4, 'NORTH', 45000, 'Dave');
+
+-- Create row access policy
+CREATE OR REPLACE ROW ACCESS POLICY region_filter AS
+  (region_val VARCHAR) RETURNS BOOLEAN ->
+  CURRENT_ROLE() IN ('ACCOUNTADMIN', 'SYSADMIN')
+  OR (CURRENT_ROLE() = 'CERT_ANALYST_ROLE' AND region_val = 'EAST');
+
+-- Apply policy
+ALTER TABLE sales_data ADD ROW ACCESS POLICY region_filter ON (region);
+
+-- Test as ACCOUNTADMIN (sees all)
+SELECT * FROM sales_data;
+
+-- Test as analyst (should see only EAST)
+USE ROLE CERT_ANALYST_ROLE;
+SELECT * FROM CERT_STUDY_DB.ARCHITECTURE.sales_data;
+
+USE ROLE ACCOUNTADMIN;
+  </pre>
+
+  <h3>Script 4: Object Tagging</h3>
+  <pre>
+USE ROLE ACCOUNTADMIN;
+USE SCHEMA CERT_STUDY_DB.ARCHITECTURE;
+
+-- Create tags
+CREATE OR REPLACE TAG data_sensitivity 
+  ALLOWED_VALUES = ('PUBLIC', 'INTERNAL', 'CONFIDENTIAL', 'RESTRICTED');
+
+CREATE OR REPLACE TAG data_domain;
+
+-- Apply tags
+ALTER TABLE employees SET TAG data_sensitivity = 'CONFIDENTIAL';
+ALTER TABLE employees MODIFY COLUMN ssn SET TAG data_sensitivity = 'RESTRICTED';
+ALTER TABLE sales_data SET TAG data_domain = 'SALES';
+
+-- Query tags on objects
+SELECT * FROM TABLE(
+  INFORMATION_SCHEMA.TAG_REFERENCES('CERT_STUDY_DB.ARCHITECTURE.EMPLOYEES', 'TABLE')
+);
+  </pre>
+
+  <h2 id="interview-qa">7. Interview & Certification Q&A</h2>
+
+  <div class="qa-block">
+    <strong>Q1: How does encryption work in Snowflake? Can it be disabled?</strong>
+    <p><strong>A:</strong> Snowflake uses end-to-end encryption that CANNOT be disabled:
+    <ul>
+      <li><strong>At rest:</strong> AES-256 encryption for all data in micro-partitions</li>
+      <li><strong>In transit:</strong> TLS 1.2+ for all network communication</li>
+      <li><strong>Key management:</strong> Hierarchical model (root > account > table > file keys)</li>
+      <li><strong>Key rotation:</strong> Automatic annual rotation + periodic re-keying of data</li>
+      <li><strong>Tri-Secret Secure:</strong> Optional (Business Critical+) - customer provides part of the key</li>
+    </ul>
+    Customers never manage encryption keys unless using Tri-Secret Secure.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q2: What's the difference between masking policies and row access policies?</strong>
+    <p><strong>A:</strong>
+    <table>
+      <tr><th></th><th>Masking Policy</th><th>Row Access Policy</th></tr>
+      <tr><td>Controls</td><td>Column VALUES (what you see)</td><td>Row VISIBILITY (which rows you see)</td></tr>
+      <tr><td>Applied to</td><td>Individual columns</td><td>Tables (filters rows)</td></tr>
+      <tr><td>Returns</td><td>Same data type as column</td><td>BOOLEAN (true=visible)</td></tr>
+      <tr><td>Limit</td><td>One per column</td><td>One per table</td></tr>
+      <tr><td>Example</td><td>Mask SSN as XXX-XX-1234</td><td>Show only your region's data</td></tr>
+      <tr><td>Edition</td><td>Enterprise+</td><td>Enterprise+</td></tr>
+    </table></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q3: Explain Tri-Secret Secure. Why would a company use it?</strong>
+    <p><strong>A:</strong> Tri-Secret Secure uses a composite master key made from BOTH a Snowflake-managed key AND a customer-managed key (stored in cloud KMS):
+    <ul>
+      <li><strong>How:</strong> Customer creates a key in AWS KMS/Azure Key Vault/GCP Cloud KMS. Snowflake uses this + its own key to create a composite key.</li>
+      <li><strong>Why:</strong> Customer can REVOKE their key at any time, making data unreadable - even by Snowflake employees. Provides ultimate control.</li>
+      <li><strong>Use cases:</strong> Highly regulated industries (banking, healthcare, government), compliance requirements that demand customer key control, zero-trust with cloud providers.</li>
+      <li><strong>Requires:</strong> Business Critical edition or higher.</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q4: How do tag-based masking policies work?</strong>
+    <p><strong>A:</strong> Instead of applying a masking policy to each column individually:
+    <ol>
+      <li>Create a tag (e.g., <code>sensitivity = 'RESTRICTED'</code>)</li>
+      <li>Attach the masking policy to the TAG: <code>ALTER TAG sensitivity SET MASKING POLICY my_mask</code></li>
+      <li>Tag columns that need masking: <code>ALTER TABLE t MODIFY COLUMN ssn SET TAG sensitivity = 'RESTRICTED'</code></li>
+      <li>Any column with that tag value AUTOMATICALLY gets the masking policy</li>
+    </ol>
+    Benefits: Scales to thousands of columns, consistent policy enforcement, easier governance.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q5: What is data classification in Snowflake?</strong>
+    <p><strong>A:</strong> Data classification automatically scans table data and metadata to identify sensitive information:
+    <ul>
+      <li>Detects PII: emails, SSNs, phone numbers, credit cards, names</li>
+      <li>Categories: IDENTIFIER, QUASI_IDENTIFIER, SENSITIVE</li>
+      <li>Uses both column names AND data patterns for detection</li>
+      <li>Can auto-tag columns with system tags (SNOWFLAKE.CORE.SEMANTIC_CATEGORY, PRIVACY_CATEGORY)</li>
+      <li>Helps identify what needs masking/protection</li>
+      <li>Called via: <code>SYSTEM$CLASSIFY()</code> or <code>SNOWFLAKE.CORE.CLASSIFY()</code></li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q6: Can a table owner bypass masking and row access policies?</strong>
+    <p><strong>A:</strong> <strong>No!</strong> This is a key security feature:
+    <ul>
+      <li>Masking policies and row access policies are enforced for ALL roles, including the table owner</li>
+      <li>Even ACCOUNTADMIN sees masked data unless the policy explicitly allows it</li>
+      <li>The policy body determines who sees what (using CURRENT_ROLE() etc.)</li>
+      <li>Only the policy OWNER can modify the policy, and the MASKING_ADMIN or equivalent role sets them</li>
+      <li>This prevents privilege escalation through ownership</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q7: What are the new projection and aggregation policies?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>Projection Policy:</strong> Controls whether a column can appear in query results AT ALL. Unlike masking (shows masked value), projection completely hides the column. Query with that column fails or returns null.</li>
+      <li><strong>Aggregation Policy:</strong> Enforces minimum group size (k-anonymity). Queries must aggregate enough rows to prevent individual identification. E.g., MIN_GROUP_SIZE=5 means any GROUP BY must have 5+ rows per group.</li>
+      <li><strong>Join Policy:</strong> Controls which tables can be joined together, preventing correlation attacks (joining PII with external data).</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q8: Design a data security strategy for a healthcare company storing patient records.</strong>
+    <p><strong>A:</strong>
+    <ol>
+      <li><strong>Encryption:</strong> Tri-Secret Secure (Business Critical) for HIPAA compliance</li>
+      <li><strong>Network:</strong> PrivateLink + restrictive network policy (no public internet access)</li>
+      <li><strong>Column masking:</strong> SSN, DOB, phone masked for all non-clinical roles</li>
+      <li><strong>Row access:</strong> Doctors see only their patients; nurses see their department only</li>
+      <li><strong>Classification:</strong> Auto-classify to discover PHI in all tables</li>
+      <li><strong>Tags:</strong> Tag all PHI columns, apply tag-based masking at scale</li>
+      <li><strong>Aggregation:</strong> Research role requires k-anonymity (min group size 10)</li>
+      <li><strong>Audit:</strong> Access history tracking on all patient tables</li>
+    </ol></p>
+  </div>
+
+  <hr/>
+
+  <h2>Quick Revision Checklist</h2>
+  <table>
+    <thead><tr><th>#</th><th>Concept</th><th>Remember</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Encryption at rest</td><td>AES-256, always on, cannot disable</td></tr>
+      <tr><td>2</td><td>Encryption in transit</td><td>TLS 1.2+, always on</td></tr>
+      <tr><td>3</td><td>Key rotation</td><td>Automatic, annual</td></tr>
+      <tr><td>4</td><td>Tri-Secret Secure</td><td>Business Critical+, customer holds part of key</td></tr>
+      <tr><td>5</td><td>Masking policy applied to</td><td>Column level (one policy per column)</td></tr>
+      <tr><td>6</td><td>Masking policy returns</td><td>MUST match column data type</td></tr>
+      <tr><td>7</td><td>Row Access Policy returns</td><td>BOOLEAN (TRUE = row visible)</td></tr>
+      <tr><td>8</td><td>Row Access Policy limit</td><td>One per table</td></tr>
+      <tr><td>9</td><td>Can owner bypass policies?</td><td>NO - enforced for all roles</td></tr>
+      <tr><td>10</td><td>Masking edition</td><td>Enterprise+ only</td></tr>
+      <tr><td>11</td><td>Tag-based masking</td><td>Attach policy to tag, all tagged columns get it</td></tr>
+      <tr><td>12</td><td>Classification function</td><td>SYSTEM$CLASSIFY() or SNOWFLAKE.CORE.CLASSIFY()</td></tr>
+      <tr><td>13</td><td>Projection policy</td><td>Hides column entirely (not just masks value)</td></tr>
+      <tr><td>14</td><td>Aggregation policy</td><td>Enforces minimum group size (k-anonymity)</td></tr>
+      <tr><td>15</td><td>When masking evaluated</td><td>Query time (dynamic, not physical)</td></tr>
+    </tbody>
+  </table>
+
+  <hr/>
+  <p style="text-align:center; font-size: 0.85em; color: light-dark(#6b7280, #9ca3af);">
+    Snowflake SnowPro Core Certification Study Guide | Domain 2.4: Data Security<br/>
+    Generated: July 29, 2026 | Account: ZITTTER-AT35969
+  </p>
+
+</body>
+</html>

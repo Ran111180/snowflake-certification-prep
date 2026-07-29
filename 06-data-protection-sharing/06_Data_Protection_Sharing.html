@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Certification - 6. Data Protection & Sharing</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-07-29",
+    "intent": "Snowflake SnowPro Core - Domain 6: Data Protection & Sharing",
+    "sections": [
+      { "id": "time-travel", "title": "Time Travel" },
+      { "id": "fail-safe", "title": "Fail-Safe" },
+      { "id": "cloning", "title": "Zero-Copy Cloning" },
+      { "id": "data-sharing", "title": "Data Sharing" },
+      { "id": "replication", "title": "Replication & Failover" },
+      { "id": "hands-on", "title": "Hands-On Scripts" },
+      { "id": "interview-qa", "title": "Interview Q&A" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, system-ui, 'Segoe UI', sans-serif; max-width: 960px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #111827); line-height: 1.7; }
+    h1 { color: light-dark(#1e40af, #93c5fd); border-bottom: 3px solid light-dark(#3b82f6, #1d4ed8); padding-bottom: 12px; }
+    h2 { color: light-dark(#1e3a5f, #7dd3fc); margin-top: 40px; border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding-left: 12px; }
+    h3 { color: light-dark(#374151, #d1d5db); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9em; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#eff6ff, #1e3a5f); font-weight: 600; }
+    tr:nth-child(even) { background: light-dark(#f8fafc, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+    pre { background: light-dark(#0f172a, #0f172a); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; line-height: 1.5; }
+    .highlight { background: light-dark(#fef3c7, #422006); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#f59e0b, #fbbf24); margin: 16px 0; }
+    .key-point { background: light-dark(#ecfdf5, #022c22); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#10b981, #34d399); margin: 16px 0; }
+    .warning { background: light-dark(#fef2f2, #450a0a); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#ef4444, #f87171); margin: 16px 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+    .badge-cert { background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); }
+    .badge-interview { background: light-dark(#fce7f3, #500724); color: light-dark(#be185d, #f9a8d4); }
+    .badge-new { background: light-dark(#d1fae5, #022c22); color: light-dark(#065f46, #6ee7b7); }
+    .qa-block { margin: 20px 0; padding: 16px; background: light-dark(#f8fafc, #1a2332); border-radius: 8px; }
+    .qa-block strong { color: light-dark(#1e40af, #93c5fd); }
+  </style>
+</head>
+<body>
+
+  <h1>Domain 6: Data Protection & Sharing</h1>
+  <p><span class="badge badge-cert">SnowPro Core (5-10%)</span> <span class="badge badge-interview">Interview Essential</span></p>
+  <p><strong>Date:</strong> July 29, 2026</p>
+
+  <hr/>
+
+  <h2 id="time-travel">1. Time Travel</h2>
+
+  <h3>What Is Time Travel?</h3>
+  <p>Access historical data (past versions) at any point within the retention period. Enables querying, cloning, and restoring data as it existed in the past.</p>
+
+  <pre>
+  TIMELINE:
+  
+  Data written ──────────[ACTIVE DATA]──────────> Current
+                              |
+                    Data modified/deleted
+                              |
+                              v
+                   [TIME TRAVEL WINDOW: 0-90 days]
+                   (User accessible via AT/BEFORE)
+                              |
+                              v
+                   [FAIL-SAFE: 7 days]
+                   (Snowflake support only)
+                              |
+                              v
+                   [PURGED - Gone forever]
+  </pre>
+
+  <h3>Time Travel Retention by Object Type</h3>
+  <table>
+    <thead><tr><th>Object Type</th><th>Standard Edition</th><th>Enterprise+</th><th>Default</th></tr></thead>
+    <tbody>
+      <tr><td>Permanent Table</td><td>0-1 days</td><td>0-90 days</td><td>1 day</td></tr>
+      <tr><td>Transient Table</td><td>0-1 days</td><td>0-1 days</td><td>1 day</td></tr>
+      <tr><td>Temporary Table</td><td>0-1 days</td><td>0-1 days</td><td>1 day</td></tr>
+      <tr><td>Database/Schema</td><td>0-1 days</td><td>0-90 days</td><td>1 day</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Accessing Historical Data</h3>
+  <pre>
+-- AT a specific timestamp
+SELECT * FROM my_table AT(TIMESTAMP => '2024-06-15 10:30:00'::TIMESTAMP);
+
+-- AT an offset (seconds ago)
+SELECT * FROM my_table AT(OFFSET => -3600);  -- 1 hour ago
+
+-- BEFORE a specific query (undo what a query did)
+SELECT * FROM my_table BEFORE(STATEMENT => '01a1b2c3-...');  -- Query ID
+
+-- Compare current vs historical
+SELECT 
+  a.id, a.amount AS current_amount, b.amount AS yesterday_amount,
+  a.amount - b.amount AS change
+FROM my_table a
+JOIN my_table AT(OFFSET => -86400) b ON a.id = b.id
+WHERE a.amount != b.amount;
+  </pre>
+
+  <h3>UNDROP (Restore Dropped Objects)</h3>
+  <pre>
+-- Drop and restore table
+DROP TABLE important_data;
+UNDROP TABLE important_data;  -- Recovered!
+
+-- Drop and restore schema
+DROP SCHEMA analytics;
+UNDROP SCHEMA analytics;
+
+-- Drop and restore database
+DROP DATABASE prod_db;
+UNDROP DATABASE prod_db;
+
+-- IMPORTANT: UNDROP only works within Time Travel retention period!
+-- After retention expires + fail-safe = gone forever
+  </pre>
+
+  <div class="highlight">
+    <strong>Exam Tips - Time Travel:</strong>
+    <ul>
+      <li>Standard edition: MAX 1 day Time Travel (even for permanent tables)</li>
+      <li>Enterprise+: Up to 90 days for permanent tables/schemas/databases</li>
+      <li>Transient/Temporary: ALWAYS max 1 day (regardless of edition)</li>
+      <li>Parameter: <code>DATA_RETENTION_TIME_IN_DAYS</code></li>
+      <li>Setting to 0: Disables Time Travel (no historical access, no UNDROP)</li>
+      <li>Time Travel data COSTS STORAGE (old partitions retained)</li>
+      <li>UNDROP works for tables, schemas, AND databases</li>
+    </ul>
+  </div>
+
+  <h2 id="fail-safe">2. Fail-Safe</h2>
+
+  <h3>Fail-Safe vs Time Travel</h3>
+  <table>
+    <thead><tr><th>Feature</th><th>Time Travel</th><th>Fail-Safe</th></tr></thead>
+    <tbody>
+      <tr><td>Duration</td><td>0-90 days (configurable)</td><td>7 days (fixed, non-configurable)</td></tr>
+      <tr><td>Starts after</td><td>Data change occurs</td><td>Time Travel period ends</td></tr>
+      <tr><td>Accessible by</td><td>Users (AT/BEFORE/UNDROP)</td><td>Snowflake support ONLY</td></tr>
+      <tr><td>Purpose</td><td>User-driven recovery, auditing</td><td>Disaster recovery (last resort)</td></tr>
+      <tr><td>Storage cost</td><td>Yes (billed)</td><td>Yes (billed)</td></tr>
+      <tr><td>Applies to</td><td>All table types</td><td>Permanent tables/schemas/DBs ONLY</td></tr>
+      <tr><td>Transient tables</td><td>Max 1 day</td><td>NO fail-safe (0 days)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warning">
+    <strong>Key Distinction:</strong> Fail-safe is NOT a backup system you can use directly. It's Snowflake's last-resort disaster recovery. If you need user-accessible recovery, use Time Travel. Fail-safe only exists for permanent objects and requires contacting Snowflake support.
+  </div>
+
+  <h2 id="cloning">3. Zero-Copy Cloning</h2>
+
+  <h3>How Cloning Works</h3>
+  <pre>
+  BEFORE CLONE:                     AFTER CLONE:
+  
+  Original Table                    Original Table     Clone Table
+  [Partition A]                     [Partition A] <--- [Points to same A]
+  [Partition B]                     [Partition B] <--- [Points to same B]
+  [Partition C]                     [Partition C] <--- [Points to same C]
+  
+  Storage used: 3 partitions        Storage used: STILL 3 partitions (shared!)
+                                    Clone cost: $0 additional storage!
+
+  AFTER MODIFYING CLONE:
+  
+  Original Table     Clone Table
+  [Partition A] <--- [Points to same A]  (unchanged - still shared)
+  [Partition B]      [NEW Partition B']  (clone modified B - diverged)
+  [Partition C] <--- [Points to same C]  (unchanged - still shared)
+  
+  Storage used: 4 partitions (3 original + 1 new B')
+  Only DIVERGED partitions cost extra storage!
+  </pre>
+
+  <pre>
+-- Clone a table
+CREATE TABLE orders_dev CLONE orders;
+
+-- Clone with Time Travel (clone as it was yesterday)
+CREATE TABLE orders_snapshot CLONE orders AT(OFFSET => -86400);
+
+-- Clone entire schema
+CREATE SCHEMA dev_schema CLONE prod_schema;
+
+-- Clone entire database
+CREATE DATABASE dev_db CLONE prod_db;
+
+-- Clone at a point in time
+CREATE DATABASE recovery_db CLONE prod_db 
+  BEFORE(TIMESTAMP => '2024-06-15 09:00:00'::TIMESTAMP);
+  </pre>
+
+  <h3>What Gets Cloned</h3>
+  <table>
+    <thead><tr><th>Included in Clone</th><th>NOT Included in Clone</th></tr></thead>
+    <tbody>
+      <tr><td>Table data (zero-copy)</td><td>Privileges/grants (must re-grant)</td></tr>
+      <tr><td>Table structure & metadata</td><td>Load history (COPY dedup metadata)</td></tr>
+      <tr><td>Clustering keys</td><td>Streams on the table</td></tr>
+      <tr><td>Stage definitions (named stages)</td><td>Pipes</td></tr>
+      <tr><td>Constraints (NOT NULL, etc.)</td><td>Tasks</td></tr>
+      <tr><td>Child objects (if cloning schema/db)</td><td>External stage data (just metadata)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="key-point">
+    <strong>Cloning Key Facts:</strong>
+    <ul>
+      <li>Instant operation (metadata-only, no data copy)</li>
+      <li>Zero additional storage UNTIL data diverges</li>
+      <li>Works on: tables, schemas, databases, stages</li>
+      <li>Can clone with Time Travel (point-in-time clone)</li>
+      <li>Grants are NOT cloned - must be re-applied</li>
+      <li>Clone is independent - modifying either doesn't affect the other</li>
+      <li>Common uses: dev/test environments, backup snapshots, experimentation</li>
+    </ul>
+  </div>
+
+  <h2 id="data-sharing">4. Data Sharing</h2>
+
+  <h3>Secure Data Sharing (Zero-Copy)</h3>
+  <pre>
+  PROVIDER ACCOUNT                           CONSUMER ACCOUNT
+  +--------------------+                     +--------------------+
+  | Database: PROD_DB  |                     | Shared Database    |
+  | Table: ORDERS      |---[SHARE]---------->| (Read-only)        |
+  | View: SECURE_VIEW  |   No data copy!     | Can query directly!|
+  +--------------------+                     +--------------------+
+
+  KEY PRINCIPLES:
+  - Data STAYS in provider's account (no copy, no movement)
+  - Consumer gets READ-ONLY access (cannot modify provider's data)
+  - Real-time (consumer always sees latest data)
+  - Provider controls what's shared (tables, secure views, UDFs)
+  - No ETL, no file transfers, no replication
+  - Works within same region/cloud OR cross-region (with replication)
+  </pre>
+
+  <h3>Creating a Share</h3>
+  <pre>
+-- PROVIDER SIDE:
+-- 1. Create a share
+CREATE SHARE orders_share COMMENT = 'Orders data for partners';
+
+-- 2. Grant objects to the share
+GRANT USAGE ON DATABASE prod_db TO SHARE orders_share;
+GRANT USAGE ON SCHEMA prod_db.public TO SHARE orders_share;
+GRANT SELECT ON TABLE prod_db.public.orders TO SHARE orders_share;
+-- Or share a secure view (recommended for filtering):
+GRANT SELECT ON VIEW prod_db.public.secure_orders_view TO SHARE orders_share;
+
+-- 3. Add consumer accounts
+ALTER SHARE orders_share ADD ACCOUNTS = consumer_account_locator;
+
+-- CONSUMER SIDE:
+-- 4. Create database from share
+CREATE DATABASE partner_orders FROM SHARE provider_org.provider_acct.orders_share;
+
+-- 5. Query shared data (read-only)
+SELECT * FROM partner_orders.public.orders;
+  </pre>
+
+  <h3>Sharing Objects & Secure Views</h3>
+  <pre>
+-- Secure View: Hide underlying query logic from consumer
+CREATE OR REPLACE SECURE VIEW orders_for_partner AS
+SELECT order_id, product, amount, order_date
+FROM orders
+WHERE partner_id = 'PARTNER_A'  -- Filter: partner sees only their data
+  AND order_date > DATEADD('year', -2, CURRENT_DATE());
+-- Consumer can't see the WHERE clause (SECURE hides it)
+
+-- Share the secure view
+GRANT SELECT ON VIEW orders_for_partner TO SHARE my_share;
+  </pre>
+
+  <h3>Reader Accounts</h3>
+  <pre>
+-- Reader Account: For consumers WITHOUT their own Snowflake account
+-- Provider creates and manages the reader account
+
+CREATE MANAGED ACCOUNT partner_reader
+  ADMIN_NAME = 'partner_admin'
+  ADMIN_PASSWORD = 'TempPass123!'
+  TYPE = READER;
+
+-- Share data with reader account
+ALTER SHARE my_share ADD ACCOUNTS = partner_reader;
+
+-- Provider pays for reader account compute!
+-- (Reader can only read shared data, not load their own)
+  </pre>
+
+  <h3>Snowflake Marketplace</h3>
+  <table>
+    <thead><tr><th>Feature</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Listings</strong></td><td>Providers publish data products for discovery</td></tr>
+      <tr><td><strong>Standard Listings</strong></td><td>Available to all Snowflake customers</td></tr>
+      <tr><td><strong>Personalized Listings</strong></td><td>Available to specific accounts only</td></tr>
+      <tr><td><strong>Free vs Paid</strong></td><td>Providers can charge for data access</td></tr>
+      <tr><td><strong>Data Exchange</strong></td><td>Private groups for controlled sharing</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="replication">5. Replication & Failover</h2>
+
+  <h3>Database Replication</h3>
+  <pre>
+  PRIMARY ACCOUNT (us-east-1)         SECONDARY ACCOUNT (eu-west-1)
+  +--------------------+               +--------------------+
+  | Database: PROD_DB  |--[REPLICATE]-->| Database: PROD_DB  |
+  | (Read-Write)       |               | (Read-Only replica)|
+  +--------------------+               +--------------------+
+  
+  -- Enable replication on primary
+  ALTER DATABASE prod_db ENABLE REPLICATION TO ACCOUNTS org.account2;
+  
+  -- Create replica on secondary
+  CREATE DATABASE prod_db AS REPLICA OF org.account1.prod_db;
+  
+  -- Refresh replica (manual or scheduled)
+  ALTER DATABASE prod_db REFRESH;
+  </pre>
+
+  <h3>Failover & Failback</h3>
+  <p><span class="badge badge-cert">Business Critical+ Only</span></p>
+  <pre>
+  NORMAL OPERATION:                  AFTER FAILOVER:
+  Primary (us-east-1): READ-WRITE   Primary (us-east-1): READ-ONLY
+  Secondary (eu-west-1): READ-ONLY  Secondary (eu-west-1): READ-WRITE (promoted!)
+  
+  -- Failover: Promote secondary to primary
+  ALTER DATABASE prod_db PRIMARY;  -- Run on secondary account
+  
+  -- Failback: After primary is healthy, reverse the process
+  ALTER DATABASE prod_db PRIMARY;  -- Run on original primary
+  </pre>
+
+  <h3>Replication Groups (Account-Level)</h3>
+  <pre>
+-- Replicate multiple objects together (databases, shares, parameters)
+CREATE REPLICATION GROUP my_rg
+  OBJECT_TYPES = DATABASES, SHARES, ROLES
+  ALLOWED_DATABASES = prod_db, analytics_db
+  ALLOWED_SHARES = orders_share
+  ALLOWED_ACCOUNTS = org.secondary_account
+  REPLICATION_SCHEDULE = '10 MINUTE';
+  </pre>
+
+  <div class="key-point">
+    <strong>Replication & Sharing Key Facts:</strong>
+    <ul>
+      <li>Data Sharing: Same region = instant, zero-copy. Cross-region = requires replication.</li>
+      <li>Replication: Copies data to another region/cloud (has cost + lag).</li>
+      <li>Failover: Business Critical+ only. Promotes replica to primary.</li>
+      <li>Reader Accounts: Provider pays for compute. Consumer can only read shared data.</li>
+      <li>Secure Views: Recommended for sharing (hide logic, filter data per consumer).</li>
+      <li>Marketplace: Discover and consume third-party data without ETL.</li>
+    </ul>
+  </div>
+
+  <h2 id="hands-on">6. Hands-On SQL Scripts</h2>
+
+  <h3>Script 1: Time Travel</h3>
+  <pre>
+USE SCHEMA CERT_STUDY_DB.ARCHITECTURE;
+
+-- Create and modify a table
+CREATE OR REPLACE TABLE time_travel_demo (id INT, value VARCHAR);
+INSERT INTO time_travel_demo VALUES (1, 'original_a'), (2, 'original_b');
+
+-- Modify data
+UPDATE time_travel_demo SET value = 'modified_a' WHERE id = 1;
+DELETE FROM time_travel_demo WHERE id = 2;
+
+-- Current state
+SELECT 'CURRENT' AS version, * FROM time_travel_demo;
+
+-- Time travel: 30 seconds ago (before our changes)
+SELECT 'BEFORE CHANGES' AS version, * FROM time_travel_demo AT(OFFSET => -30);
+
+-- Restore: Create from historical version
+CREATE OR REPLACE TABLE time_travel_restored CLONE time_travel_demo AT(OFFSET => -30);
+SELECT * FROM time_travel_restored;
+  </pre>
+
+  <h3>Script 2: Zero-Copy Cloning</h3>
+  <pre>
+-- Clone table (instant, zero storage cost)
+CREATE TABLE sample_data_clone CLONE sample_data;
+
+-- Verify same data
+SELECT COUNT(*) AS original FROM sample_data;
+SELECT COUNT(*) AS clone FROM sample_data_clone;
+
+-- Modify clone (only diverged partitions cost storage)
+DELETE FROM sample_data_clone WHERE category = 'Electronics';
+SELECT COUNT(*) AS clone_after_delete FROM sample_data_clone;
+
+-- Original is UNCHANGED
+SELECT COUNT(*) AS original_unchanged FROM sample_data;
+
+-- Clone entire database
+CREATE DATABASE cert_study_backup CLONE CERT_STUDY_DB;
+  </pre>
+
+  <h3>Script 3: UNDROP Demo</h3>
+  <pre>
+-- Drop a table
+DROP TABLE time_travel_restored;
+
+-- Verify it's gone
+SHOW TABLES LIKE 'TIME_TRAVEL_RESTORED';
+
+-- UNDROP!
+UNDROP TABLE time_travel_restored;
+
+-- It's back!
+SELECT * FROM time_travel_restored;
+  </pre>
+
+  <h3>Script 4: Data Sharing Setup (Provider Side)</h3>
+  <pre>
+-- Create a share (you're the provider)
+CREATE OR REPLACE SHARE cert_study_share 
+  COMMENT = 'Certification study - demo share';
+
+-- Grant objects to share
+GRANT USAGE ON DATABASE CERT_STUDY_DB TO SHARE cert_study_share;
+GRANT USAGE ON SCHEMA CERT_STUDY_DB.ARCHITECTURE TO SHARE cert_study_share;
+GRANT SELECT ON TABLE CERT_STUDY_DB.ARCHITECTURE.SAMPLE_DATA TO SHARE cert_study_share;
+
+-- View share details
+SHOW SHARES;
+DESCRIBE SHARE cert_study_share;
+  </pre>
+
+  <h2 id="interview-qa">7. Interview & Certification Q&A</h2>
+
+  <div class="qa-block">
+    <strong>Q1: Explain Time Travel in Snowflake. How does it work under the hood?</strong>
+    <p><strong>A:</strong> Time Travel works because of micro-partition immutability:
+    <ul>
+      <li>When data is modified, old partitions are NOT deleted - they're retained for the retention period</li>
+      <li>Snowflake tracks which partitions were active at each point in time</li>
+      <li>AT/BEFORE queries reconstruct the table state using historical partition versions</li>
+      <li>After retention expires: partitions move to Fail-safe (7 days, Snowflake-only access)</li>
+      <li>After Fail-safe: partitions are purged (storage freed)</li>
+    </ul>
+    All retention-period data is billed as storage (active + time travel + fail-safe).</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q2: What's the difference between Time Travel and Fail-Safe?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>Time Travel:</strong> User-accessible (AT, BEFORE, UNDROP). Configurable (0-90 days). For intentional recovery and auditing.</li>
+      <li><strong>Fail-Safe:</strong> Snowflake-support-only. Fixed 7 days. For catastrophic disaster recovery. Starts AFTER Time Travel ends.</li>
+      <li><strong>Total protection for permanent table (Enterprise):</strong> Up to 90 days TT + 7 days FS = 97 days</li>
+      <li><strong>Transient tables:</strong> Max 1 day TT + NO fail-safe = less protection, less cost</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q3: How does zero-copy cloning work? Is it truly free?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>Mechanism:</strong> Clone creates metadata pointers to existing micro-partitions (no physical copy)</li>
+      <li><strong>Initial cost:</strong> Zero additional storage (shares all partitions with source)</li>
+      <li><strong>After modifications:</strong> Only CHANGED partitions create new storage. Unchanged partitions remain shared.</li>
+      <li><strong>Independence:</strong> Clone and source are fully independent after creation. Changes to one don't affect the other.</li>
+      <li><strong>Not free long-term:</strong> As clone diverges, storage grows. But initial creation is instant and free.</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q4: How does Snowflake Data Sharing work? Is data copied?</strong>
+    <p><strong>A:</strong> <strong>No data is copied!</strong>
+    <ul>
+      <li>Provider creates a SHARE object and grants access to specific tables/views</li>
+      <li>Consumer creates a database FROM the share (read-only)</li>
+      <li>Consumer queries execute against the provider's data directly</li>
+      <li>Consumer uses their OWN warehouse (their compute costs, not provider's)</li>
+      <li>Always up-to-date (no ETL, no sync, no lag)</li>
+      <li>Works within same region. Cross-region requires replication first.</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q5: What is a Reader Account?</strong>
+    <p><strong>A:</strong> A managed Snowflake account for consumers who don't have their own Snowflake subscription:
+    <ul>
+      <li>Created BY the provider using <code>CREATE MANAGED ACCOUNT</code></li>
+      <li>Provider PAYS for the reader's compute costs</li>
+      <li>Reader can ONLY access data shared with them (cannot load their own data)</li>
+      <li>Limited functionality compared to full Snowflake account</li>
+      <li>Use case: Share data with partners/customers who aren't Snowflake customers</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q6: Why use Secure Views for sharing instead of base tables?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>Row filtering:</strong> Show each consumer only their relevant data (WHERE partner_id = ...)</li>
+      <li><strong>Column restriction:</strong> Exclude sensitive columns from the view</li>
+      <li><strong>Logic hiding:</strong> SECURE keyword prevents consumers from seeing the view definition (no SHOW CREATE VIEW)</li>
+      <li><strong>Aggregation:</strong> Share summarized data instead of raw records</li>
+      <li><strong>Consistent interface:</strong> Can change underlying tables without breaking consumer access</li>
+    </ul>
+    Best practice: Always share Secure Views, never raw tables directly.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q7: When would you use replication vs data sharing?</strong>
+    <p><strong>A:</strong>
+    <table>
+      <tr><th></th><th>Data Sharing</th><th>Replication</th></tr>
+      <tr><td>Data movement</td><td>None (same region)</td><td>Yes (copies to target region)</td></tr>
+      <tr><td>Cross-region</td><td>Requires replication first</td><td>Primary use case</td></tr>
+      <tr><td>Consumer access</td><td>Read-only queries</td><td>Read-only (or read-write with failover)</td></tr>
+      <tr><td>Latency</td><td>Zero (live data)</td><td>Minutes (refresh interval)</td></tr>
+      <tr><td>Cost</td><td>Consumer compute only</td><td>Data transfer + storage in target</td></tr>
+      <tr><td>Use case</td><td>B2B data sharing, marketplace</td><td>DR, multi-region deployments</td></tr>
+    </table></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q8: An employee accidentally runs DELETE FROM production_table (no WHERE). How do you recover?</strong>
+    <p><strong>A:</strong> Multiple recovery options:
+    <ol>
+      <li><strong>UNDROP (if table was dropped):</strong> <code>UNDROP TABLE production_table;</code></li>
+      <li><strong>Clone from Time Travel:</strong> <code>CREATE TABLE production_table_recovery CLONE production_table BEFORE(STATEMENT => 'query_id_of_delete');</code></li>
+      <li><strong>Re-insert from Time Travel:</strong> <code>INSERT INTO production_table SELECT * FROM production_table BEFORE(STATEMENT => 'delete_query_id');</code></li>
+      <li><strong>SWAP:</strong> Clone to recovery → swap with damaged table:
+        <pre>CREATE TABLE recovery CLONE production_table AT(OFFSET => -300);
+ALTER TABLE recovery SWAP WITH production_table;</pre>
+      </li>
+    </ol>
+    Prevention: Use row-level RBAC, separate roles for DDL vs DML, resource monitors.</p>
+  </div>
+
+  <hr/>
+
+  <h2>Quick Revision Checklist</h2>
+  <table>
+    <thead><tr><th>#</th><th>Concept</th><th>Remember</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Time Travel max (Standard)</td><td>1 day only</td></tr>
+      <tr><td>2</td><td>Time Travel max (Enterprise)</td><td>90 days (permanent tables)</td></tr>
+      <tr><td>3</td><td>Transient table Time Travel</td><td>Max 1 day (any edition)</td></tr>
+      <tr><td>4</td><td>Fail-safe duration</td><td>7 days (fixed, Snowflake-only access)</td></tr>
+      <tr><td>5</td><td>Fail-safe on transient</td><td>NONE (0 days)</td></tr>
+      <tr><td>6</td><td>UNDROP works for</td><td>Tables, schemas, databases (within TT period)</td></tr>
+      <tr><td>7</td><td>Clone storage cost</td><td>Zero initially; only diverged partitions cost extra</td></tr>
+      <tr><td>8</td><td>Clone copies grants?</td><td>NO - must re-grant privileges</td></tr>
+      <tr><td>9</td><td>Data Sharing copies data?</td><td>NO - zero-copy, live access to provider's data</td></tr>
+      <tr><td>10</td><td>Consumer compute costs</td><td>Consumer pays for their warehouse usage</td></tr>
+      <tr><td>11</td><td>Reader account costs</td><td>Provider pays for reader's compute</td></tr>
+      <tr><td>12</td><td>Secure View benefit</td><td>Hides definition + filters data per consumer</td></tr>
+      <tr><td>13</td><td>Cross-region sharing</td><td>Requires replication first</td></tr>
+      <tr><td>14</td><td>Failover edition</td><td>Business Critical+ only</td></tr>
+      <tr><td>15</td><td>DATA_RETENTION_TIME_IN_DAYS=0</td><td>Disables Time Travel entirely (no UNDROP!)</td></tr>
+    </tbody>
+  </table>
+
+  <hr/>
+  <p style="text-align:center; font-size: 0.85em; color: light-dark(#6b7280, #9ca3af);">
+    Snowflake SnowPro Core Certification Study Guide | Domain 6: Data Protection & Sharing<br/>
+    Generated: July 29, 2026 | Account: ZITTTER-AT35969
+  </p>
+
+</body>
+</html>

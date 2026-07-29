@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Certification - 8. Ecosystem & Advanced Features</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-07-29",
+    "intent": "Snowflake Interview - Domain 8: Iceberg, Native Apps, SPCS, Advanced Data Engineering",
+    "sections": [
+      { "id": "iceberg", "title": "Iceberg Tables" },
+      { "id": "native-apps", "title": "Native Apps Framework" },
+      { "id": "spcs", "title": "Snowpark Container Services (SPCS)" },
+      { "id": "data-engineering", "title": "Advanced Data Engineering" },
+      { "id": "collaboration", "title": "Data Collaboration" },
+      { "id": "interview-qa", "title": "Interview Q&A" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, system-ui, 'Segoe UI', sans-serif; max-width: 960px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #111827); line-height: 1.7; }
+    h1 { color: light-dark(#1e40af, #93c5fd); border-bottom: 3px solid light-dark(#3b82f6, #1d4ed8); padding-bottom: 12px; }
+    h2 { color: light-dark(#1e3a5f, #7dd3fc); margin-top: 40px; border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding-left: 12px; }
+    h3 { color: light-dark(#374151, #d1d5db); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9em; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#eff6ff, #1e3a5f); font-weight: 600; }
+    tr:nth-child(even) { background: light-dark(#f8fafc, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+    pre { background: light-dark(#0f172a, #0f172a); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; line-height: 1.5; }
+    .highlight { background: light-dark(#fef3c7, #422006); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#f59e0b, #fbbf24); margin: 16px 0; }
+    .key-point { background: light-dark(#ecfdf5, #022c22); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#10b981, #34d399); margin: 16px 0; }
+    .warning { background: light-dark(#fef2f2, #450a0a); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#ef4444, #f87171); margin: 16px 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+    .badge-cert { background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); }
+    .badge-interview { background: light-dark(#fce7f3, #500724); color: light-dark(#be185d, #f9a8d4); }
+    .badge-new { background: light-dark(#d1fae5, #022c22); color: light-dark(#065f46, #6ee7b7); }
+    .qa-block { margin: 20px 0; padding: 16px; background: light-dark(#f8fafc, #1a2332); border-radius: 8px; }
+    .qa-block strong { color: light-dark(#1e40af, #93c5fd); }
+  </style>
+</head>
+<body>
+
+  <h1>Domain 8: Ecosystem & Advanced Features</h1>
+  <p><span class="badge badge-interview">Interview Essential</span> <span class="badge badge-new">Latest 2025-2026 Features</span></p>
+  <p><strong>Date:</strong> July 29, 2026</p>
+
+  <hr/>
+
+  <h2 id="iceberg">1. Apache Iceberg Tables</h2>
+
+  <h3>What Are Iceberg Tables in Snowflake?</h3>
+  <p>Apache Iceberg is an open table format. Snowflake supports Iceberg tables, allowing interoperability with other engines (Spark, Trino, Flink) while still using Snowflake's query engine.</p>
+
+  <pre>
+  TWO MODES OF ICEBERG IN SNOWFLAKE:
+
+  MODE 1: SNOWFLAKE-MANAGED (Recommended)
+  +--------------------+
+  | Snowflake manages: |
+  | - Data files       |  (Parquet in customer's cloud storage)
+  | - Metadata         |  (Iceberg metadata in Snowflake + external)
+  | - Full DML support |  (INSERT, UPDATE, DELETE, MERGE)
+  | - Full Snowflake   |
+  |   features         |  (Clustering, Time Travel, etc.)
+  +--------------------+
+  Storage: YOUR external volume (S3/Azure/GCS)
+  Query: From Snowflake AND external engines!
+
+  MODE 2: CATALOG-LINKED (External Catalog)
+  +--------------------+
+  | External manages:  |
+  | - AWS Glue Catalog |  or Polaris/Unity Catalog
+  | - Read-mostly from |
+  |   Snowflake        |
+  +--------------------+
+  Use when: Another system (Spark) is primary writer
+  </pre>
+
+  <pre>
+-- Create External Volume (where Iceberg data physically lives)
+CREATE EXTERNAL VOLUME my_iceberg_volume
+  STORAGE_LOCATIONS = (
+    (
+      NAME = 'my-s3-location'
+      STORAGE_BASE_URL = 's3://my-bucket/iceberg-data/'
+      STORAGE_PROVIDER = 'S3'
+      STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::123456:role/snowflake-iceberg'
+    )
+  );
+
+-- Create Snowflake-managed Iceberg table
+CREATE ICEBERG TABLE sales_iceberg (
+  order_id INT,
+  customer_id INT,
+  amount DECIMAL(10,2),
+  order_date DATE
+)
+  CATALOG = 'SNOWFLAKE'
+  EXTERNAL_VOLUME = 'my_iceberg_volume'
+  BASE_LOCATION = 'sales/';
+
+-- Full DML works!
+INSERT INTO sales_iceberg VALUES (1, 100, 99.99, '2024-06-15');
+UPDATE sales_iceberg SET amount = 109.99 WHERE order_id = 1;
+
+-- Catalog-linked (read from external catalog)
+CREATE ICEBERG TABLE external_sales
+  CATALOG = 'GLUE'
+  CATALOG_TABLE_NAME = 'sales'
+  EXTERNAL_VOLUME = 'my_volume';
+  </pre>
+
+  <div class="key-point">
+    <strong>Iceberg Key Facts for Interview:</strong>
+    <ul>
+      <li><strong>Open format:</strong> Data stored as Parquet files with Iceberg metadata - readable by any Iceberg-compatible engine</li>
+      <li><strong>Snowflake-managed:</strong> Full DML, Time Travel, clustering - Snowflake writes Iceberg format directly</li>
+      <li><strong>External catalog:</strong> Read data managed by Spark/Glue/Polaris - limited DML</li>
+      <li><strong>External Volume:</strong> Required - data physically in YOUR cloud storage (not Snowflake-internal)</li>
+      <li><strong>Use case:</strong> Multi-engine architectures, data lakehouse patterns, avoiding vendor lock-in</li>
+      <li><strong>Interop:</strong> Same data queryable from Snowflake + Spark + Trino + Flink simultaneously</li>
+    </ul>
+  </div>
+
+  <h2 id="native-apps">2. Native Apps Framework</h2>
+
+  <h3>What Are Snowflake Native Apps?</h3>
+  <p>Packaged applications that run INSIDE a consumer's Snowflake account - code + data bundled together.</p>
+
+  <pre>
+  TRADITIONAL DATA SHARING:           NATIVE APPS:
+  Share tables (data only)            Share data + code + UI
+  Consumer writes their own SQL       App provides full functionality
+  No business logic included          Business logic bundled in
+  Read-only access                    Interactive experience
+  
+  NATIVE APP COMPONENTS:
+  +------------------------------------------+
+  | APPLICATION PACKAGE (Provider builds)    |
+  |------------------------------------------|
+  | - Setup Script (SQL to initialize)       |
+  | - Stored Procedures / UDFs              |
+  | - Streamlit UI (interactive dashboard)  |
+  | - Shared data (provider's datasets)     |
+  | - Permissions model (what app accesses) |
+  | - Manifest (metadata, versioning)       |
+  +------------------------------------------+
+           |
+           | Published to Marketplace
+           v
+  +------------------------------------------+
+  | INSTALLED APP (In consumer's account)   |
+  |------------------------------------------|
+  | - Runs with consumer's data             |
+  | - Consumer grants app access to tables  |
+  | - App processes data, shows results     |
+  | - Data never leaves consumer's account  |
+  +------------------------------------------+
+  </pre>
+
+  <h3>Native App Use Cases</h3>
+  <table>
+    <thead><tr><th>Use Case</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td>Data enrichment</td><td>Provider app that matches/enriches consumer's data with external datasets</td></tr>
+      <tr><td>Analytics tools</td><td>Pre-built dashboards that work on consumer's data</td></tr>
+      <tr><td>ML models</td><td>Trained models deployed as apps (score consumer's data)</td></tr>
+      <tr><td>Data clean rooms</td><td>Secure computation on combined data without sharing raw data</td></tr>
+      <tr><td>Compliance tools</td><td>Automated compliance checks running on consumer's tables</td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+-- Provider: Create application package
+CREATE APPLICATION PACKAGE my_analytics_app;
+
+-- Provider: Add shared data
+CREATE SCHEMA my_analytics_app.shared_data;
+-- (add reference tables, ML models, etc.)
+
+-- Provider: Create setup script, Streamlit UI, procedures
+-- (versioned, tested, published)
+
+-- Consumer: Install from marketplace
+CREATE APPLICATION my_installed_app 
+  FROM LISTING 'MARKETPLACE_LISTING_ID';
+
+-- Consumer: Grant app access to their data
+GRANT USAGE ON DATABASE consumer_db TO APPLICATION my_installed_app;
+GRANT SELECT ON TABLE consumer_db.schema.orders TO APPLICATION my_installed_app;
+
+-- Consumer: Use the app
+CALL my_installed_app.analyze_orders();
+  </pre>
+
+  <h2 id="spcs">3. Snowpark Container Services (SPCS)</h2>
+
+  <h3>What Is SPCS?</h3>
+  <p>Run containerized applications (Docker) directly within Snowflake's infrastructure. Full OCI container support with GPU access.</p>
+
+  <pre>
+  TRADITIONAL:                        SPCS:
+  Run containers on:                  Run containers IN Snowflake:
+  - AWS ECS/EKS                       - Compute pools (Snowflake-managed)
+  - Azure AKS                         - Data stays in Snowflake
+  - GCP GKE                           - Full governance applies
+  - Self-managed K8s                  - GPU support for ML
+  
+  Must move data OUT to              Data accessed directly via
+  container infrastructure           Snowflake internal network
+
+  SPCS ARCHITECTURE:
+  +------------------------------------------+
+  | COMPUTE POOL (GPU or CPU nodes)          |
+  |------------------------------------------|
+  | +------------------+  +---------------+  |
+  | | Service A        |  | Service B     |  |
+  | | (REST API)       |  | (ML Model)    |  |
+  | | Container Image  |  | Container Img |  |
+  | +------------------+  +---------------+  |
+  +------------------------------------------+
+           |                     |
+           v                     v
+  +------------------------------------------+
+  | Snowflake Data (tables, stages, etc.)   |
+  | Accessed via Snowpark/SQL internally    |
+  +------------------------------------------+
+  </pre>
+
+  <pre>
+-- Create compute pool
+CREATE COMPUTE POOL my_gpu_pool
+  MIN_NODES = 1
+  MAX_NODES = 3
+  INSTANCE_FAMILY = GPU_NV_S;  -- NVIDIA GPU instances
+
+-- Create image repository (store Docker images)
+CREATE IMAGE REPOSITORY my_repo;
+
+-- Push Docker image (from local)
+-- docker tag my-app:latest <account>.registry.snowflakecomputing.com/db/schema/my_repo/my-app:latest
+-- docker push <account>.registry.snowflakecomputing.com/db/schema/my_repo/my-app:latest
+
+-- Create service
+CREATE SERVICE my_ml_service
+  IN COMPUTE POOL my_gpu_pool
+  FROM SPECIFICATION $$
+  spec:
+    containers:
+    - name: model-server
+      image: /db/schema/my_repo/my-app:latest
+      env:
+        MODEL_PATH: /models/latest
+      resources:
+        requests:
+          nvidia.com/gpu: 1
+    endpoints:
+    - name: predict
+      port: 8080
+      public: true
+  $$;
+
+-- Call the service
+SELECT my_ml_service!PREDICT(input_data) FROM my_table;
+  </pre>
+
+  <div class="key-point">
+    <strong>SPCS Use Cases:</strong>
+    <ul>
+      <li>Custom ML model serving (PyTorch, TensorFlow with GPU)</li>
+      <li>LLM fine-tuning and hosting (private models)</li>
+      <li>REST API endpoints backed by Snowflake data</li>
+      <li>Custom data processing (non-SQL logic in any language)</li>
+      <li>Full-stack web applications (Next.js, React on Snowflake)</li>
+      <li>MCP servers (Model Context Protocol) for AI agents</li>
+    </ul>
+  </div>
+
+  <h2 id="data-engineering">4. Advanced Data Engineering Features</h2>
+
+  <h3>Feature Comparison: Modern Data Engineering in Snowflake</h3>
+  <table>
+    <thead><tr><th>Feature</th><th>Purpose</th><th>When to Use</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Dynamic Tables</strong></td><td>Declarative pipelines (auto-refresh)</td><td>SELECT-based transforms, replace Streams+Tasks for 90% of ETL</td></tr>
+      <tr><td><strong>Streams + Tasks</strong></td><td>CDC + scheduled execution</td><td>Complex logic: MERGE, SCD2, conditional processing</td></tr>
+      <tr><td><strong>Snowpipe Streaming</strong></td><td>Sub-second row ingestion</td><td>Real-time: IoT, clickstream, CDC from Kafka</td></tr>
+      <tr><td><strong>Iceberg Tables</strong></td><td>Open format interoperability</td><td>Multi-engine access, data lakehouse architecture</td></tr>
+      <tr><td><strong>Alerts</strong></td><td>Condition-based notifications</td><td>Pipeline monitoring, SLA breaches, data quality issues</td></tr>
+      <tr><td><strong>Notebooks</strong></td><td>Interactive SQL + Python development</td><td>Exploration, prototyping, ad-hoc analysis</td></tr>
+      <tr><td><strong>Git Integration</strong></td><td>Version control for Snowflake code</td><td>CI/CD, code review, change management</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Alerts</h3>
+  <pre>
+-- Alert when a condition is met
+CREATE ALERT daily_revenue_alert
+  WAREHOUSE = COMPUTE_WH
+  SCHEDULE = 'USING CRON 0 9 * * * UTC'  -- Check every day at 9 AM
+  IF (EXISTS (
+    SELECT 1 FROM daily_revenue 
+    WHERE revenue_date = CURRENT_DATE() - 1 
+      AND total_revenue < 10000  -- Revenue below threshold
+  ))
+  THEN
+    CALL SYSTEM$SEND_EMAIL('my_integration', 'team@company.com',
+      'Revenue Alert', 'Yesterday revenue was below $10K threshold');
+
+ALTER ALERT daily_revenue_alert RESUME;
+  </pre>
+
+  <h3>Git Integration</h3>
+  <pre>
+-- Connect a Git repository to Snowflake
+CREATE GIT REPOSITORY my_repo
+  API_INTEGRATION = github_integration
+  GIT_ORIGIN = 'https://github.com/myorg/snowflake-code.git'
+  GIT_CREDENTIALS = my_git_secret;
+
+-- List files
+LIST @my_repo/branches/main/;
+
+-- Execute SQL from repo
+EXECUTE IMMEDIATE FROM @my_repo/branches/main/scripts/deploy.sql;
+
+-- Use in CI/CD: snow git commands in Snowflake CLI
+  </pre>
+
+  <h2 id="collaboration">5. Data Collaboration</h2>
+
+  <h3>Data Clean Rooms</h3>
+  <pre>
+  COMPANY A (Provider)              COMPANY B (Consumer)
+  Has: Customer purchase data       Has: Ad impression data
+  
+  GOAL: Match customers who saw ads AND purchased (attribution)
+  CONSTRAINT: Neither party reveals raw data to the other
+  
+  SOLUTION: Snowflake Data Clean Room
+  +------------------------------------------+
+  | CLEAN ROOM (Shared secure environment)   |
+  |                                          |
+  | - Approved query templates only          |
+  | - Aggregated results only (no raw rows)  |
+  | - Differential privacy options           |
+  | - Overlap analysis without data exposure |
+  +------------------------------------------+
+  
+  Result: "15% of users who saw Ad Campaign X purchased Product Y"
+  (Neither party sees the other's raw customer-level data)
+  </pre>
+
+  <h3>Snowflake Marketplace Types</h3>
+  <table>
+    <thead><tr><th>Type</th><th>Description</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Standard Listing</strong></td><td>Available to all Snowflake customers (public)</td><td>Weather data, demographics, stock prices</td></tr>
+      <tr><td><strong>Personalized Listing</strong></td><td>Available to specific accounts only (private)</td><td>B2B partner data, custom datasets</td></tr>
+      <tr><td><strong>Free Data</strong></td><td>No charge (provider wants distribution)</td><td>COVID data, census data</td></tr>
+      <tr><td><strong>Paid Data</strong></td><td>Commercial data products</td><td>Financial data, consumer behavior</td></tr>
+      <tr><td><strong>Native Apps</strong></td><td>Code + data applications</td><td>Analytics tools, ML models</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="interview-qa">6. Interview & Certification Q&A</h2>
+
+  <div class="qa-block">
+    <strong>Q1: What are Iceberg Tables and why would a company use them?</strong>
+    <p><strong>A:</strong> Iceberg Tables store data in Apache Iceberg open format (Parquet data files + Iceberg metadata):
+    <ul>
+      <li><strong>Interoperability:</strong> Same data queryable from Snowflake, Spark, Trino, Flink, Presto without copying</li>
+      <li><strong>No vendor lock-in:</strong> Data in open format on YOUR storage (S3/Azure/GCS)</li>
+      <li><strong>Data lakehouse:</strong> Combine data lake openness with Snowflake's performance and governance</li>
+      <li><strong>Snowflake-managed mode:</strong> Full DML + Time Travel + clustering (Snowflake writes Iceberg format natively)</li>
+      <li><strong>Migration path:</strong> Gradually move Spark workloads to Snowflake without big-bang migration</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q2: What are Native Apps and how do they differ from Data Sharing?</strong>
+    <p><strong>A:</strong>
+    <table>
+      <tr><th></th><th>Data Sharing</th><th>Native Apps</th></tr>
+      <tr><td>What's shared</td><td>Data (tables/views)</td><td>Data + code + UI</td></tr>
+      <tr><td>Consumer experience</td><td>Write SQL against shared data</td><td>Interactive app with built-in logic</td></tr>
+      <tr><td>Business logic</td><td>None (consumer builds)</td><td>Included (procedures, UDFs, Streamlit)</td></tr>
+      <tr><td>Versioning</td><td>N/A</td><td>Versioned releases, upgrades</td></tr>
+      <tr><td>Consumer data access</td><td>Consumer reads provider data</td><td>App processes consumer's own data</td></tr>
+      <tr><td>Monetization</td><td>Limited</td><td>Full (Marketplace pricing)</td></tr>
+    </table>
+    Native Apps are for building data products; sharing is for giving data access.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q3: What is SPCS and when would you use it vs standard Snowflake?</strong>
+    <p><strong>A:</strong> Use SPCS when standard SQL/UDFs aren't sufficient:
+    <ul>
+      <li><strong>Custom ML models:</strong> PyTorch/TensorFlow models requiring GPU inference</li>
+      <li><strong>Arbitrary languages:</strong> Go, Rust, C++ processing not supported as UDFs</li>
+      <li><strong>Stateful services:</strong> REST APIs, long-running processes, web apps</li>
+      <li><strong>Large models:</strong> LLM hosting, computer vision models needing GPU memory</li>
+      <li><strong>Third-party tools:</strong> Run OSS tools (dbt, Airflow workers) inside Snowflake</li>
+    </ul>
+    Use standard Snowflake (SQL/Snowpark/UDFs) when: transformations are expressible in SQL/Python, no GPU needed, stateless processing suffices.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q4: How does Snowflake fit into a modern data lakehouse architecture?</strong>
+    <p><strong>A:</strong> Snowflake bridges data warehouse + data lake:
+    <ul>
+      <li><strong>Warehouse capabilities:</strong> ACID transactions, SQL, security, governance, performance</li>
+      <li><strong>Lake capabilities:</strong> Iceberg tables (open format), external tables (query S3 files), semi-structured support (VARIANT)</li>
+      <li><strong>Open ecosystem:</strong> Iceberg interop with Spark/Trino, Snowpark Connect for PySpark compatibility</li>
+      <li><strong>Lakehouse pattern:</strong> Store in Iceberg (open), query from Snowflake (performant), also accessible from Spark (flexibility)</li>
+    </ul>
+    Snowflake is no longer "just a warehouse" - it's a data platform that supports open formats while adding enterprise capabilities.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q5: What is a Data Clean Room and how is it implemented in Snowflake?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>Concept:</strong> Secure environment where two parties can analyze combined data WITHOUT exposing raw records to each other</li>
+      <li><strong>Implementation:</strong> Built on Secure Data Sharing + approved query templates + aggregation requirements</li>
+      <li><strong>Controls:</strong> Only pre-approved queries run, minimum group sizes enforced, no raw-row export</li>
+      <li><strong>Use cases:</strong> Ad measurement (match ad exposure to purchases), healthcare research (combine datasets without exposing PHI), financial compliance</li>
+      <li><strong>How it works:</strong> Both parties share data into the clean room. Analysis runs on combined data. Only aggregated results are returned.</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q6: Compare Dynamic Tables vs dbt vs Materialized Views for data pipelines.</strong>
+    <p><strong>A:</strong>
+    <table>
+      <tr><th></th><th>Dynamic Tables</th><th>dbt</th><th>Materialized Views</th></tr>
+      <tr><td>Definition</td><td>SQL query + TARGET_LAG</td><td>SQL models + YAML config</td><td>SQL query</td></tr>
+      <tr><td>Refresh</td><td>Auto (Snowflake manages)</td><td>Manual (dbt run) or scheduled</td><td>Auto (synchronous)</td></tr>
+      <tr><td>Incremental</td><td>Yes (auto-detected)</td><td>Yes (user configures)</td><td>Yes</td></tr>
+      <tr><td>Testing</td><td>Not built-in</td><td>Built-in (tests, docs)</td><td>Not built-in</td></tr>
+      <tr><td>Lineage</td><td>Automatic (Snowflake)</td><td>Built-in (dbt docs)</td><td>Simple</td></tr>
+      <tr><td>Version control</td><td>No (SQL objects)</td><td>Yes (Git-native)</td><td>No</td></tr>
+      <tr><td>Complexity support</td><td>SELECT-only</td><td>Any SQL (incremental, snapshots)</td><td>Limited (no JOINs in some cases)</td></tr>
+      <tr><td>Edition</td><td>All</td><td>All (external tool)</td><td>Enterprise+</td></tr>
+    </table>
+    Recommendation: DT for simple auto-refresh, dbt for software engineering practices, MV for real-time single-table aggregations.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q7: You're designing a platform for 5 teams with different data needs. What Snowflake features do you use?</strong>
+    <p><strong>A:</strong> Modern multi-team architecture:
+    <ol>
+      <li><strong>Databases per domain:</strong> RAW_DB, STAGING_DB, ANALYTICS_DB, ML_DB (separation of concerns)</li>
+      <li><strong>RBAC:</strong> Functional roles per team (DATA_ENGINEER, ANALYST, DATA_SCIENTIST) + access roles per schema</li>
+      <li><strong>Warehouses per workload:</strong> ETL_WH (Medium), BI_WH (Small, multi-cluster), ML_WH (Snowpark-optimized)</li>
+      <li><strong>Dynamic Tables:</strong> For declarative ETL pipelines (staging → curated → marts)</li>
+      <li><strong>Data Sharing:</strong> Internal shares between teams for governed cross-domain access</li>
+      <li><strong>Tags + Masking:</strong> Classify sensitive data, auto-mask for unauthorized roles</li>
+      <li><strong>Resource Monitors:</strong> Per-team credit quotas to prevent overspend</li>
+      <li><strong>Cortex AI:</strong> Semantic views for analyst self-service; ML functions for data science team</li>
+      <li><strong>Git Integration:</strong> Version-controlled SQL + dbt for deployment pipeline</li>
+    </ol></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q8: What's new in Snowflake that didn't exist 2 years ago? (2024-2026 features)</strong>
+    <p><strong>A:</strong> Major additions:
+    <ul>
+      <li><strong>Cortex AI:</strong> AI_COMPLETE, AI_CLASSIFY, AI_EXTRACT, Cortex Search, Cortex Agents, Cortex Analyst</li>
+      <li><strong>Dynamic Tables:</strong> Declarative pipeline replacement for Streams+Tasks</li>
+      <li><strong>Iceberg Tables:</strong> Snowflake-managed open format (full DML + governance)</li>
+      <li><strong>Snowpark Container Services:</strong> Docker containers with GPU support inside Snowflake</li>
+      <li><strong>Native Apps Framework:</strong> Package and distribute apps via Marketplace</li>
+      <li><strong>Snowpipe Streaming:</strong> Sub-second row-level ingestion (no file staging)</li>
+      <li><strong>Notebooks:</strong> SQL + Python interactive notebooks in Snowsight</li>
+      <li><strong>Network Rules:</strong> Modern network policy with VPC endpoint support + egress control</li>
+      <li><strong>Authentication Policies:</strong> Declarative auth method enforcement</li>
+      <li><strong>Trust Center:</strong> Security posture scanning and recommendations</li>
+      <li><strong>Snowflake CLI (snow):</strong> Modern DevOps CLI replacing SnowSQL for deployment</li>
+    </ul></p>
+  </div>
+
+  <hr/>
+
+  <h2>Quick Revision Checklist</h2>
+  <table>
+    <thead><tr><th>#</th><th>Concept</th><th>Remember</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Iceberg = open format</td><td>Parquet files + Iceberg metadata, interoperable with Spark/Trino</td></tr>
+      <tr><td>2</td><td>Iceberg requires</td><td>External Volume (data on YOUR cloud storage)</td></tr>
+      <tr><td>3</td><td>Snowflake-managed Iceberg</td><td>Full DML + Time Travel + clustering</td></tr>
+      <tr><td>4</td><td>Native Apps contain</td><td>Data + code + UI (full packaged applications)</td></tr>
+      <tr><td>5</td><td>Native Apps run where</td><td>Inside CONSUMER's account (not provider's)</td></tr>
+      <tr><td>6</td><td>SPCS purpose</td><td>Run Docker containers inside Snowflake (GPU support)</td></tr>
+      <tr><td>7</td><td>SPCS components</td><td>Compute Pool + Image Repository + Service</td></tr>
+      <tr><td>8</td><td>Data Clean Room</td><td>Secure combined analysis without raw data exposure</td></tr>
+      <tr><td>9</td><td>Marketplace types</td><td>Standard, Personalized, Free, Paid, Native Apps</td></tr>
+      <tr><td>10</td><td>Git Integration</td><td>CREATE GIT REPOSITORY, EXECUTE IMMEDIATE FROM @repo</td></tr>
+      <tr><td>11</td><td>Alerts</td><td>Condition-based notifications (SQL + schedule)</td></tr>
+      <tr><td>12</td><td>Snowflake Notebooks</td><td>SQL + Python cells, run in Snowsight</td></tr>
+      <tr><td>13</td><td>Data lakehouse pattern</td><td>Iceberg (open) + Snowflake (performance + governance)</td></tr>
+      <tr><td>14</td><td>Snowpark Connect</td><td>Run PySpark code on Snowflake (no code rewrite)</td></tr>
+      <tr><td>15</td><td>2025-2026 top features</td><td>Cortex AI, Dynamic Tables, Iceberg, SPCS, Native Apps</td></tr>
+    </tbody>
+  </table>
+
+  <hr/>
+  <p style="text-align:center; font-size: 0.85em; color: light-dark(#6b7280, #9ca3af);">
+    Snowflake Interview Prep | Domain 8: Ecosystem & Advanced Features<br/>
+    Generated: July 29, 2026 | Account: ZITTTER-AT35969
+  </p>
+
+</body>
+</html>

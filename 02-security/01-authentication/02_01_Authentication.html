@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Certification - 2.1 Authentication</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-07-29",
+    "intent": "Snowflake SnowPro Core Certification - Domain 2.1 Authentication",
+    "sections": [
+      { "id": "auth-overview", "title": "Authentication Overview" },
+      { "id": "auth-methods", "title": "Authentication Methods" },
+      { "id": "mfa", "title": "Multi-Factor Authentication" },
+      { "id": "sso", "title": "Federated Authentication (SSO)" },
+      { "id": "oauth", "title": "OAuth" },
+      { "id": "auth-policies", "title": "Authentication Policies (NEW)" },
+      { "id": "hands-on", "title": "Hands-On Scripts" },
+      { "id": "interview-qa", "title": "Interview Q&A" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, system-ui, 'Segoe UI', sans-serif; max-width: 960px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #111827); line-height: 1.7; }
+    h1 { color: light-dark(#1e40af, #93c5fd); border-bottom: 3px solid light-dark(#3b82f6, #1d4ed8); padding-bottom: 12px; }
+    h2 { color: light-dark(#1e3a5f, #7dd3fc); margin-top: 40px; border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding-left: 12px; }
+    h3 { color: light-dark(#374151, #d1d5db); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9em; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#eff6ff, #1e3a5f); font-weight: 600; }
+    tr:nth-child(even) { background: light-dark(#f8fafc, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+    pre { background: light-dark(#0f172a, #0f172a); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; line-height: 1.5; }
+    .highlight { background: light-dark(#fef3c7, #422006); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#f59e0b, #fbbf24); margin: 16px 0; }
+    .key-point { background: light-dark(#ecfdf5, #022c22); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#10b981, #34d399); margin: 16px 0; }
+    .warning { background: light-dark(#fef2f2, #450a0a); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#ef4444, #f87171); margin: 16px 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+    .badge-cert { background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); }
+    .badge-interview { background: light-dark(#fce7f3, #500724); color: light-dark(#be185d, #f9a8d4); }
+    .badge-new { background: light-dark(#d1fae5, #022c22); color: light-dark(#065f46, #6ee7b7); }
+    .qa-block { margin: 20px 0; padding: 16px; background: light-dark(#f8fafc, #1a2332); border-radius: 8px; }
+    .qa-block strong { color: light-dark(#1e40af, #93c5fd); }
+  </style>
+</head>
+<body>
+
+  <h1>Domain 2.1: Authentication</h1>
+  <p><span class="badge badge-cert">SnowPro Core</span> <span class="badge badge-interview">Interview Essential</span> <span class="badge badge-new">Includes Auth Policies & PAT</span></p>
+  <p><strong>Date:</strong> July 29, 2026</p>
+
+  <hr/>
+
+  <h2 id="auth-overview">1. Authentication Overview</h2>
+
+  <h3>Authentication vs Authorization</h3>
+  <table>
+    <thead><tr><th>Concept</th><th>Question It Answers</th><th>Managed By</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Authentication</strong></td><td>"WHO are you?" (Identity verification)</td><td>Users, passwords, MFA, SSO, key-pairs</td></tr>
+      <tr><td><strong>Authorization</strong></td><td>"WHAT can you do?" (Permission checks)</td><td>Roles, privileges, RBAC (covered in 2.2)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Authentication Flow</h3>
+  <pre>
+  CLIENT (User/App)
+       |
+       | 1. Present credentials (password/key/token/SSO)
+       v
+  +----------------------------+
+  | CLOUD SERVICES LAYER       |
+  | - Validate credentials     |
+  | - Check MFA requirement    |
+  | - Check network policy     |
+  | - Check auth policy        |
+  | - Issue session token      |
+  +----------------------------+
+       |
+       | 2. Session token issued (JWT)
+       v
+  CLIENT proceeds with session
+  (token used for all subsequent requests)
+  </pre>
+
+  <h2 id="auth-methods">2. Authentication Methods</h2>
+
+  <h3>Complete Authentication Methods Table</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Best For</th><th>Security Level</th><th>How It Works</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Username/Password</strong></td><td>Simple setups, testing</td><td>Low (without MFA)</td><td>User provides username + password</td></tr>
+      <tr><td><strong>Key-Pair</strong></td><td>Service accounts, automation</td><td>High</td><td>RSA 2048/4096-bit key pair; private key on client</td></tr>
+      <tr><td><strong>MFA (Multi-Factor)</strong></td><td>All human users</td><td>High</td><td>Password + Duo Push or TOTP code</td></tr>
+      <tr><td><strong>Federated Auth (SSO)</strong></td><td>Enterprise users</td><td>High</td><td>SAML 2.0 via IdP (Okta, Azure AD, etc.)</td></tr>
+      <tr><td><strong>OAuth</strong></td><td>Applications, integrations</td><td>High</td><td>OAuth 2.0 token exchange</td></tr>
+      <tr><td><strong>PAT</strong> <span class="badge badge-new">NEW</span></td><td>Automation, CI/CD</td><td>Medium-High</td><td>Programmatic Access Token with expiry</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Key-Pair Authentication (Detail)</h3>
+  <pre>
+  SETUP PROCESS:
+  
+  1. Generate key pair (client-side):
+     $ openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out rsa_key.p8 -nocrypt
+     $ openssl rsa -in rsa_key.p8 -pubout -out rsa_key.pub
+
+  2. Assign public key to user (Snowflake):
+     ALTER USER service_user SET RSA_PUBLIC_KEY = 'MIIBIjANBgkq...';
+
+  3. Connect using private key (client):
+     # Python example
+     conn = snowflake.connector.connect(
+         account='xy12345',
+         user='service_user',
+         private_key_file='/path/to/rsa_key.p8'
+     )
+
+  SECURITY:
+  - Private key NEVER sent to Snowflake
+  - Can rotate keys (RSA_PUBLIC_KEY_2 for seamless rotation)
+  - Supports encrypted private keys (passphrase protected)
+  - Recommended for ALL service accounts / automated processes
+  </pre>
+
+  <div class="key-point">
+    <strong>Key-Pair Key Facts:</strong>
+    <ul>
+      <li>Minimum key size: <strong>2048 bits</strong></li>
+      <li>Maximum: 2 public keys assigned simultaneously (for rotation)</li>
+      <li>Properties: <code>RSA_PUBLIC_KEY</code> and <code>RSA_PUBLIC_KEY_2</code></li>
+      <li>Works with: Python connector, JDBC, ODBC, Snowpark, SnowSQL</li>
+      <li>Does NOT work with: Snowsight web UI (browser login)</li>
+    </ul>
+  </div>
+
+  <h2 id="mfa">3. Multi-Factor Authentication (MFA)</h2>
+
+  <h3>How MFA Works in Snowflake</h3>
+  <table>
+    <thead><tr><th>Aspect</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr><td>Provider</td><td>Duo Security (built-in, powered by Cisco)</td></tr>
+      <tr><td>Methods</td><td>Duo Push notification, TOTP (Time-based One-Time Password)</td></tr>
+      <tr><td>Enrollment</td><td>Self-service by user OR enforced by admin via authentication policy</td></tr>
+      <tr><td>Applies to</td><td>Password-based logins (not key-pair or OAuth)</td></tr>
+      <tr><td>Caching</td><td>MFA token can be cached to reduce prompts (CLIENT_STORE_TEMPORARY_CREDENTIAL)</td></tr>
+      <tr><td>Bypass</td><td>Cannot bypass once enrolled (admin can disable MFA for a user)</td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+  MFA FLOW:
+  
+  User enters password
+       |
+       v
+  Snowflake validates password ✓
+       |
+       v
+  Is MFA enrolled for this user?
+       |
+       +-- NO --> Session granted
+       |
+       +-- YES --> Send Duo Push / request TOTP
+                        |
+                        v
+                   User approves on phone
+                        |
+                        v
+                   Session granted
+  </pre>
+
+  <div class="highlight">
+    <strong>Exam Tip:</strong> MFA in Snowflake:
+    <ul>
+      <li>Uses <strong>Duo Security</strong> (not Google Authenticator natively)</li>
+      <li>Can be <strong>enforced</strong> for all users via authentication policy</li>
+      <li>Applies to <strong>password-based login only</strong> (not key-pair, not OAuth)</li>
+      <li>ACCOUNTADMIN should ALWAYS have MFA enabled</li>
+      <li>MFA token caching reduces repeated prompts during a session</li>
+    </ul>
+  </div>
+
+  <h2 id="sso">4. Federated Authentication (SSO)</h2>
+
+  <h3>How SSO/SAML Works with Snowflake</h3>
+  <pre>
+  +--------+         +--------+         +-----------+
+  | USER   |         |  IdP   |         | SNOWFLAKE |
+  | Browser|         | (Okta, |         |           |
+  |        |         | AzureAD|         |           |
+  +---+----+         +---+----+         +-----+-----+
+      |                   |                     |
+      | 1. Access Snowflake URL                 |
+      |------------------------------------>    |
+      |                   |                     |
+      |    2. Redirect to IdP for login         |
+      |<------------------------------------|   |
+      |                   |                     |
+      | 3. Login at IdP   |                     |
+      |------------------>|                     |
+      |                   |                     |
+      | 4. SAML Assertion |                     |
+      |<------------------|                     |
+      |                   |                     |
+      | 5. Send SAML to Snowflake               |
+      |------------------------------------>    |
+      |                   |                     |
+      |         6. Validate SAML, create session|
+      |<------------------------------------|   |
+      |                   |                     |
+      | SESSION ACTIVE                          |
+  </pre>
+
+  <h3>SSO Configuration Components</h3>
+  <table>
+    <thead><tr><th>Component</th><th>Where Configured</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>Security Integration</td><td>Snowflake (SQL)</td><td>Defines SSO settings, IdP certificate</td></tr>
+      <tr><td>SAML 2.0 Application</td><td>Identity Provider</td><td>Registers Snowflake as a Service Provider</td></tr>
+      <tr><td>X.509 Certificate</td><td>Imported from IdP</td><td>Validates SAML assertions</td></tr>
+      <tr><td>SSO URL</td><td>IdP provides</td><td>Where users are redirected to login</td></tr>
+      <tr><td>User mapping</td><td>IdP attribute mapping</td><td>Maps IdP users to Snowflake users (login_name)</td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+  -- Create SAML2 security integration
+  CREATE SECURITY INTEGRATION my_sso_integration
+    TYPE = SAML2
+    ENABLED = TRUE
+    SAML2_ISSUER = 'https://idp.example.com'
+    SAML2_SSO_URL = 'https://idp.example.com/sso/saml'
+    SAML2_PROVIDER = 'OKTA'  -- or 'ADFS', 'CUSTOM'
+    SAML2_X509_CERT = 'MIIDq...'
+    SAML2_SP_INITIATED_LOGIN_PAGE_LABEL = 'My Company SSO'
+    SAML2_ENABLE_SP_INITIATED = TRUE;
+  </pre>
+
+  <div class="key-point">
+    <strong>SSO Key Facts:</strong>
+    <ul>
+      <li>Protocol: <strong>SAML 2.0</strong> (not OIDC for native SSO)</li>
+      <li>Supported IdPs: Okta, Azure AD (Entra ID), ADFS, OneLogin, Ping, custom SAML 2.0</li>
+      <li>User must exist in Snowflake (auto-provisioning via SCIM optional)</li>
+      <li>SP-initiated (user starts at Snowflake) and IdP-initiated (user starts at IdP) both supported</li>
+      <li>Created using <code>CREATE SECURITY INTEGRATION TYPE = SAML2</code></li>
+    </ul>
+  </div>
+
+  <h2 id="oauth">5. OAuth</h2>
+
+  <h3>OAuth Types in Snowflake</h3>
+  <table>
+    <thead><tr><th>Type</th><th>Use Case</th><th>Token Issuer</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Snowflake OAuth</strong></td><td>Custom apps that redirect users to Snowflake login</td><td>Snowflake (built-in authorization server)</td></tr>
+      <tr><td><strong>External OAuth</strong></td><td>Enterprise apps already using an OAuth provider</td><td>External (Okta, Azure AD, PingFederate, custom)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Snowflake OAuth Flow</h3>
+  <pre>
+  1. App redirects user to Snowflake authorization endpoint
+  2. User logs in to Snowflake (with password + MFA if configured)
+  3. User consents to grant app access
+  4. Snowflake returns authorization code to app
+  5. App exchanges code for access token + refresh token
+  6. App uses access token to call Snowflake APIs
+  7. When access token expires, app uses refresh token to get new one
+  </pre>
+
+  <pre>
+  -- Create Snowflake OAuth integration
+  CREATE SECURITY INTEGRATION my_oauth_app
+    TYPE = OAUTH
+    ENABLED = TRUE
+    OAUTH_CLIENT = CUSTOM
+    OAUTH_CLIENT_TYPE = 'CONFIDENTIAL'
+    OAUTH_REDIRECT_URI = 'https://myapp.com/callback'
+    OAUTH_ISSUE_REFRESH_TOKENS = TRUE
+    OAUTH_REFRESH_TOKEN_VALIDITY = 86400;  -- 24 hours
+
+  -- External OAuth integration
+  CREATE SECURITY INTEGRATION ext_oauth
+    TYPE = EXTERNAL_OAUTH
+    ENABLED = TRUE
+    EXTERNAL_OAUTH_TYPE = AZURE
+    EXTERNAL_OAUTH_ISSUER = 'https://login.microsoftonline.com/...'
+    EXTERNAL_OAUTH_TOKEN_USER_MAPPING_CLAIM = 'upn'
+    EXTERNAL_OAUTH_SNOWFLAKE_USER_MAPPING_ATTRIBUTE = 'login_name'
+    EXTERNAL_OAUTH_JWS_KEYS_URL = 'https://login.microsoftonline.com/.../discovery/v2.0/keys';
+  </pre>
+
+  <h2 id="auth-policies">6. Authentication Policies</h2>
+  <p><span class="badge badge-new">NEW Feature (2025-2026)</span></p>
+
+  <h3>What Are Authentication Policies?</h3>
+  <p>Authentication policies let you enforce <strong>which authentication methods are allowed</strong> for users connecting to your account. They provide centralized control over login security.</p>
+
+  <pre>
+  -- Create an authentication policy
+  CREATE AUTHENTICATION POLICY strict_auth_policy
+    AUTHENTICATION_METHODS = ('SAML', 'KEYPAIR')  -- Only SSO and key-pair allowed
+    MFA_AUTHENTICATION_METHODS = ('SAML')         -- MFA required for SAML
+    CLIENT_TYPES = ('SNOWFLAKE_UI', 'DRIVERS')    -- Allowed client types
+    SECURITY_INTEGRATIONS = ('my_sso_integration') -- Which SSO integrations allowed
+    COMMENT = 'Strict policy - no password-only auth';
+
+  -- Apply to entire account
+  ALTER ACCOUNT SET AUTHENTICATION POLICY = strict_auth_policy;
+
+  -- Apply to specific user
+  ALTER USER service_user SET AUTHENTICATION POLICY = keypair_only_policy;
+  </pre>
+
+  <h3>Authentication Policy Parameters</h3>
+  <table>
+    <thead><tr><th>Parameter</th><th>Options</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>AUTHENTICATION_METHODS</td><td>ALL, PASSWORD, SAML, OAUTH, KEYPAIR</td><td>Which methods can be used to log in</td></tr>
+      <tr><td>MFA_AUTHENTICATION_METHODS</td><td>ALL, SAML, PASSWORD</td><td>Which methods require MFA</td></tr>
+      <tr><td>CLIENT_TYPES</td><td>ALL, SNOWFLAKE_UI, DRIVERS, SNOWSQL</td><td>Which client types are allowed</td></tr>
+      <tr><td>SECURITY_INTEGRATIONS</td><td>ALL, or list of integrations</td><td>Which SSO/OAuth integrations can be used</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warning">
+    <strong>Important:</strong> Authentication policies are powerful but dangerous if misconfigured. Setting AUTHENTICATION_METHODS = ('KEYPAIR') at the account level would lock out all users who don't have key-pair configured - including ACCOUNTADMIN! Always test on individual users first.
+  </div>
+
+  <h3>Programmatic Access Tokens (PAT)</h3>
+  <p><span class="badge badge-new">NEW</span></p>
+  <pre>
+  WHAT: Pre-generated tokens for programmatic/automated access
+  USE CASE: CI/CD pipelines, service accounts, scripts
+  
+  FEATURES:
+  - Configurable expiry (max controlled by auth policy)
+  - No interactive login required
+  - Can be scoped to specific roles
+  - Revocable without changing user password
+  - Works with REST API, drivers, connectors
+
+  -- Auth policy controlling PAT behavior
+  CREATE AUTHENTICATION POLICY pat_policy
+    AUTHENTICATION_METHODS = ('KEYPAIR', 'OAUTH')
+    PAT_POLICY_MAX_LIFETIME = 7776000  -- 90 days max
+    PAT_POLICY_NETWORK_POLICY = 'restrictive_policy';
+  </pre>
+
+  <h2 id="hands-on">7. Hands-On SQL Scripts</h2>
+
+  <h3>Script 1: User Authentication Settings</h3>
+  <pre>
+-- View your own user details
+DESCRIBE USER RANGAK565;
+
+-- See all users and their auth settings
+SHOW USERS;
+
+-- Check user's key pair status
+SELECT name, login_name, has_rsa_public_key, 
+       ext_authn_duo, has_password, disabled,
+       default_role, default_warehouse
+FROM SNOWFLAKE.ACCOUNT_USAGE.USERS
+WHERE deleted_on IS NULL;
+  </pre>
+
+  <h3>Script 2: Security Integrations</h3>
+  <pre>
+-- View all security integrations
+SHOW SECURITY INTEGRATIONS;
+
+-- View authentication policies
+SHOW AUTHENTICATION POLICIES;
+
+-- View network policies
+SHOW NETWORK POLICIES;
+  </pre>
+
+  <h3>Script 3: Login History Analysis</h3>
+  <pre>
+-- Failed login attempts (security monitoring)
+SELECT 
+  event_timestamp,
+  user_name,
+  client_ip,
+  reported_client_type,
+  error_code,
+  error_message
+FROM SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY
+WHERE is_success = 'NO'
+  AND event_timestamp > DATEADD('day', -7, CURRENT_TIMESTAMP())
+ORDER BY event_timestamp DESC;
+
+-- Auth method breakdown
+SELECT 
+  first_authentication_factor,
+  second_authentication_factor,
+  COUNT(*) AS login_count,
+  COUNT(DISTINCT user_name) AS unique_users
+FROM SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY
+WHERE is_success = 'YES'
+  AND event_timestamp > DATEADD('day', -7, CURRENT_TIMESTAMP())
+GROUP BY first_authentication_factor, second_authentication_factor
+ORDER BY login_count DESC;
+  </pre>
+
+  <h3>Script 4: Create Users with Different Auth Methods</h3>
+  <pre>
+-- User with password (basic)
+CREATE USER IF NOT EXISTS study_user_basic
+  PASSWORD = 'TempPass123!'
+  DEFAULT_ROLE = PUBLIC
+  MUST_CHANGE_PASSWORD = TRUE
+  COMMENT = 'Demo user - password auth';
+
+-- User for key-pair auth (no password)
+CREATE USER IF NOT EXISTS study_user_keypair
+  RSA_PUBLIC_KEY = ''  -- Would add actual key here
+  DEFAULT_ROLE = PUBLIC
+  TYPE = SERVICE        -- Mark as service account
+  COMMENT = 'Demo user - key-pair only';
+
+-- View the created users
+SHOW USERS LIKE 'STUDY_USER%';
+  </pre>
+
+  <h3>Script 5: Session Policies</h3>
+  <pre>
+-- Create a session policy (controls session behavior)
+CREATE SESSION POLICY IF NOT EXISTS cert_session_policy
+  SESSION_IDLE_TIMEOUT_MINS = 30       -- Auto-disconnect after 30 min idle
+  SESSION_UI_IDLE_TIMEOUT_MINS = 15    -- Snowsight idle timeout
+  COMMENT = 'Study session policy';
+
+-- Apply to account
+-- ALTER ACCOUNT SET SESSION POLICY = cert_session_policy;
+
+-- View session policies
+SHOW SESSION POLICIES;
+  </pre>
+
+  <h2 id="interview-qa">8. Interview & Certification Q&A</h2>
+
+  <div class="qa-block">
+    <strong>Q1: What authentication methods does Snowflake support?</strong>
+    <p><strong>A:</strong>
+    <ol>
+      <li><strong>Username/Password:</strong> Basic, stored in Snowflake. Can enforce password policies (min length, complexity, rotation).</li>
+      <li><strong>Key-Pair (RSA):</strong> 2048+ bit RSA keys. Private key on client, public key registered in Snowflake. Best for service accounts.</li>
+      <li><strong>Multi-Factor (MFA):</strong> Duo Security - push or TOTP. Add-on to password auth.</li>
+      <li><strong>Federated SSO (SAML 2.0):</strong> Delegate auth to IdP (Okta, Azure AD). Users don't need Snowflake passwords.</li>
+      <li><strong>OAuth 2.0:</strong> Token-based. Snowflake OAuth (built-in) or External OAuth (enterprise IdP).</li>
+      <li><strong>PAT (Programmatic Access Token):</strong> Pre-generated tokens for automation with configurable expiry.</li>
+    </ol></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q2: What's the difference between Snowflake OAuth and External OAuth?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>Snowflake OAuth:</strong> Snowflake acts as both authorization server and resource server. User authenticates directly with Snowflake. Simpler setup. Good for custom apps.</li>
+      <li><strong>External OAuth:</strong> External IdP (Okta, Azure AD, PingFederate) issues tokens. Snowflake validates tokens against the IdP. Better for enterprises already using OAuth infrastructure. Supports token user mapping (map OAuth claims to Snowflake users).</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q3: How does key-pair authentication improve security?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li>Private key never transmitted to Snowflake (asymmetric cryptography)</li>
+      <li>No password to steal, phish, or brute-force</li>
+      <li>Supports key rotation with 2 simultaneous public keys (RSA_PUBLIC_KEY + RSA_PUBLIC_KEY_2)</li>
+      <li>Private key can be encrypted with passphrase for defense-in-depth</li>
+      <li>Combined with network policies = very strong authentication</li>
+      <li>Recommended for ALL service accounts and CI/CD integrations</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q4: Can you enforce MFA for all users?</strong>
+    <p><strong>A:</strong> Yes, using an <strong>authentication policy</strong>:
+    <pre>CREATE AUTHENTICATION POLICY enforce_mfa
+  MFA_AUTHENTICATION_METHODS = ('PASSWORD')
+  COMMENT = 'Require MFA for all password logins';
+ALTER ACCOUNT SET AUTHENTICATION POLICY = enforce_mfa;</pre>
+    This ensures any user logging in with a password must complete MFA. Key-pair and OAuth users are not prompted for MFA (they already have strong auth). Best practice: Enforce MFA at minimum for all ACCOUNTADMIN users.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q5: What happens if a user's session token expires?</strong>
+    <p><strong>A:</strong> Snowflake sessions have configurable timeouts:
+    <ul>
+      <li><strong>Session idle timeout:</strong> Default 4 hours (240 min). User must re-authenticate.</li>
+      <li><strong>Master token expiry:</strong> Long-lived (~14 days) for refresh purposes</li>
+      <li><strong>Session policies:</strong> Can override defaults (e.g., SESSION_IDLE_TIMEOUT_MINS = 30)</li>
+      <li>On expiry, the driver/connector typically auto-refreshes using the master token</li>
+      <li>If master token expires, full re-authentication required</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q6: How does SCIM provisioning work with Snowflake?</strong>
+    <p><strong>A:</strong> SCIM (System for Cross-domain Identity Management) automates user/group sync:
+    <ul>
+      <li>IdP (Okta, Azure AD) pushes user create/update/delete to Snowflake</li>
+      <li>Snowflake auto-creates users when added in IdP</li>
+      <li>Snowflake auto-deactivates users when removed from IdP groups</li>
+      <li>Groups in IdP map to roles in Snowflake</li>
+      <li>Configured via: <code>CREATE SECURITY INTEGRATION TYPE = SCIM</code></li>
+      <li>Eliminates manual user provisioning - reduces security risk of orphaned accounts</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q7: A company wants to prevent password-only logins for production accounts. How?</strong>
+    <p><strong>A:</strong> Multiple approaches:
+    <ol>
+      <li><strong>Authentication Policy:</strong> <code>AUTHENTICATION_METHODS = ('SAML', 'KEYPAIR', 'OAUTH')</code> - blocks password login entirely</li>
+      <li><strong>Enforce MFA:</strong> Allow passwords but require MFA always</li>
+      <li><strong>Remove passwords:</strong> Create users with TYPE = SERVICE and only key-pair configured</li>
+      <li><strong>Network policy + SSO:</strong> Restrict network access to VPN + require SSO from that VPN</li>
+    </ol>
+    Authentication policies are the cleanest solution as they provide declarative, account-wide or per-user enforcement.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q8: What is the ACCOUNTADMIN role's recommended auth setup?</strong>
+    <p><strong>A:</strong> ACCOUNTADMIN is the most powerful role - security best practices:
+    <ul>
+      <li><strong>MFA MUST be enabled</strong> for all ACCOUNTADMIN users</li>
+      <li>Should have <strong>at least 2 users</strong> with ACCOUNTADMIN (avoid single point of failure)</li>
+      <li>Should NOT be the default role for any user (only USE ROLE when needed)</li>
+      <li>Monitor login attempts via LOGIN_HISTORY</li>
+      <li>Consider: separate ACCOUNTADMIN users for break-glass scenarios only</li>
+      <li>Network policy restricting ACCOUNTADMIN to trusted IPs</li>
+    </ul></p>
+  </div>
+
+  <hr/>
+
+  <h2>Quick Revision Checklist</h2>
+  <table>
+    <thead><tr><th>#</th><th>Concept</th><th>Remember</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Auth methods (6)</td><td>Password, Key-pair, MFA, SSO/SAML, OAuth, PAT</td></tr>
+      <tr><td>2</td><td>Key-pair minimum size</td><td>2048-bit RSA</td></tr>
+      <tr><td>3</td><td>Max public keys per user</td><td>2 (RSA_PUBLIC_KEY + RSA_PUBLIC_KEY_2)</td></tr>
+      <tr><td>4</td><td>MFA provider</td><td>Duo Security (built-in)</td></tr>
+      <tr><td>5</td><td>MFA applies to</td><td>Password logins only (not key-pair, not OAuth)</td></tr>
+      <tr><td>6</td><td>SSO protocol</td><td>SAML 2.0</td></tr>
+      <tr><td>7</td><td>SSO object</td><td>SECURITY INTEGRATION TYPE = SAML2</td></tr>
+      <tr><td>8</td><td>OAuth types</td><td>Snowflake OAuth (built-in) + External OAuth</td></tr>
+      <tr><td>9</td><td>Auth policy enforces</td><td>Which auth methods, client types, MFA requirements</td></tr>
+      <tr><td>10</td><td>SCIM</td><td>Auto-provision users/groups from IdP to Snowflake</td></tr>
+      <tr><td>11</td><td>Session idle default</td><td>4 hours (240 minutes)</td></tr>
+      <tr><td>12</td><td>ACCOUNTADMIN best practice</td><td>MFA required, 2+ users, not default role</td></tr>
+      <tr><td>13</td><td>Network policy</td><td>IP allow/block list, per account or per user</td></tr>
+      <tr><td>14</td><td>PAT</td><td>Programmatic Access Token - for automation, configurable expiry</td></tr>
+      <tr><td>15</td><td>Connection config file</td><td>~/.snowflake/connections.toml (modern standard)</td></tr>
+    </tbody>
+  </table>
+
+  <hr/>
+  <p style="text-align:center; font-size: 0.85em; color: light-dark(#6b7280, #9ca3af);">
+    Snowflake SnowPro Core Certification Study Guide | Domain 2.1: Authentication<br/>
+    Generated: July 29, 2026 | Account: ZITTTER-AT35969
+  </p>
+
+</body>
+</html>

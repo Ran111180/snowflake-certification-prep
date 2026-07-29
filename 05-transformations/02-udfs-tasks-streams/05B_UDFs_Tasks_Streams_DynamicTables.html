@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Certification - 5B. UDFs, Procedures, Tasks, Streams, Dynamic Tables</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-07-29",
+    "intent": "Snowflake SnowPro Core - Domain 5 Part 2: UDFs, Stored Procedures, Tasks, Streams, Dynamic Tables",
+    "sections": [
+      { "id": "udfs", "title": "User-Defined Functions (UDFs)" },
+      { "id": "stored-procs", "title": "Stored Procedures" },
+      { "id": "streams", "title": "Streams (Change Data Capture)" },
+      { "id": "tasks", "title": "Tasks (Scheduling)" },
+      { "id": "dynamic-tables", "title": "Dynamic Tables" },
+      { "id": "hands-on", "title": "Hands-On Scripts" },
+      { "id": "interview-qa", "title": "Interview Q&A" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, system-ui, 'Segoe UI', sans-serif; max-width: 960px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #111827); line-height: 1.7; }
+    h1 { color: light-dark(#1e40af, #93c5fd); border-bottom: 3px solid light-dark(#3b82f6, #1d4ed8); padding-bottom: 12px; }
+    h2 { color: light-dark(#1e3a5f, #7dd3fc); margin-top: 40px; border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding-left: 12px; }
+    h3 { color: light-dark(#374151, #d1d5db); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9em; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#eff6ff, #1e3a5f); font-weight: 600; }
+    tr:nth-child(even) { background: light-dark(#f8fafc, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+    pre { background: light-dark(#0f172a, #0f172a); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; line-height: 1.5; }
+    .highlight { background: light-dark(#fef3c7, #422006); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#f59e0b, #fbbf24); margin: 16px 0; }
+    .key-point { background: light-dark(#ecfdf5, #022c22); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#10b981, #34d399); margin: 16px 0; }
+    .warning { background: light-dark(#fef2f2, #450a0a); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#ef4444, #f87171); margin: 16px 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+    .badge-cert { background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); }
+    .badge-interview { background: light-dark(#fce7f3, #500724); color: light-dark(#be185d, #f9a8d4); }
+    .badge-new { background: light-dark(#d1fae5, #022c22); color: light-dark(#065f46, #6ee7b7); }
+    .qa-block { margin: 20px 0; padding: 16px; background: light-dark(#f8fafc, #1a2332); border-radius: 8px; }
+    .qa-block strong { color: light-dark(#1e40af, #93c5fd); }
+  </style>
+</head>
+<body>
+
+  <h1>Domain 5B: UDFs, Procedures, Tasks, Streams, Dynamic Tables</h1>
+  <p><span class="badge badge-cert">SnowPro Core (20-25%)</span> <span class="badge badge-interview">Interview Essential</span> <span class="badge badge-new">Dynamic Tables</span></p>
+  <p><strong>Date:</strong> July 29, 2026</p>
+
+  <hr/>
+
+  <h2 id="udfs">1. User-Defined Functions (UDFs)</h2>
+
+  <h3>UDF Types</h3>
+  <table>
+    <thead><tr><th>Type</th><th>Language</th><th>Returns</th><th>Use Case</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Scalar UDF</strong></td><td>SQL, Python, Java, Scala, JavaScript</td><td>Single value per row</td><td>Transform individual values</td></tr>
+      <tr><td><strong>UDTF (Table Function)</strong></td><td>SQL, Python, Java, Scala, JavaScript</td><td>Multiple rows (table)</td><td>Generate/expand rows</td></tr>
+      <tr><td><strong>UDAF (Aggregate)</strong></td><td>Python, Java</td><td>Single value per group</td><td>Custom aggregation logic</td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+-- SQL Scalar UDF
+CREATE OR REPLACE FUNCTION mask_email(email VARCHAR)
+  RETURNS VARCHAR
+  AS $$
+    REGEXP_REPLACE(email, '.+@', '***@')
+  $$;
+
+-- Python Scalar UDF
+CREATE OR REPLACE FUNCTION sentiment_score(text VARCHAR)
+  RETURNS FLOAT
+  LANGUAGE PYTHON
+  RUNTIME_VERSION = '3.11'
+  HANDLER = 'analyze'
+AS $$
+def analyze(text):
+    positive = ['good','great','excellent','love']
+    negative = ['bad','terrible','hate','awful']
+    words = text.lower().split()
+    score = sum(1 for w in words if w in positive) - sum(1 for w in words if w in negative)
+    return score / max(len(words), 1)
+$$;
+
+-- SQL UDTF (Table Function)
+CREATE OR REPLACE FUNCTION generate_date_range(start_date DATE, end_date DATE)
+  RETURNS TABLE (dt DATE)
+  AS $$
+    SELECT DATEADD(day, SEQ4(), start_date)::DATE AS dt
+    FROM TABLE(GENERATOR(ROWCOUNT => DATEDIFF('day', start_date, end_date) + 1))
+  $$;
+
+-- Call UDTF
+SELECT * FROM TABLE(generate_date_range('2024-01-01', '2024-01-07'));
+
+-- Python UDTF (returns table)
+CREATE OR REPLACE FUNCTION split_tags(tags VARCHAR)
+  RETURNS TABLE (tag VARCHAR)
+  LANGUAGE PYTHON
+  RUNTIME_VERSION = '3.11'
+  HANDLER = 'SplitTags'
+AS $$
+class SplitTags:
+    def process(self, tags):
+        if tags:
+            for tag in tags.split(','):
+                yield (tag.strip(),)
+$$;
+  </pre>
+
+  <div class="key-point">
+    <strong>UDF Key Facts:</strong>
+    <ul>
+      <li>UDFs are <strong>called in SELECT</strong> (like built-in functions)</li>
+      <li>Cannot perform DML (INSERT/UPDATE/DELETE) - use procedures for that</li>
+      <li>Scalar UDFs: one input row → one output value</li>
+      <li>UDTFs: one input row → zero or more output rows</li>
+      <li>Python UDFs run in a <strong>sandboxed</strong> environment (limited packages)</li>
+      <li>SQL UDFs are generally <strong>fastest</strong> (inlined by optimizer)</li>
+      <li>Secure UDFs: <code>CREATE SECURE FUNCTION</code> - hides definition from non-owners</li>
+    </ul>
+  </div>
+
+  <h2 id="stored-procs">2. Stored Procedures</h2>
+
+  <h3>UDFs vs Stored Procedures</h3>
+  <table>
+    <thead><tr><th>Feature</th><th>UDF</th><th>Stored Procedure</th></tr></thead>
+    <tbody>
+      <tr><td>Called from</td><td>SELECT statement</td><td>CALL statement</td></tr>
+      <tr><td>Can do DML?</td><td>No</td><td>Yes (INSERT, UPDATE, DELETE, MERGE)</td></tr>
+      <tr><td>Can do DDL?</td><td>No</td><td>Yes (CREATE, ALTER, DROP)</td></tr>
+      <tr><td>Returns</td><td>Value(s) per row</td><td>Single value or table</td></tr>
+      <tr><td>Transaction control</td><td>No</td><td>Yes (BEGIN/COMMIT/ROLLBACK)</td></tr>
+      <tr><td>Execution context</td><td>Caller's context</td><td>Caller's OR Owner's rights</td></tr>
+      <tr><td>Use case</td><td>Data transformation</td><td>Pipeline logic, admin tasks</td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+-- Snowflake Scripting Procedure (SQL)
+CREATE OR REPLACE PROCEDURE refresh_summary()
+  RETURNS VARCHAR
+  LANGUAGE SQL
+  EXECUTE AS CALLER
+AS
+$$
+BEGIN
+  TRUNCATE TABLE curated.daily_summary;
+  INSERT INTO curated.daily_summary
+    SELECT order_date, category, SUM(amount), COUNT(*)
+    FROM raw.orders
+    GROUP BY order_date, category;
+  RETURN 'Summary refreshed: ' || SQLROWCOUNT || ' rows';
+END;
+$$;
+
+-- Python Stored Procedure
+CREATE OR REPLACE PROCEDURE load_and_transform(source_table VARCHAR)
+  RETURNS VARCHAR
+  LANGUAGE PYTHON
+  RUNTIME_VERSION = '3.11'
+  PACKAGES = ('snowflake-snowpark-python')
+  HANDLER = 'run'
+AS $$
+def run(session, source_table):
+    df = session.table(source_table)
+    result = df.group_by("category").agg({"amount": "sum"})
+    result.write.save_as_table("curated.category_totals", mode="overwrite")
+    return f"Processed {df.count()} rows"
+$$;
+
+-- Call procedures
+CALL refresh_summary();
+CALL load_and_transform('raw.orders');
+  </pre>
+
+  <h3>Caller's Rights vs Owner's Rights</h3>
+  <pre>
+-- CALLER'S RIGHTS (default): Runs with privileges of the user who calls it
+CREATE PROCEDURE my_proc() ... EXECUTE AS CALLER;
+-- Use when: Procedure should respect the caller's access
+
+-- OWNER'S RIGHTS: Runs with privileges of the role that owns the procedure
+CREATE PROCEDURE admin_proc() ... EXECUTE AS OWNER;
+-- Use when: Procedure needs elevated access the caller doesn't have
+-- Example: Allow analysts to call a proc that truncates/loads tables they can't directly modify
+  </pre>
+
+  <h2 id="streams">3. Streams (Change Data Capture)</h2>
+
+  <h3>What Are Streams?</h3>
+  <p>Streams capture <strong>row-level changes</strong> (inserts, updates, deletes) on a table since the last time the stream was consumed.</p>
+
+  <pre>
+  HOW STREAMS WORK:
+
+  TABLE: orders (source)
+  +----+--------+-------+
+  | 1  | Alice  | 100   |  <-- existing
+  | 2  | Bob    | 200   |  <-- existing
+  +----+--------+-------+
+       |
+       | CREATE STREAM orders_stream ON TABLE orders;
+       v
+  Time passes... changes happen:
+    INSERT (3, Carol, 300)
+    UPDATE id=1 SET amount=150
+    DELETE id=2
+       |
+       v
+  STREAM: orders_stream (captures changes)
+  +----+--------+-------+---------------------+---------------------+-------------------+
+  | ID | NAME   | AMT   | METADATA$ACTION     | METADATA$ISUPDATE   | METADATA$ROW_ID   |
+  +----+--------+-------+---------------------+---------------------+-------------------+
+  | 3  | Carol  | 300   | INSERT              | FALSE               | abc123            |
+  | 1  | Alice  | 150   | INSERT              | TRUE                | def456 (new ver)  |
+  | 1  | Alice  | 100   | DELETE              | TRUE                | def456 (old ver)  |
+  | 2  | Bob    | 200   | DELETE              | FALSE               | ghi789            |
+  +----+--------+-------+---------------------+---------------------+-------------------+
+
+  KEY COLUMNS:
+  - METADATA$ACTION: INSERT or DELETE
+  - METADATA$ISUPDATE: TRUE if this row is part of an UPDATE (shows as DELETE old + INSERT new)
+  - METADATA$ROW_ID: Unique row identifier
+  </pre>
+
+  <h3>Stream Types</h3>
+  <table>
+    <thead><tr><th>Type</th><th>Captures</th><th>Use Case</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Standard (default)</strong></td><td>INSERT, UPDATE, DELETE</td><td>Full CDC, SCD2 dimensions</td></tr>
+      <tr><td><strong>Append-Only</strong></td><td>INSERT only</td><td>Log tables, event streams (no updates expected)</td></tr>
+      <tr><td><strong>Insert-Only</strong></td><td>INSERT only (for external tables/directory tables)</td><td>New files arriving in stage</td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+-- Create streams
+CREATE STREAM orders_stream ON TABLE raw.orders;                     -- Standard
+CREATE STREAM events_stream ON TABLE raw.events APPEND_ONLY = TRUE;  -- Append-only
+CREATE STREAM files_stream ON STAGE @my_stage;                        -- Directory table
+
+-- Consume stream (reading it advances the offset)
+INSERT INTO curated.orders_changes
+SELECT *, CURRENT_TIMESTAMP() AS processed_at
+FROM orders_stream;  -- After this, stream is "consumed" (empty until new changes)
+
+-- Check if stream has data
+SELECT SYSTEM$STREAM_HAS_DATA('orders_stream');  -- TRUE/FALSE
+  </pre>
+
+  <div class="warning">
+    <strong>Stream Critical Facts:</strong>
+    <ul>
+      <li>Stream is consumed (advanced) when used in a <strong>DML statement</strong> (INSERT, MERGE, etc.)</li>
+      <li>Just SELECTing from a stream does NOT consume it</li>
+      <li>A stream becomes stale if the source table's retention period passes without consumption</li>
+      <li>Stale stream = data loss! Set adequate DATA_RETENTION_TIME on source table</li>
+      <li>Multiple streams on the same table are independent (each tracks separately)</li>
+    </ul>
+  </div>
+
+  <h2 id="tasks">4. Tasks (Scheduling)</h2>
+
+  <h3>What Are Tasks?</h3>
+  <p>Tasks schedule SQL execution on a CRON schedule or when triggered by stream data.</p>
+
+  <pre>
+-- Simple scheduled task
+CREATE TASK hourly_refresh
+  WAREHOUSE = COMPUTE_WH
+  SCHEDULE = 'USING CRON 0 * * * * UTC'  -- Every hour
+AS
+  INSERT INTO curated.hourly_summary
+  SELECT DATE_TRUNC('hour', CURRENT_TIMESTAMP()), COUNT(*) FROM raw.events;
+
+-- Stream-triggered task (runs ONLY when stream has data)
+CREATE TASK process_orders
+  WAREHOUSE = ETL_WH
+  SCHEDULE = '1 MINUTE'  -- Check every minute
+  WHEN SYSTEM$STREAM_HAS_DATA('orders_stream')
+AS
+  MERGE INTO curated.orders AS t
+  USING orders_stream AS s ON t.id = s.id
+  WHEN MATCHED AND s.METADATA$ACTION = 'DELETE' AND s.METADATA$ISUPDATE = FALSE
+    THEN DELETE
+  WHEN MATCHED AND s.METADATA$ISUPDATE = TRUE
+    THEN UPDATE SET t.amount = s.amount, t.updated_at = CURRENT_TIMESTAMP()
+  WHEN NOT MATCHED AND s.METADATA$ACTION = 'INSERT'
+    THEN INSERT (id, name, amount, created_at) VALUES (s.id, s.name, s.amount, CURRENT_TIMESTAMP());
+
+-- Serverless task (no warehouse - Snowflake manages compute)
+CREATE TASK serverless_task
+  USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = 'XSMALL'
+  SCHEDULE = '5 MINUTE'
+AS
+  CALL my_procedure();
+
+-- IMPORTANT: Tasks are created SUSPENDED! Must resume:
+ALTER TASK hourly_refresh RESUME;
+ALTER TASK process_orders RESUME;
+  </pre>
+
+  <h3>Task DAGs (Graphs)</h3>
+  <pre>
+  TASK DAG (Directed Acyclic Graph):
+
+  [Root Task: extract]  (has SCHEDULE)
+         |
+    +----+----+
+    |         |
+  [transform_a]  [transform_b]  (AFTER extract)
+    |         |
+    +----+----+
+         |
+  [load_summary]  (AFTER transform_a AND transform_b)
+
+  -- Root task (has schedule)
+  CREATE TASK extract WAREHOUSE = WH SCHEDULE = '1 HOUR' AS ...;
+
+  -- Child tasks (triggered by parent completion)
+  CREATE TASK transform_a WAREHOUSE = WH AFTER extract AS ...;
+  CREATE TASK transform_b WAREHOUSE = WH AFTER extract AS ...;
+
+  -- Grandchild (waits for BOTH parents)
+  CREATE TASK load_summary WAREHOUSE = WH AFTER transform_a, transform_b AS ...;
+
+  -- Resume entire DAG (start from root)
+  ALTER TASK extract RESUME;
+  -- Children auto-resume when parent is resumed (if previously resumed)
+  </pre>
+
+  <div class="key-point">
+    <strong>Tasks Key Facts:</strong>
+    <ul>
+      <li>Tasks are created <strong>SUSPENDED</strong> - must ALTER TASK ... RESUME</li>
+      <li>Only ROOT tasks have a SCHEDULE; child tasks use AFTER</li>
+      <li>WHEN clause: only run if condition is true (e.g., stream has data)</li>
+      <li>Serverless tasks: no warehouse needed (managed compute)</li>
+      <li>CRON format: minute hour day-of-month month day-of-week</li>
+      <li>Minimum schedule: 1 minute</li>
+      <li>Task history: <code>TASK_HISTORY()</code> table function</li>
+    </ul>
+  </div>
+
+  <h2 id="dynamic-tables">5. Dynamic Tables</h2>
+  <p><span class="badge badge-new">Key Modern Feature (replaces Streams+Tasks for many use cases)</span></p>
+
+  <h3>What Are Dynamic Tables?</h3>
+  <p>Dynamic Tables are declarative, auto-refreshing tables defined by a SQL query. Snowflake automatically keeps them up-to-date - no streams, tasks, or MERGE logic needed.</p>
+
+  <pre>
+  STREAMS + TASKS (Imperative):          DYNAMIC TABLES (Declarative):
+  
+  1. CREATE STREAM                       1. CREATE DYNAMIC TABLE ... AS SELECT ...
+  2. CREATE TASK with MERGE logic        2. Done! Snowflake handles the rest.
+  3. Handle edge cases (stale streams)
+  4. Monitor task failures
+  5. Manage task dependencies
+
+  DYNAMIC TABLE = "Materialized view that auto-refreshes incrementally"
+  </pre>
+
+  <pre>
+-- Create a dynamic table (auto-refreshes every 1 minute)
+CREATE OR REPLACE DYNAMIC TABLE curated.order_summary
+  TARGET_LAG = '1 minute'  -- Freshness SLA: data is at most 1 min stale
+  WAREHOUSE = COMPUTE_WH
+AS
+  SELECT 
+    DATE_TRUNC('hour', order_date) AS hour,
+    category,
+    SUM(amount) AS total_revenue,
+    COUNT(*) AS order_count
+  FROM raw.orders
+  GROUP BY hour, category;
+
+-- That's it! Snowflake automatically:
+-- - Detects changes in raw.orders
+-- - Incrementally refreshes curated.order_summary
+-- - Maintains the 1-minute freshness target
+
+-- Dynamic Table pipeline (chained)
+CREATE DYNAMIC TABLE bronze.cleaned_orders
+  TARGET_LAG = '1 minute' WAREHOUSE = WH
+AS SELECT * FROM raw.orders WHERE amount > 0;
+
+CREATE DYNAMIC TABLE silver.enriched_orders
+  TARGET_LAG = '5 minutes' WAREHOUSE = WH
+AS SELECT o.*, c.name AS customer_name
+   FROM bronze.cleaned_orders o
+   JOIN dim.customers c ON o.customer_id = c.id;
+
+CREATE DYNAMIC TABLE gold.daily_revenue
+  TARGET_LAG = '10 minutes' WAREHOUSE = WH
+AS SELECT order_date, SUM(amount) AS revenue
+   FROM silver.enriched_orders GROUP BY order_date;
+  </pre>
+
+  <h3>Dynamic Tables vs Streams+Tasks vs Materialized Views</h3>
+  <table>
+    <thead><tr><th>Feature</th><th>Dynamic Tables</th><th>Streams + Tasks</th><th>Materialized Views</th></tr></thead>
+    <tbody>
+      <tr><td>Paradigm</td><td>Declarative (SQL query)</td><td>Imperative (write logic)</td><td>Declarative (query)</td></tr>
+      <tr><td>Refresh</td><td>Auto (TARGET_LAG SLA)</td><td>Manual/scheduled/triggered</td><td>Auto (synchronous)</td></tr>
+      <tr><td>Incremental?</td><td>Yes (auto-detected)</td><td>Yes (you code it)</td><td>Yes</td></tr>
+      <tr><td>Complex transforms</td><td>JOINs, aggregations, window funcs</td><td>Anything (MERGE, multi-step)</td><td>Limited (no JOINs in older versions)</td></tr>
+      <tr><td>Chaining</td><td>Yes (DT can read other DTs)</td><td>Task DAGs</td><td>No chaining</td></tr>
+      <tr><td>DML support</td><td>No (SELECT-only definition)</td><td>Full DML (INSERT, MERGE)</td><td>No</td></tr>
+      <tr><td>Edition</td><td>All editions</td><td>All editions</td><td>Enterprise+</td></tr>
+      <tr><td>Best for</td><td>ETL pipelines, data marts</td><td>Complex logic, SCD2, conditional</td><td>Single-table aggregations</td></tr>
+    </tbody>
+  </table>
+
+  <div class="highlight">
+    <strong>When to Use What:</strong>
+    <ul>
+      <li><strong>Dynamic Tables:</strong> Your pipeline is SELECT-based transforms (90% of use cases). Simplest, least code.</li>
+      <li><strong>Streams + Tasks:</strong> You need MERGE (SCD2), conditional logic, multi-step imperative operations.</li>
+      <li><strong>Materialized Views:</strong> Simple single-table aggregations, real-time freshness, Enterprise edition.</li>
+    </ul>
+  </div>
+
+  <h2 id="hands-on">6. Hands-On SQL Scripts</h2>
+
+  <h3>Script 1: UDF Examples</h3>
+  <pre>
+USE SCHEMA CERT_STUDY_DB.ARCHITECTURE;
+
+-- SQL UDF: Mask email
+CREATE OR REPLACE FUNCTION mask_email(email VARCHAR)
+  RETURNS VARCHAR AS $$ REGEXP_REPLACE(email, '.+@', '***@') $$;
+
+-- SQL UDF: Calculate age
+CREATE OR REPLACE FUNCTION calc_age(birth_date DATE)
+  RETURNS INT AS $$ DATEDIFF('year', birth_date, CURRENT_DATE()) $$;
+
+-- Test UDFs
+SELECT mask_email('alice@company.com') AS masked,
+       calc_age('1990-05-15') AS age;
+  </pre>
+
+  <h3>Script 2: Stored Procedure</h3>
+  <pre>
+CREATE OR REPLACE PROCEDURE summarize_category(cat_name VARCHAR)
+  RETURNS TABLE (category VARCHAR, total_amount NUMBER, avg_amount NUMBER, row_count INT)
+  LANGUAGE SQL
+AS
+$$
+DECLARE
+  res RESULTSET;
+BEGIN
+  res := (SELECT category, SUM(amount) AS total_amount, 
+                 ROUND(AVG(amount),2) AS avg_amount, COUNT(*) AS row_count
+          FROM sample_data WHERE category = :cat_name GROUP BY category);
+  RETURN TABLE(res);
+END;
+$$;
+
+CALL summarize_category('Electronics');
+  </pre>
+
+  <h3>Script 3: Stream + Task Pipeline</h3>
+  <pre>
+-- Source table
+CREATE OR REPLACE TABLE raw_events (
+  event_id INT, event_type VARCHAR, payload VARIANT, 
+  created_at TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+-- Create stream to capture changes
+CREATE OR REPLACE STREAM raw_events_stream ON TABLE raw_events;
+
+-- Target table
+CREATE OR REPLACE TABLE processed_events (
+  event_id INT, event_type VARCHAR, processed_at TIMESTAMP_NTZ
+);
+
+-- Task: Process stream data every minute (when data exists)
+CREATE OR REPLACE TASK process_events_task
+  WAREHOUSE = COMPUTE_WH
+  SCHEDULE = '1 MINUTE'
+  WHEN SYSTEM$STREAM_HAS_DATA('raw_events_stream')
+AS
+  INSERT INTO processed_events
+  SELECT event_id, event_type, CURRENT_TIMESTAMP()
+  FROM raw_events_stream
+  WHERE METADATA$ACTION = 'INSERT';
+
+-- Resume task
+ALTER TASK process_events_task RESUME;
+
+-- Insert test data (stream captures this)
+INSERT INTO raw_events (event_id, event_type, payload)
+VALUES (1, 'click', PARSE_JSON('{"page":"home"}')),
+       (2, 'purchase', PARSE_JSON('{"item":"laptop","amount":999}'));
+
+-- Check stream has data
+SELECT SYSTEM$STREAM_HAS_DATA('raw_events_stream');
+SELECT * FROM raw_events_stream;
+  </pre>
+
+  <h3>Script 4: Dynamic Table</h3>
+  <pre>
+-- Create a dynamic table that auto-refreshes
+CREATE OR REPLACE DYNAMIC TABLE category_daily_summary
+  TARGET_LAG = '1 minute'
+  WAREHOUSE = COMPUTE_WH
+AS
+  SELECT 
+    category,
+    order_date,
+    SUM(amount) AS daily_total,
+    COUNT(*) AS order_count,
+    ROUND(AVG(amount), 2) AS avg_order
+  FROM sample_data
+  GROUP BY category, order_date;
+
+-- Query it (auto-maintained!)
+SELECT * FROM category_daily_summary 
+WHERE order_date = '2024-06-15' ORDER BY daily_total DESC;
+
+-- Check refresh status
+SHOW DYNAMIC TABLES LIKE 'CATEGORY_DAILY_SUMMARY';
+  </pre>
+
+  <h2 id="interview-qa">7. Interview & Certification Q&A</h2>
+
+  <div class="qa-block">
+    <strong>Q1: What's the difference between UDFs and Stored Procedures?</strong>
+    <p><strong>A:</strong> Key differences:
+    <ul>
+      <li><strong>UDF:</strong> Called in SELECT, returns value(s), cannot do DML/DDL, used for transformation</li>
+      <li><strong>Procedure:</strong> Called with CALL, can do DML/DDL/transaction control, used for pipeline logic</li>
+      <li><strong>UDF runs per row</strong> (scalar) or generates rows (UDTF). Procedure runs once.</li>
+      <li><strong>UDF is functional</strong> (no side effects). Procedure is imperative (changes state).</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q2: What are Streams and how do they track changes?</strong>
+    <p><strong>A:</strong> Streams capture CDC (change data capture) on a table:
+    <ul>
+      <li>Track INSERT, UPDATE (as DELETE old + INSERT new), DELETE operations</li>
+      <li>Provide metadata columns: METADATA$ACTION, METADATA$ISUPDATE, METADATA$ROW_ID</li>
+      <li>Stream advances (consumed) when data is used in DML - just SELECT doesn't advance it</li>
+      <li>Can become <strong>stale</strong> if not consumed within table's retention period (data loss!)</li>
+      <li>Types: Standard (all changes), Append-only (INSERTs only)</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q3: Explain Dynamic Tables. When would you use them vs Streams+Tasks?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>Dynamic Tables:</strong> Declarative - define the desired result as a SELECT. Snowflake auto-detects source changes, auto-refreshes incrementally, manages dependencies. No MERGE, no stream management.</li>
+      <li><strong>Use Dynamic Tables when:</strong> Pipeline is SELECT-based (GROUP BY, JOIN, filter). 90% of ETL fits this.</li>
+      <li><strong>Use Streams+Tasks when:</strong> Need MERGE (SCD2), conditional branching, multi-statement procedures, complex error handling, or non-SQL logic.</li>
+    </ul>
+    Dynamic Tables are the modern default - only reach for Streams+Tasks when DT can't express the logic.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q4: What is TARGET_LAG in Dynamic Tables?</strong>
+    <p><strong>A:</strong> TARGET_LAG is the <strong>freshness SLA</strong>:
+    <ul>
+      <li>It tells Snowflake: "This table's data should be at most X minutes behind its sources"</li>
+      <li>Snowflake decides WHEN and HOW to refresh to meet this target</li>
+      <li>Shorter lag = more frequent refreshes = more compute cost</li>
+      <li>Options: time-based ('1 minute', '1 hour') or DOWNSTREAM (refresh only when downstream DTs need it)</li>
+      <li>Snowflake may refresh MORE frequently than needed (proactive) or batch changes</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q5: A stream becomes stale. What happened and how do you prevent it?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>What happened:</strong> The stream wasn't consumed (used in DML) before the source table's Time Travel retention expired. The change records are gone.</li>
+      <li><strong>Impact:</strong> Stream becomes stale - can't read from it. Must recreate.</li>
+      <li><strong>Prevention:</strong>
+        <ol>
+          <li>Set adequate DATA_RETENTION_TIME on source table (e.g., 14 days)</li>
+          <li>Ensure tasks consuming streams run frequently enough</li>
+          <li>Monitor with STALE_AFTER column in SHOW STREAMS</li>
+          <li>Set alerts for stream staleness approaching retention period</li>
+        </ol>
+      </li>
+      <li><strong>Recovery:</strong> Recreate stream + do a full reload from source to target.</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q6: How do Task DAGs work?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li>Only the <strong>root task</strong> has a SCHEDULE (CRON or interval)</li>
+      <li>Child tasks use <code>AFTER parent_task</code> to define dependencies</li>
+      <li>A child with multiple parents runs only when ALL parents succeed</li>
+      <li>Tasks are created SUSPENDED - must RESUME root to start the DAG</li>
+      <li>If a task fails: downstream tasks don't run (unless configured otherwise)</li>
+      <li>Finalizer tasks: Run regardless of success/failure (cleanup logic)</li>
+      <li>Max 1000 tasks per DAG</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q7: Owner's rights vs Caller's rights - when to use which?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>Caller's rights (EXECUTE AS CALLER):</strong> Default. Procedure runs with the CALLER's privileges. Use when the user should only access what they're already allowed to see. Safer, follows least privilege.</li>
+      <li><strong>Owner's rights (EXECUTE AS OWNER):</strong> Procedure runs with the OWNER role's privileges. Use when you want to grant controlled access to operations the caller can't do directly (e.g., truncate + reload a table, access admin schemas).</li>
+      <li>Example: An analyst calls a proc that loads data into a table they can't write to directly - owner's rights enables this without granting INSERT to the analyst.</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q8: Design a real-time pipeline: Kafka events → cleaned/enriched data → dashboard-ready summary.</strong>
+    <p><strong>A:</strong> Using Dynamic Tables (modern approach):
+    <pre>
+-- Layer 1: Raw (Kafka Connector loads here)
+TABLE raw.events (payload VARIANT, _loaded_at TIMESTAMP)
+
+-- Layer 2: Cleaned (Dynamic Table, 1 min lag)
+CREATE DYNAMIC TABLE silver.clean_events TARGET_LAG = '1 minute' ...
+AS SELECT payload:event_id::INT, payload:type::VARCHAR, 
+          TRY_CAST(payload:amount AS NUMBER) AS amount, ...
+   FROM raw.events WHERE payload:event_id IS NOT NULL;
+
+-- Layer 3: Enriched (Dynamic Table, 5 min lag)
+CREATE DYNAMIC TABLE silver.enriched_events TARGET_LAG = '5 minutes' ...
+AS SELECT e.*, c.segment FROM silver.clean_events e 
+   JOIN dim.customers c ON e.customer_id = c.id;
+
+-- Layer 4: Summary (Dynamic Table, 10 min lag)
+CREATE DYNAMIC TABLE gold.hourly_summary TARGET_LAG = '10 minutes' ...
+AS SELECT DATE_TRUNC('hour', event_time) AS hour, segment,
+          SUM(amount), COUNT(*) FROM silver.enriched_events GROUP BY 1,2;
+    </pre>
+    No tasks, no streams, no MERGE - Snowflake manages everything!</p>
+  </div>
+
+  <hr/>
+
+  <h2>Quick Revision Checklist</h2>
+  <table>
+    <thead><tr><th>#</th><th>Concept</th><th>Remember</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>UDF called from</td><td>SELECT statement (not CALL)</td></tr>
+      <tr><td>2</td><td>Procedure called from</td><td>CALL statement</td></tr>
+      <tr><td>3</td><td>UDF can do DML?</td><td>NO (read-only)</td></tr>
+      <tr><td>4</td><td>Stream consumption</td><td>Only DML consuming advances offset; SELECT does NOT</td></tr>
+      <tr><td>5</td><td>Stream stale risk</td><td>Not consumed within retention period = data loss</td></tr>
+      <tr><td>6</td><td>Stream metadata columns</td><td>METADATA$ACTION, METADATA$ISUPDATE, METADATA$ROW_ID</td></tr>
+      <tr><td>7</td><td>Tasks created state</td><td>SUSPENDED (must ALTER TASK RESUME)</td></tr>
+      <tr><td>8</td><td>Task DAG root</td><td>Only root has SCHEDULE; children use AFTER</td></tr>
+      <tr><td>9</td><td>WHEN clause</td><td>SYSTEM$STREAM_HAS_DATA() - only run if data exists</td></tr>
+      <tr><td>10</td><td>Serverless tasks</td><td>USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE (no WH needed)</td></tr>
+      <tr><td>11</td><td>Dynamic Table defines</td><td>TARGET_LAG + WAREHOUSE + AS SELECT query</td></tr>
+      <tr><td>12</td><td>TARGET_LAG = '1 minute'</td><td>Data at most 1 min stale (Snowflake manages refresh)</td></tr>
+      <tr><td>13</td><td>DT vs Streams+Tasks</td><td>DT for SELECT-based; S+T for MERGE/complex logic</td></tr>
+      <tr><td>14</td><td>DT edition</td><td>All editions (no Enterprise requirement!)</td></tr>
+      <tr><td>15</td><td>Owner's rights use case</td><td>Grant controlled elevated access via procedure</td></tr>
+    </tbody>
+  </table>
+
+  <hr/>
+  <p style="text-align:center; font-size: 0.85em; color: light-dark(#6b7280, #9ca3af);">
+    Snowflake SnowPro Core Certification Study Guide | Domain 5B: UDFs, Procedures, Tasks, Streams, Dynamic Tables<br/>
+    Generated: July 29, 2026 | Account: ZITTTER-AT35969
+  </p>
+
+</body>
+</html>

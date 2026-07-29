@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Certification - 7. Cortex AI & Modern Features</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-07-29",
+    "intent": "Snowflake Interview - Domain 7: Cortex AI, ML Functions, Agents, Search, Analyst",
+    "sections": [
+      { "id": "cortex-overview", "title": "Cortex AI Overview" },
+      { "id": "ai-functions", "title": "Cortex AI Functions" },
+      { "id": "cortex-search", "title": "Cortex Search" },
+      { "id": "cortex-analyst", "title": "Cortex Analyst" },
+      { "id": "cortex-agents", "title": "Cortex Agents" },
+      { "id": "ml-functions", "title": "ML Functions" },
+      { "id": "snowpark-ml", "title": "Snowpark ML" },
+      { "id": "hands-on", "title": "Hands-On Scripts" },
+      { "id": "interview-qa", "title": "Interview Q&A" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, system-ui, 'Segoe UI', sans-serif; max-width: 960px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #111827); line-height: 1.7; }
+    h1 { color: light-dark(#1e40af, #93c5fd); border-bottom: 3px solid light-dark(#3b82f6, #1d4ed8); padding-bottom: 12px; }
+    h2 { color: light-dark(#1e3a5f, #7dd3fc); margin-top: 40px; border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding-left: 12px; }
+    h3 { color: light-dark(#374151, #d1d5db); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9em; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#eff6ff, #1e3a5f); font-weight: 600; }
+    tr:nth-child(even) { background: light-dark(#f8fafc, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+    pre { background: light-dark(#0f172a, #0f172a); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; line-height: 1.5; }
+    .highlight { background: light-dark(#fef3c7, #422006); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#f59e0b, #fbbf24); margin: 16px 0; }
+    .key-point { background: light-dark(#ecfdf5, #022c22); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#10b981, #34d399); margin: 16px 0; }
+    .warning { background: light-dark(#fef2f2, #450a0a); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#ef4444, #f87171); margin: 16px 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+    .badge-cert { background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); }
+    .badge-interview { background: light-dark(#fce7f3, #500724); color: light-dark(#be185d, #f9a8d4); }
+    .badge-new { background: light-dark(#d1fae5, #022c22); color: light-dark(#065f46, #6ee7b7); }
+    .qa-block { margin: 20px 0; padding: 16px; background: light-dark(#f8fafc, #1a2332); border-radius: 8px; }
+    .qa-block strong { color: light-dark(#1e40af, #93c5fd); }
+  </style>
+</head>
+<body>
+
+  <h1>Domain 7: Cortex AI & Modern Features</h1>
+  <p><span class="badge badge-interview">Interview Essential (2025-2026)</span> <span class="badge badge-new">Newest Snowflake Capabilities</span></p>
+  <p><strong>Date:</strong> July 29, 2026</p>
+
+  <hr/>
+
+  <h2 id="cortex-overview">1. Cortex AI Overview</h2>
+
+  <h3>What Is Snowflake Cortex?</h3>
+  <p>Cortex is Snowflake's integrated AI/ML layer that brings LLMs, ML models, and intelligent services directly into the data platform - no data movement, no separate infrastructure.</p>
+
+  <pre>
+  SNOWFLAKE CORTEX ECOSYSTEM:
+
+  +================================================================+
+  |                    CORTEX AI SERVICES                            |
+  |----------------------------------------------------------------|
+  |                                                                 |
+  |  +------------------+  +------------------+  +--------------+  |
+  |  | AI FUNCTIONS     |  | CORTEX SEARCH    |  | CORTEX       |  |
+  |  | (SQL-callable)   |  | (Hybrid search   |  | ANALYST      |  |
+  |  | AI_COMPLETE      |  |  over documents) |  | (NL to SQL)  |  |
+  |  | AI_CLASSIFY      |  |                  |  |              |  |
+  |  | AI_EXTRACT       |  +------------------+  +--------------+  |
+  |  | AI_SENTIMENT     |                                          |
+  |  | AI_TRANSLATE     |  +------------------+  +--------------+  |
+  |  | AI_SUMMARIZE     |  | CORTEX AGENTS    |  | ML FUNCTIONS |  |
+  |  | AI_EMBED         |  | (Orchestrated    |  | (Forecast,   |  |
+  |  +------------------+  |  AI workflows)   |  |  Anomaly,    |  |
+  |                        +------------------+  |  Classify)   |  |
+  |                                              +--------------+  |
+  +================================================================+
+            |                    |                      |
+            v                    v                      v
+  +================================================================+
+  |              YOUR DATA (Tables, Views, Stages)                  |
+  |              Governed, Secure, No Data Movement                 |
+  +================================================================+
+  </pre>
+
+  <div class="key-point">
+    <strong>Why Cortex Matters (Interview):</strong>
+    <ul>
+      <li>AI runs WHERE THE DATA IS (no extraction to external ML platforms)</li>
+      <li>All governance applies (RBAC, masking, row access) to AI results</li>
+      <li>Called via standard SQL (no Python/API needed for basic use)</li>
+      <li>Serverless compute (no warehouse needed for many functions)</li>
+      <li>Supports multiple LLM models (Snowflake Arctic, Llama, Mistral, etc.)</li>
+    </ul>
+  </div>
+
+  <h2 id="ai-functions">2. Cortex AI Functions</h2>
+
+  <h3>Complete AI Functions Reference</h3>
+  <table>
+    <thead><tr><th>Function</th><th>Purpose</th><th>Input</th><th>Output</th></tr></thead>
+    <tbody>
+      <tr><td><strong>AI_COMPLETE</strong></td><td>General LLM inference (chat, generate, reason)</td><td>Model + prompt</td><td>Text response</td></tr>
+      <tr><td><strong>AI_CLASSIFY</strong></td><td>Classify text into categories</td><td>Text + categories array</td><td>Best matching category</td></tr>
+      <tr><td><strong>AI_EXTRACT</strong></td><td>Extract structured data from text</td><td>Text + fields to extract</td><td>JSON with extracted values</td></tr>
+      <tr><td><strong>AI_FILTER</strong></td><td>Filter rows based on semantic meaning</td><td>Text + condition description</td><td>Boolean (TRUE/FALSE)</td></tr>
+      <tr><td><strong>AI_SENTIMENT</strong></td><td>Analyze sentiment of text</td><td>Text</td><td>Score (-1 to 1)</td></tr>
+      <tr><td><strong>AI_SUMMARIZE_AGG</strong></td><td>Summarize multiple texts into one</td><td>Text column (aggregate)</td><td>Summary text</td></tr>
+      <tr><td><strong>AI_TRANSLATE</strong></td><td>Translate text between languages</td><td>Text + source/target language</td><td>Translated text</td></tr>
+      <tr><td><strong>AI_EMBED</strong></td><td>Generate vector embeddings</td><td>Text + model</td><td>Vector (ARRAY of floats)</td></tr>
+      <tr><td><strong>AI_PARSE_DOCUMENT</strong></td><td>Extract text from PDFs/images (OCR)</td><td>Stage file path</td><td>Parsed text/structure</td></tr>
+      <tr><td><strong>AI_REDACT</strong></td><td>Redact PII from text</td><td>Text</td><td>Text with PII masked</td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+-- AI_COMPLETE: General LLM call
+SELECT AI_COMPLETE('snowflake-arctic', 
+  'Explain what a micro-partition is in Snowflake in 2 sentences.');
+
+-- AI_CLASSIFY: Categorize support tickets
+SELECT ticket_text,
+  AI_CLASSIFY(ticket_text, ['billing', 'technical', 'feature_request', 'complaint']) AS category
+FROM support_tickets;
+
+-- AI_EXTRACT: Extract structured info from unstructured text
+SELECT AI_EXTRACT(email_body, ['customer_name', 'order_number', 'issue_type']) AS extracted
+FROM customer_emails;
+
+-- AI_SENTIMENT: Score customer reviews
+SELECT review_text,
+  SNOWFLAKE.CORTEX.SENTIMENT(review_text) AS sentiment_score
+FROM product_reviews;
+
+-- AI_TRANSLATE: Translate content
+SELECT SNOWFLAKE.CORTEX.TRANSLATE(description, 'en', 'es') AS spanish_desc
+FROM products;
+
+-- AI_EMBED: Generate embeddings for semantic search
+SELECT text_column,
+  SNOWFLAKE.CORTEX.EMBED_TEXT_768('snowflake-arctic-embed-m', text_column) AS embedding
+FROM documents;
+  </pre>
+
+  <h2 id="cortex-search">3. Cortex Search</h2>
+
+  <h3>What Is Cortex Search?</h3>
+  <p>A fully managed hybrid search service (keyword + semantic/vector) over your text data.</p>
+
+  <pre>
+  USER QUERY: "How do I reset my password?"
+       |
+       v
+  +----------------------------+
+  | CORTEX SEARCH SERVICE      |
+  |                            |
+  | 1. Keyword search (BM25)   |  -- Finds exact matches
+  | 2. Vector search (ANN)     |  -- Finds semantic matches
+  | 3. Hybrid ranking          |  -- Combines both signals
+  | 4. Return top-K results    |
+  +----------------------------+
+       |
+       v
+  RESULTS: Relevant documents ranked by combined score
+  </pre>
+
+  <pre>
+-- Create a Cortex Search Service
+CREATE CORTEX SEARCH SERVICE support_search
+  ON text_column
+  ATTRIBUTES category, priority    -- Filterable metadata
+  WAREHOUSE = COMPUTE_WH
+  TARGET_LAG = '1 hour'            -- How fresh the index should be
+  AS (
+    SELECT doc_id, text_column, category, priority
+    FROM knowledge_base
+  );
+
+-- Query the search service (via SQL or REST API)
+SELECT * FROM TABLE(
+  CORTEX_SEARCH('support_search', 
+    'how to reset password',         -- Query
+    TOP_K => 5,                      -- Return top 5
+    FILTER => {'category': 'auth'}   -- Optional filter
+  )
+);
+  </pre>
+
+  <div class="key-point">
+    <strong>Cortex Search Use Cases:</strong>
+    <ul>
+      <li>Enterprise search over internal docs/knowledge bases</li>
+      <li>RAG (Retrieval Augmented Generation) - retrieve context before LLM call</li>
+      <li>Customer support: Find relevant articles for tickets</li>
+      <li>Auto-refreshes as source data changes (TARGET_LAG)</li>
+      <li>Combines keyword accuracy + semantic understanding</li>
+    </ul>
+  </div>
+
+  <h2 id="cortex-analyst">4. Cortex Analyst</h2>
+
+  <h3>Natural Language to SQL</h3>
+  <p>Cortex Analyst converts business questions to accurate SQL using semantic models.</p>
+
+  <pre>
+  USER: "What was total revenue by region last quarter?"
+       |
+       v
+  +----------------------------+
+  | CORTEX ANALYST             |
+  | 1. Understand question     |
+  | 2. Reference semantic model|
+  |    (table relationships,   |
+  |     metric definitions,    |
+  |     verified queries)      |
+  | 3. Generate SQL            |
+  | 4. Execute & return results|
+  +----------------------------+
+       |
+       v
+  SQL: SELECT region, SUM(revenue) FROM sales 
+       WHERE quarter = 'Q4' GROUP BY region;
+  RESULT: [table of region/revenue]
+  </pre>
+
+  <h3>Semantic Model/View</h3>
+  <pre>
+-- Semantic View: Defines business meaning of your data
+CREATE SEMANTIC VIEW revenue_model AS
+  -- Tables
+  TABLES (
+    sales_fact REFERENCES DB.SCHEMA.SALES,
+    dim_region REFERENCES DB.SCHEMA.REGIONS
+  )
+  -- Relationships
+  RELATIONSHIPS (
+    sales_fact.region_id = dim_region.region_id
+  )
+  -- Metrics (business calculations)
+  METRICS (
+    total_revenue AS SUM(sales_fact.amount),
+    order_count AS COUNT(DISTINCT sales_fact.order_id),
+    avg_order_value AS total_revenue / order_count
+  )
+  -- Dimensions (groupable attributes)
+  DIMENSIONS (
+    region AS dim_region.region_name,
+    quarter AS DATE_TRUNC('quarter', sales_fact.order_date)
+  )
+  -- Verified queries (known-good examples for accuracy)
+  VERIFIED_QUERIES (
+    'total revenue last quarter' => 'SELECT SUM(amount) FROM sales WHERE ...'
+  );
+  </pre>
+
+  <h2 id="cortex-agents">5. Cortex Agents</h2>
+  <p><span class="badge badge-new">Newest Feature (2025-2026)</span></p>
+
+  <h3>What Are Cortex Agents?</h3>
+  <p>AI agents that can reason, plan, and execute multi-step workflows using tools (SQL, search, APIs).</p>
+
+  <pre>
+  USER: "Find our top 3 churning customers and draft retention emails"
+       |
+       v
+  +----------------------------+
+  | CORTEX AGENT               |
+  | 1. Plan: Need churn data   |
+  |    then email drafting     |
+  | 2. Tool: SQL query for     |
+  |    churn prediction scores |
+  | 3. Tool: Cortex Search for |
+  |    customer context        |
+  | 4. Tool: AI_COMPLETE for   |
+  |    email generation        |
+  | 5. Return combined result  |
+  +----------------------------+
+  </pre>
+
+  <pre>
+-- Create a Cortex Agent
+CREATE CORTEX AGENT customer_support_agent
+  TOOLS = (
+    analyst_tool(semantic_view => 'revenue_model'),  -- Query data
+    search_tool(service => 'support_search'),         -- Search docs
+    cortex_complete_tool(model => 'snowflake-arctic') -- Generate text
+  )
+  INSTRUCTIONS = 'You are a customer success analyst. Use data to answer questions
+                  about customers, revenue, and support history.'
+  COMMENT = 'Agent for customer success team';
+
+-- Chat with the agent
+SELECT * FROM TABLE(
+  CORTEX_AGENT('customer_support_agent',
+    'Which customers had declining revenue this quarter and why?')
+);
+  </pre>
+
+  <h2 id="ml-functions">6. Built-In ML Functions</h2>
+
+  <h3>No-Code ML Models</h3>
+  <table>
+    <thead><tr><th>Function</th><th>Purpose</th><th>Input</th><th>Output</th></tr></thead>
+    <tbody>
+      <tr><td><strong>FORECAST</strong></td><td>Time-series forecasting</td><td>Historical time-series data</td><td>Future predicted values</td></tr>
+      <tr><td><strong>ANOMALY_DETECTION</strong></td><td>Detect outliers in time-series</td><td>Time-series data</td><td>Anomaly scores & flags</td></tr>
+      <tr><td><strong>CLASSIFICATION</strong></td><td>Classify rows into categories</td><td>Feature columns + labels</td><td>Predicted class + probability</td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+-- FORECAST: Predict future sales
+CREATE SNOWFLAKE.ML.FORECAST sales_forecast(
+  INPUT_DATA => TABLE(SELECT date, revenue FROM daily_sales),
+  TIMESTAMP_COLNAME => 'date',
+  TARGET_COLNAME => 'revenue'
+);
+
+-- Generate predictions
+SELECT * FROM TABLE(sales_forecast!FORECAST(
+  FORECASTING_PERIODS => 30  -- Predict next 30 days
+));
+
+-- ANOMALY_DETECTION: Find unusual patterns
+CREATE SNOWFLAKE.ML.ANOMALY_DETECTION revenue_anomaly(
+  INPUT_DATA => TABLE(SELECT date, revenue FROM daily_sales),
+  TIMESTAMP_COLNAME => 'date',
+  TARGET_COLNAME => 'revenue'
+);
+
+SELECT * FROM TABLE(revenue_anomaly!DETECT_ANOMALIES(
+  INPUT_DATA => TABLE(SELECT date, revenue FROM daily_sales WHERE date > '2024-06-01')
+));
+
+-- CLASSIFICATION: Predict customer churn
+CREATE SNOWFLAKE.ML.CLASSIFICATION churn_model(
+  INPUT_DATA => TABLE(SELECT * FROM training_data),
+  TARGET_COLNAME => 'churned'
+);
+
+SELECT *, churn_model!PREDICT(INPUT_DATA => OBJECT_CONSTRUCT(*)) AS prediction
+FROM new_customers;
+  </pre>
+
+  <h2 id="snowpark-ml">7. Snowpark ML</h2>
+
+  <h3>Full ML Lifecycle in Snowflake</h3>
+  <pre>
+  SNOWPARK ML COMPONENTS:
+
+  +------------------+  +------------------+  +------------------+
+  | FEATURE STORE    |  | MODEL REGISTRY   |  | MODEL SERVING    |
+  | - Feature views  |  | - Log models     |  | - Deploy as UDF  |
+  | - Entities       |  | - Version control|  | - Container svc  |
+  | - Training data  |  | - Metadata       |  | - Batch predict  |
+  +------------------+  +------------------+  +------------------+
+
+  Workflow:
+  1. Define features (Feature Store)
+  2. Generate training data
+  3. Train model (Snowpark Python, scikit-learn, XGBoost, PyTorch)
+  4. Log to Model Registry (versioned, with metadata)
+  5. Deploy model (as SQL function or SPCS service)
+  6. Serve predictions (batch or real-time)
+  </pre>
+
+  <pre>
+-- Model Registry usage (Python in Snowpark)
+from snowflake.ml.registry import Registry
+from sklearn.ensemble import RandomForestClassifier
+
+# Train model
+model = RandomForestClassifier()
+model.fit(X_train, y_train)
+
+# Log to registry
+registry = Registry(session)
+mv = registry.log_model(
+    model, 
+    model_name="churn_predictor",
+    version_name="v1",
+    sample_input_data=X_train[:5]
+)
+
+# Deploy and predict via SQL
+-- After logging, call from SQL:
+SELECT *, churn_predictor!PREDICT(...) FROM customers;
+  </pre>
+
+  <h2 id="hands-on">8. Hands-On SQL Scripts</h2>
+
+  <h3>Script 1: AI Functions</h3>
+  <pre>
+-- Sentiment analysis
+SELECT 
+  'Great product, love the quality!' AS review,
+  SNOWFLAKE.CORTEX.SENTIMENT('Great product, love the quality!') AS sentiment
+UNION ALL SELECT
+  'Terrible experience, broke after 1 day',
+  SNOWFLAKE.CORTEX.SENTIMENT('Terrible experience, broke after 1 day')
+UNION ALL SELECT
+  'It works fine, nothing special',
+  SNOWFLAKE.CORTEX.SENTIMENT('It works fine, nothing special');
+
+-- Translation
+SELECT SNOWFLAKE.CORTEX.TRANSLATE('Hello, how are you today?', 'en', 'fr') AS french;
+
+-- AI Complete (LLM)
+SELECT SNOWFLAKE.CORTEX.COMPLETE('snowflake-arctic',
+  'In one sentence, what is a virtual warehouse in Snowflake?') AS answer;
+
+-- AI Classify
+SELECT SNOWFLAKE.CORTEX.CLASSIFY_TEXT(
+  'My invoice shows the wrong amount charged',
+  ['billing', 'technical_issue', 'feature_request', 'general_inquiry']
+) AS category;
+  </pre>
+
+  <h3>Script 2: ML Forecast</h3>
+  <pre>
+-- Create time-series data for forecasting
+CREATE OR REPLACE TABLE daily_metrics AS
+SELECT 
+  DATEADD(day, SEQ4(), '2024-01-01')::DATE AS metric_date,
+  100 + SEQ4() * 0.5 + UNIFORM(-10, 10, RANDOM()) AS daily_value
+FROM TABLE(GENERATOR(ROWCOUNT => 365));
+
+-- Create forecast model
+CREATE OR REPLACE SNOWFLAKE.ML.FORECAST daily_forecast(
+  INPUT_DATA => SYSTEM$QUERY_REFERENCE(
+    'SELECT metric_date, daily_value FROM daily_metrics'
+  ),
+  TIMESTAMP_COLNAME => 'METRIC_DATE',
+  TARGET_COLNAME => 'DAILY_VALUE'
+);
+
+-- Generate predictions for next 30 days
+CALL daily_forecast!FORECAST(FORECASTING_PERIODS => 30);
+  </pre>
+
+  <h3>Script 3: AI on Table Data</h3>
+  <pre>
+-- Apply AI to table rows
+CREATE OR REPLACE TABLE product_reviews (
+  review_id INT, product VARCHAR, review_text VARCHAR
+);
+INSERT INTO product_reviews VALUES
+  (1, 'Laptop', 'Amazing performance, very fast and lightweight'),
+  (2, 'Laptop', 'Screen broke after 2 weeks, terrible quality'),
+  (3, 'Mouse', 'Comfortable to use, great for long sessions'),
+  (4, 'Keyboard', 'Keys are too loud, returning this product');
+
+-- Sentiment analysis across all reviews
+SELECT review_id, product, review_text,
+  SNOWFLAKE.CORTEX.SENTIMENT(review_text) AS sentiment_score,
+  CASE 
+    WHEN SNOWFLAKE.CORTEX.SENTIMENT(review_text) > 0.3 THEN 'POSITIVE'
+    WHEN SNOWFLAKE.CORTEX.SENTIMENT(review_text) < -0.3 THEN 'NEGATIVE'
+    ELSE 'NEUTRAL'
+  END AS sentiment_label
+FROM product_reviews;
+  </pre>
+
+  <h2 id="interview-qa">9. Interview & Certification Q&A</h2>
+
+  <div class="qa-block">
+    <strong>Q1: What is Snowflake Cortex and how does it differ from using external ML platforms?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>Cortex:</strong> AI/ML runs inside Snowflake, on your data, with full governance. No data extraction needed.</li>
+      <li><strong>External (SageMaker, Vertex AI):</strong> Must extract data, manage infra, handle security separately.</li>
+      <li>Key advantages: Data doesn't leave Snowflake, RBAC/masking applies to AI outputs, SQL-callable (no Python needed for basic use), serverless compute, pay-per-use.</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q2: What's the difference between AI_COMPLETE and the built-in ML functions (FORECAST, etc.)?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>AI_COMPLETE:</strong> General-purpose LLM. Takes a prompt, returns text. For generation, summarization, reasoning, classification, extraction. Uses pre-trained models (Arctic, Llama, Mistral).</li>
+      <li><strong>ML Functions (FORECAST, ANOMALY, CLASSIFY):</strong> Specialized models TRAINED ON YOUR DATA. You provide training data, Snowflake trains a custom model, then you predict. Specific to time-series or classification tasks.</li>
+    </ul>
+    AI_COMPLETE = pre-trained, general. ML Functions = custom-trained on your data.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q3: How does Cortex Search work and what is RAG?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>Cortex Search:</strong> Managed hybrid search service combining keyword (BM25) + vector/semantic search. You define a search service on a text column, Snowflake builds and maintains the index.</li>
+      <li><strong>RAG (Retrieval Augmented Generation):</strong> Pattern where you FIRST search for relevant documents, THEN pass them as context to an LLM. Reduces hallucination because the LLM answers based on your actual data.</li>
+      <li>Flow: User question → Cortex Search (find relevant docs) → AI_COMPLETE (answer using those docs as context)</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q4: What is a Semantic View and why does Cortex Analyst need it?</strong>
+    <p><strong>A:</strong> A Semantic View provides business context that LLMs need to generate accurate SQL:
+    <ul>
+      <li><strong>Table relationships:</strong> Which tables join on which keys</li>
+      <li><strong>Metric definitions:</strong> "Revenue" = SUM(amount), "Active users" = COUNT(DISTINCT user WHERE last_login > 30d ago)</li>
+      <li><strong>Dimensions:</strong> How data can be grouped/filtered (by region, quarter, category)</li>
+      <li><strong>Verified queries:</strong> Known-good SQL for common questions (ground truth for accuracy)</li>
+    </ul>
+    Without a semantic model, the LLM would guess table/column names and metrics - leading to incorrect SQL.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q5: What are Cortex Agents and how are they different from just calling AI_COMPLETE?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>AI_COMPLETE:</strong> Single LLM call. Input → output. No reasoning, no tool use, no multi-step.</li>
+      <li><strong>Cortex Agents:</strong> Multi-step AI workflows. The agent can:
+        <ol>
+          <li>Understand the request and plan steps</li>
+          <li>Call TOOLS: SQL queries (via Analyst), search (via Cortex Search), generate (via Complete)</li>
+          <li>Iterate: Look at results, decide next action</li>
+          <li>Combine results into final answer</li>
+        </ol>
+      </li>
+      <li>Think of it as: AI_COMPLETE = calculator, Agent = analyst who uses multiple tools to solve a problem.</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q6: How do you build a forecasting model in Snowflake?</strong>
+    <p><strong>A:</strong> Using the built-in ML.FORECAST function (no Python needed):
+    <pre>
+-- 1. Prepare time-series data (date + metric columns)
+-- 2. Create model (trains automatically)
+CREATE SNOWFLAKE.ML.FORECAST my_forecast(
+  INPUT_DATA => TABLE(SELECT date_col, value_col FROM history),
+  TIMESTAMP_COLNAME => 'date_col',
+  TARGET_COLNAME => 'value_col'
+);
+-- 3. Generate predictions
+CALL my_forecast!FORECAST(FORECASTING_PERIODS => 30);
+    </pre>
+    It handles seasonality, trends, and confidence intervals automatically. For more control, use Snowpark ML with scikit-learn/XGBoost.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q7: How would you implement a customer support chatbot using Snowflake Cortex?</strong>
+    <p><strong>A:</strong> Architecture:
+    <ol>
+      <li><strong>Knowledge base:</strong> Load support articles/FAQs into a Snowflake table</li>
+      <li><strong>Cortex Search Service:</strong> Create search service on the knowledge base text</li>
+      <li><strong>RAG pipeline:</strong> When user asks question → Search for top-5 relevant articles → Pass articles + question to AI_COMPLETE as context</li>
+      <li><strong>Or use Cortex Agent:</strong> Define agent with search_tool + complete_tool, give it instructions about tone and scope</li>
+      <li><strong>Frontend:</strong> Streamlit in Snowflake app with chat interface</li>
+    </ol>
+    All within Snowflake - no external vector DB, no API gateway, no separate ML infra needed.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q8: What LLM models are available in Snowflake Cortex?</strong>
+    <p><strong>A:</strong> Multiple model families:
+    <ul>
+      <li><strong>Snowflake Arctic:</strong> Snowflake's own model family (optimized for enterprise SQL/data tasks)</li>
+      <li><strong>Meta Llama:</strong> Llama 3.1, 3.2, 3.3 (various sizes: 8B, 70B, 405B)</li>
+      <li><strong>Mistral:</strong> Mistral Large, Mixtral</li>
+      <li><strong>Others:</strong> Reka, DeepSeek models available depending on region</li>
+      <li><strong>Embedding models:</strong> snowflake-arctic-embed-m (for vector search)</li>
+    </ul>
+    You choose the model per call: <code>AI_COMPLETE('llama3.1-70b', prompt)</code>. Larger models = better quality but slower/costlier.</p>
+  </div>
+
+  <hr/>
+
+  <h2>Quick Revision Checklist</h2>
+  <table>
+    <thead><tr><th>#</th><th>Concept</th><th>Remember</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>AI_COMPLETE</td><td>General LLM call (generation, reasoning, chat)</td></tr>
+      <tr><td>2</td><td>AI_CLASSIFY</td><td>Categorize text into predefined labels</td></tr>
+      <tr><td>3</td><td>AI_EXTRACT</td><td>Pull structured fields from unstructured text</td></tr>
+      <tr><td>4</td><td>AI_SENTIMENT</td><td>Score text from -1 (negative) to +1 (positive)</td></tr>
+      <tr><td>5</td><td>AI_EMBED</td><td>Generate vector embeddings for semantic search</td></tr>
+      <tr><td>6</td><td>Cortex Search</td><td>Managed hybrid search (keyword + vector)</td></tr>
+      <tr><td>7</td><td>RAG pattern</td><td>Search relevant docs → feed as context to LLM</td></tr>
+      <tr><td>8</td><td>Cortex Analyst</td><td>Natural language → SQL using semantic models</td></tr>
+      <tr><td>9</td><td>Semantic View</td><td>Defines metrics, dimensions, relationships for Analyst</td></tr>
+      <tr><td>10</td><td>Cortex Agents</td><td>Multi-step AI with tools (SQL, search, generate)</td></tr>
+      <tr><td>11</td><td>ML FORECAST</td><td>No-code time-series prediction (trains on your data)</td></tr>
+      <tr><td>12</td><td>ML ANOMALY_DETECTION</td><td>Detect outliers in time-series automatically</td></tr>
+      <tr><td>13</td><td>ML CLASSIFICATION</td><td>Train classifier on labeled data, predict new</td></tr>
+      <tr><td>14</td><td>Model Registry</td><td>Version, log, deploy ML models (Snowpark ML)</td></tr>
+      <tr><td>15</td><td>Data stays in Snowflake</td><td>No extraction for AI - governance preserved</td></tr>
+    </tbody>
+  </table>
+
+  <hr/>
+  <p style="text-align:center; font-size: 0.85em; color: light-dark(#6b7280, #9ca3af);">
+    Snowflake Interview Prep | Domain 7: Cortex AI & Modern Features<br/>
+    Generated: July 29, 2026 | Account: ZITTTER-AT35969
+  </p>
+
+</body>
+</html>

@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Certification - 3.1 Query Performance</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-07-29",
+    "intent": "Snowflake SnowPro Core Certification - Domain 3.1 Query Performance",
+    "sections": [
+      { "id": "query-profile", "title": "Query Profile" },
+      { "id": "pruning", "title": "Partition Pruning" },
+      { "id": "clustering", "title": "Clustering Keys" },
+      { "id": "search-optimization", "title": "Search Optimization Service" },
+      { "id": "qas", "title": "Query Acceleration Service" },
+      { "id": "caching-detail", "title": "Caching Strategies" },
+      { "id": "tuning-patterns", "title": "Common Tuning Patterns" },
+      { "id": "hands-on", "title": "Hands-On Scripts" },
+      { "id": "interview-qa", "title": "Interview Q&A" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, system-ui, 'Segoe UI', sans-serif; max-width: 960px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #111827); line-height: 1.7; }
+    h1 { color: light-dark(#1e40af, #93c5fd); border-bottom: 3px solid light-dark(#3b82f6, #1d4ed8); padding-bottom: 12px; }
+    h2 { color: light-dark(#1e3a5f, #7dd3fc); margin-top: 40px; border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding-left: 12px; }
+    h3 { color: light-dark(#374151, #d1d5db); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9em; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#eff6ff, #1e3a5f); font-weight: 600; }
+    tr:nth-child(even) { background: light-dark(#f8fafc, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+    pre { background: light-dark(#0f172a, #0f172a); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; line-height: 1.5; }
+    .highlight { background: light-dark(#fef3c7, #422006); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#f59e0b, #fbbf24); margin: 16px 0; }
+    .key-point { background: light-dark(#ecfdf5, #022c22); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#10b981, #34d399); margin: 16px 0; }
+    .warning { background: light-dark(#fef2f2, #450a0a); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#ef4444, #f87171); margin: 16px 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+    .badge-cert { background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); }
+    .badge-interview { background: light-dark(#fce7f3, #500724); color: light-dark(#be185d, #f9a8d4); }
+    .badge-new { background: light-dark(#d1fae5, #022c22); color: light-dark(#065f46, #6ee7b7); }
+    .qa-block { margin: 20px 0; padding: 16px; background: light-dark(#f8fafc, #1a2332); border-radius: 8px; }
+    .qa-block strong { color: light-dark(#1e40af, #93c5fd); }
+  </style>
+</head>
+<body>
+
+  <h1>Domain 3: Performance & Tuning</h1>
+  <p><span class="badge badge-cert">SnowPro Core (10-15%)</span> <span class="badge badge-interview">Interview Essential</span> <span class="badge badge-new">Includes QAS & SOS</span></p>
+  <p><strong>Date:</strong> July 29, 2026 | Covers all 3 sections: Query Performance, Caching, Warehouse Optimization</p>
+
+  <hr/>
+
+  <h2 id="query-profile">1. Query Profile</h2>
+
+  <h3>What Is the Query Profile?</h3>
+  <p>The Query Profile is a visual execution plan (DAG) showing how Snowflake processed a query. It's the #1 tool for performance diagnosis.</p>
+
+  <pre>
+  QUERY PROFILE DAG (Directed Acyclic Graph):
+
+  [TableScan: orders]  [TableScan: customers]
+         |                      |
+         v                      v
+  [Filter: date > X]    [Filter: region = Y]
+         |                      |
+         +----------+-----------+
+                    |
+                    v
+            [HashJoin: id = cust_id]
+                    |
+                    v
+            [Aggregate: SUM, COUNT]
+                    |
+                    v
+            [Sort: revenue DESC]
+                    |
+                    v
+              [Result: LIMIT 100]
+  </pre>
+
+  <h3>Key Metrics in Query Profile</h3>
+  <table>
+    <thead><tr><th>Metric</th><th>What It Shows</th><th>Red Flag Threshold</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Partitions Scanned / Total</strong></td><td>How many micro-partitions were read vs skipped</td><td>Scanned > 50% of total = poor pruning</td></tr>
+      <tr><td><strong>Bytes Scanned</strong></td><td>Amount of data read from storage</td><td>Much larger than result size = inefficient</td></tr>
+      <tr><td><strong>% Scanned from Cache</strong></td><td>Data served from local SSD vs remote storage</td><td>0% on repeated query = cold cache</td></tr>
+      <tr><td><strong>Spillage to Local Disk</strong></td><td>Memory overflow written to warehouse SSD</td><td>Any spill > 0 = warehouse may be too small</td></tr>
+      <tr><td><strong>Spillage to Remote</strong></td><td>Memory overflow to cloud storage</td><td>ANY remote spill = definitely scale up</td></tr>
+      <tr><td><strong>Exploding Joins</strong></td><td>Output rows >> input rows from a join</td><td>10x output/input = likely bad join key</td></tr>
+      <tr><td><strong>Queued Time</strong></td><td>Time waiting for warehouse resources</td><td>> 0 = concurrency issue (scale out)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="highlight">
+    <strong>Exam Tip - Performance Diagnosis Flow:</strong>
+    <ol>
+      <li>Query slow? Check <strong>Query Profile</strong> first</li>
+      <li>High partitions scanned? --> Add <strong>clustering key</strong></li>
+      <li>Spilling to disk? --> <strong>Increase warehouse size</strong></li>
+      <li>Queuing? --> <strong>Multi-cluster warehouse</strong> (scale out)</li>
+      <li>Exploding joins? --> Fix <strong>join condition</strong> or data model</li>
+      <li>Repeated same query? --> Leverage <strong>result cache</strong></li>
+    </ol>
+  </div>
+
+  <h2 id="pruning">2. Partition Pruning</h2>
+
+  <h3>How Pruning Works (Recap + Performance Focus)</h3>
+  <pre>
+  GOOD PRUNING (well-clustered data):
+  Query: WHERE order_date = '2024-06-15'
+  Total partitions: 1000
+  Partitions scanned: 3  (99.7% pruned!)
+  
+  BAD PRUNING (poorly clustered):
+  Query: WHERE customer_id = 12345
+  Total partitions: 1000
+  Partitions scanned: 980  (only 2% pruned!)
+  
+  WHY? Data was loaded chronologically, so order_date is naturally clustered.
+  But customer_id is scattered across ALL partitions.
+  </pre>
+
+  <h3>What Enables Good Pruning?</h3>
+  <table>
+    <thead><tr><th>Factor</th><th>Good Pruning</th><th>Poor Pruning</th></tr></thead>
+    <tbody>
+      <tr><td>Filter column</td><td>Matches data's clustering order</td><td>Column values scattered across partitions</td></tr>
+      <tr><td>Filter type</td><td>Equality, range (BETWEEN, &lt;, &gt;)</td><td>LIKE '%pattern%', functions on column</td></tr>
+      <tr><td>Data loading</td><td>Ordered/sequential loads (time-series)</td><td>Random/shuffled bulk loads</td></tr>
+      <tr><td>Clustering key</td><td>Defined on filter columns</td><td>No clustering key, or wrong columns</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warning">
+    <strong>Pruning Killers (Functions on Columns):</strong>
+    <pre>
+-- BAD: Function prevents pruning
+WHERE YEAR(order_date) = 2024          -- wraps column in function!
+WHERE UPPER(customer_name) = 'ALICE'   -- function blocks pruning
+
+-- GOOD: Direct comparison enables pruning  
+WHERE order_date >= '2024-01-01' AND order_date < '2025-01-01'
+WHERE customer_name = 'Alice'
+    </pre>
+  </div>
+
+  <h2 id="clustering">3. Clustering Keys</h2>
+
+  <h3>When to Use Clustering Keys</h3>
+  <table>
+    <thead><tr><th>Use Clustering When</th><th>Don't Cluster When</th></tr></thead>
+    <tbody>
+      <tr><td>Table is large (multi-GB to TB)</td><td>Table is small (&lt; 1 GB)</td></tr>
+      <tr><td>Queries consistently filter on specific columns</td><td>Queries use different columns every time</td></tr>
+      <tr><td>Clustering depth is high (poor natural clustering)</td><td>Natural clustering is already good (depth ~1-2)</td></tr>
+      <tr><td>Pruning ratio is bad in Query Profile</td><td>Pruning already eliminates 90%+ partitions</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Clustering Key Design</h3>
+  <pre>
+-- Check current clustering quality
+SELECT SYSTEM$CLUSTERING_INFORMATION('my_table', '(date_col, category_col)');
+
+-- Returns JSON with:
+-- "average_depth": 5.2      (lower = better, 1 = perfect)
+-- "average_overlaps": 3.1   (lower = better)
+-- "total_partition_count": 200
+
+-- Add clustering key
+ALTER TABLE my_table CLUSTER BY (date_col, region);
+
+-- Best practices for column choice:
+-- 1. Columns used in WHERE/JOIN most often
+-- 2. Date/timestamp columns first (range queries)
+-- 3. Low-to-medium cardinality second (region, category)
+-- 4. Max 3-4 columns in clustering key
+-- 5. High cardinality columns (user_id) = usually bad choice
+
+-- Remove clustering key (stops reclustering charges)
+ALTER TABLE my_table DROP CLUSTERING KEY;
+  </pre>
+
+  <div class="key-point">
+    <strong>Automatic Clustering Service:</strong>
+    <ul>
+      <li>Once you define a clustering key, Snowflake AUTOMATICALLY re-clusters data in background</li>
+      <li>Uses <strong>serverless compute</strong> (not your warehouse) - separate billing</li>
+      <li>Runs when data changes significantly degrade clustering</li>
+      <li>Credit cost depends on table size and change frequency</li>
+      <li>Can be monitored: <code>SHOW TABLES</code> shows <code>automatic_clustering = ON/OFF</code></li>
+    </ul>
+  </div>
+
+  <h2 id="search-optimization">4. Search Optimization Service (SOS)</h2>
+  <p><span class="badge badge-cert">Enterprise+ Only</span></p>
+
+  <h3>What Does SOS Do?</h3>
+  <p>Creates auxiliary data structures (like search indexes) for queries that partition pruning handles poorly:</p>
+
+  <table>
+    <thead><tr><th>Query Pattern</th><th>Pruning Alone</th><th>With SOS</th></tr></thead>
+    <tbody>
+      <tr><td><code>WHERE id = 12345</code> (point lookup)</td><td>Scans many partitions</td><td>Jumps directly to correct partition</td></tr>
+      <tr><td><code>WHERE col LIKE '%pattern%'</code></td><td>Full scan</td><td>Uses search access path</td></tr>
+      <tr><td><code>WHERE variant:key = 'value'</code></td><td>Scans all partitions</td><td>Indexes VARIANT paths</td></tr>
+      <tr><td><code>WHERE ST_CONTAINS(geo, point)</code></td><td>Full scan</td><td>Spatial indexing</td></tr>
+      <tr><td><code>WHERE col IN (val1, val2, ...100 values)</code></td><td>Some pruning</td><td>Efficient multi-point lookup</td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+-- Enable SOS on a table
+ALTER TABLE my_table ADD SEARCH OPTIMIZATION;
+
+-- Enable on specific columns only (more cost-effective)
+ALTER TABLE my_table ADD SEARCH OPTIMIZATION 
+  ON EQUALITY(id, email)
+  ON SUBSTRING(name)
+  ON GEO(location);
+
+-- Check status
+SHOW TABLES LIKE 'my_table';  -- search_optimization = ON
+DESCRIBE SEARCH OPTIMIZATION ON my_table;
+
+-- Remove SOS
+ALTER TABLE my_table DROP SEARCH OPTIMIZATION;
+  </pre>
+
+  <div class="highlight">
+    <strong>SOS Key Facts:</strong>
+    <ul>
+      <li>Enterprise edition required</li>
+      <li>Additional serverless compute cost for maintenance</li>
+      <li>Additional storage cost for search structures</li>
+      <li>Best for: point lookups on high-cardinality columns, LIKE substring searches, VARIANT field access</li>
+      <li>NOT needed for: range queries on clustered columns (pruning handles those)</li>
+      <li>Supplements clustering - doesn't replace it</li>
+    </ul>
+  </div>
+
+  <h2 id="qas">5. Query Acceleration Service (QAS)</h2>
+  <p><span class="badge badge-cert">Enterprise+ Only</span></p>
+
+  <h3>What Is QAS?</h3>
+  <p>QAS offloads portions of a query to additional serverless compute resources, accelerating queries that benefit from more parallelism.</p>
+
+  <pre>
+  WITHOUT QAS:                          WITH QAS:
+  +------------------+                  +------------------+
+  |  Your Warehouse  |                  |  Your Warehouse  |
+  |  [processing..] |                  |  [processing..] |
+  |  [processing..] |                  +------------------+
+  |  [waiting..]    |                          +
+  +------------------+                  +------------------+
+                                        | QAS Serverless   |
+  Query takes 60 seconds               | [accelerating..] |
+                                        +------------------+
+                                        
+                                        Query takes 15 seconds!
+  </pre>
+
+  <h3>Best Queries for QAS</h3>
+  <table>
+    <thead><tr><th>Good Candidates</th><th>Poor Candidates</th></tr></thead>
+    <tbody>
+      <tr><td>Large scans with selective filters (scan + filter pattern)</td><td>Small quick queries (overhead not worth it)</td></tr>
+      <tr><td>Queries with many OR/IN conditions</td><td>Queries limited by single-node operations</td></tr>
+      <tr><td>Aggregations over large datasets</td><td>Complex multi-join queries (not parallelizable)</td></tr>
+      <tr><td>Queries that unevenly distribute work</td><td>Queries that already max out warehouse</td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+-- Enable QAS on a warehouse
+ALTER WAREHOUSE my_wh SET 
+  ENABLE_QUERY_ACCELERATION = TRUE
+  QUERY_ACCELERATION_MAX_SCALE_FACTOR = 8;  -- up to 8x additional compute
+
+-- Check eligible queries
+SELECT query_id, eligible_query_acceleration_time
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_ACCELERATION_ELIGIBLE
+WHERE start_time > DATEADD('day', -7, CURRENT_TIMESTAMP())
+  AND eligible_query_acceleration_time > 0
+ORDER BY eligible_query_acceleration_time DESC;
+  </pre>
+
+  <h2 id="caching-detail">6. Caching Strategies (Performance Focus)</h2>
+
+  <pre>
+  CACHE HIERARCHY (checked in this order):
+
+  1. RESULT CACHE (Cloud Services)
+     - Full query result stored for 24h
+     - Conditions: same query + same role + unchanged data
+     - Cost: $0 (no warehouse needed)
+     - Best for: repeated dashboard queries, scheduled reports
+
+  2. LOCAL DISK CACHE (Warehouse SSD)
+     - Raw partition data cached on node
+     - Conditions: warehouse running + same partitions accessed
+     - Cost: warehouse must stay running (credits)
+     - Best for: iterative analysis on same dataset
+
+  3. REMOTE DISK CACHE
+     - Cloud storage warm cache layer  
+     - Conditions: data recently accessed by any warehouse
+     - Cost: included in storage/compute
+     - Best for: frequently accessed hot data
+
+  TUNING ACTIONS:
+  - For dashboards: rely on result cache (run queries periodically to keep warm)
+  - For interactive: set AUTO_SUSPEND high enough to keep SSD cache (120-600s)
+  - For batch ETL: set AUTO_SUSPEND low (no reuse benefit)
+  </pre>
+
+  <h2 id="tuning-patterns">7. Common Tuning Patterns</h2>
+
+  <table>
+    <thead><tr><th>Problem</th><th>Symptoms</th><th>Solution</th></tr></thead>
+    <tbody>
+      <tr><td>Full table scans</td><td>Partitions scanned = total, slow queries</td><td>Add WHERE filters, add clustering key</td></tr>
+      <tr><td>Memory spilling</td><td>Bytes spilled to local/remote disk</td><td>Increase warehouse size</td></tr>
+      <tr><td>Query queuing</td><td>Queued_overload_time > 0, users waiting</td><td>Multi-cluster warehouse, separate workloads</td></tr>
+      <tr><td>Exploding joins</td><td>Join output >> input, slow execution</td><td>Fix join keys (many-to-many), filter before join</td></tr>
+      <tr><td>Network/I/O bottleneck</td><td>High remote read time</td><td>Reduce data scanned, materialize intermediate results</td></tr>
+      <tr><td>Cold cache</td><td>0% from cache, slow first queries</td><td>Increase AUTO_SUSPEND, pre-warm with scheduled query</td></tr>
+      <tr><td>Suboptimal clustering</td><td>Depth > 5, high overlaps</td><td>ALTER TABLE CLUSTER BY (filter_columns)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Materialized Views as Performance Tool</h3>
+  <pre>
+-- Create materialized view for expensive aggregation (Enterprise+)
+CREATE MATERIALIZED VIEW daily_sales_mv AS
+  SELECT order_date, region, SUM(amount) AS total_sales, COUNT(*) AS order_count
+  FROM orders
+  GROUP BY order_date, region;
+
+-- Queries automatically use the MV when it matches:
+SELECT region, SUM(amount) FROM orders WHERE order_date > '2024-01-01' GROUP BY region;
+-- Optimizer may rewrite to use daily_sales_mv instead of scanning orders!
+
+-- Key facts:
+-- Enterprise+ only
+-- Maintained automatically (serverless)
+-- Limited to: SELECT, JOIN, GROUP BY, WHERE (no UNION, subquery, HAVING)
+-- Optimizer decides when to use it (transparent to user)
+  </pre>
+
+  <h2 id="hands-on">8. Hands-On SQL Scripts</h2>
+
+  <h3>Script 1: Analyze Query Performance</h3>
+  <pre>
+-- Run a query and check its performance
+USE SCHEMA CERT_STUDY_DB.ARCHITECTURE;
+
+SELECT category, 
+       DATE_TRUNC('month', order_date) AS month,
+       SUM(amount) AS total,
+       COUNT(*) AS cnt
+FROM sample_data
+WHERE order_date BETWEEN '2024-04-01' AND '2024-06-30'
+GROUP BY category, month
+ORDER BY month, total DESC;
+
+-- Check the query profile (get last query ID)
+SELECT LAST_QUERY_ID();
+
+-- Get partition scan stats from query history
+SELECT query_id,
+       partitions_scanned,
+       partitions_total,
+       ROUND(partitions_scanned / NULLIF(partitions_total, 0) * 100, 1) AS pct_scanned,
+       bytes_scanned / (1024*1024) AS mb_scanned,
+       bytes_spilled_to_local_storage / (1024*1024) AS mb_spilled_local,
+       bytes_spilled_to_remote_storage / (1024*1024) AS mb_spilled_remote,
+       total_elapsed_time / 1000 AS elapsed_sec
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE query_id = LAST_QUERY_ID(-2);
+  </pre>
+
+  <h3>Script 2: Clustering Analysis</h3>
+  <pre>
+-- Check clustering quality on different columns
+SELECT SYSTEM$CLUSTERING_DEPTH('CERT_STUDY_DB.ARCHITECTURE.SAMPLE_DATA', '(order_date)') AS by_date;
+SELECT SYSTEM$CLUSTERING_DEPTH('CERT_STUDY_DB.ARCHITECTURE.SAMPLE_DATA', '(category)') AS by_category;
+SELECT SYSTEM$CLUSTERING_DEPTH('CERT_STUDY_DB.ARCHITECTURE.SAMPLE_DATA', '(id)') AS by_id;
+
+-- Compare pruning: query on clustered column vs non-clustered
+-- Well-pruned (filter on order_date which is naturally clustered):
+SELECT COUNT(*) FROM sample_data WHERE order_date = '2024-06-15';
+
+-- Poorly-pruned (filter on random column):
+SELECT COUNT(*) FROM sample_data WHERE id = 500000;
+  </pre>
+
+  <h3>Script 3: Warehouse Performance Monitoring</h3>
+  <pre>
+-- Queries that spilled (need bigger warehouse)
+SELECT query_id, 
+       SUBSTR(query_text, 1, 80) AS query,
+       warehouse_size,
+       bytes_spilled_to_local_storage / (1024*1024*1024) AS gb_spilled_local,
+       bytes_spilled_to_remote_storage / (1024*1024*1024) AS gb_spilled_remote,
+       total_elapsed_time / 1000 AS seconds
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE start_time > DATEADD('day', -7, CURRENT_TIMESTAMP())
+  AND (bytes_spilled_to_local_storage > 0 OR bytes_spilled_to_remote_storage > 0)
+ORDER BY bytes_spilled_to_remote_storage DESC
+LIMIT 10;
+
+-- Queries that were queued (need multi-cluster or separate warehouse)
+SELECT query_id,
+       SUBSTR(query_text, 1, 80) AS query,
+       warehouse_name,
+       queued_overload_time / 1000 AS queue_seconds
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE start_time > DATEADD('day', -7, CURRENT_TIMESTAMP())
+  AND queued_overload_time > 0
+ORDER BY queued_overload_time DESC
+LIMIT 10;
+  </pre>
+
+  <h3>Script 4: Cache Effectiveness</h3>
+  <pre>
+-- How effective is caching across the account?
+SELECT 
+  DATE_TRUNC('day', start_time) AS day,
+  COUNT(*) AS total_queries,
+  SUM(CASE WHEN bytes_scanned = 0 AND rows_produced > 0 THEN 1 ELSE 0 END) AS result_cache_hits,
+  ROUND(result_cache_hits / total_queries * 100, 1) AS cache_hit_pct,
+  ROUND(AVG(percentage_scanned_from_cache), 1) AS avg_pct_from_disk_cache
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE start_time > DATEADD('day', -7, CURRENT_TIMESTAMP())
+  AND query_type = 'SELECT'
+  AND warehouse_name IS NOT NULL
+GROUP BY day
+ORDER BY day DESC;
+  </pre>
+
+  <h2 id="interview-qa">9. Interview & Certification Q&A</h2>
+
+  <div class="qa-block">
+    <strong>Q1: A query is slow. Walk me through how you'd diagnose it.</strong>
+    <p><strong>A:</strong>
+    <ol>
+      <li><strong>Query Profile:</strong> Open the visual DAG. Look at the most expensive operator node.</li>
+      <li><strong>Partitions:</strong> Check scanned vs total. If ratio is high --> clustering issue.</li>
+      <li><strong>Spilling:</strong> Any spill to local/remote? --> Warehouse too small, scale UP.</li>
+      <li><strong>Queuing:</strong> Was query queued? --> Concurrency issue, scale OUT or separate warehouse.</li>
+      <li><strong>Joins:</strong> Is there an "exploding" join (output >> input)? --> Fix join logic.</li>
+      <li><strong>Pruning:</strong> Is a function wrapping the filter column? --> Rewrite query.</li>
+      <li><strong>Data volume:</strong> Is the query scanning too much data? --> Add better WHERE filters.</li>
+    </ol></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q2: What's the difference between clustering keys and indexes?</strong>
+    <p><strong>A:</strong> Snowflake has NO traditional indexes. Clustering keys reorganize how data is physically stored:
+    <table>
+      <tr><th></th><th>Traditional Index</th><th>Snowflake Clustering Key</th></tr>
+      <tr><td>Storage</td><td>Separate data structure (B-tree)</td><td>Reorganizes actual data placement</td></tr>
+      <tr><td>Maintenance</td><td>Manual (REBUILD, REORGANIZE)</td><td>Automatic (serverless background)</td></tr>
+      <tr><td>Write penalty</td><td>Every INSERT updates index</td><td>Background reclustering as needed</td></tr>
+      <tr><td>Point lookup</td><td>Efficient (B-tree traversal)</td><td>Good if well-clustered, else use SOS</td></tr>
+      <tr><td>Range queries</td><td>Efficient with clustered index</td><td>Excellent (pruning eliminates partitions)</td></tr>
+      <tr><td>Creation</td><td>CREATE INDEX (user decides)</td><td>ALTER TABLE CLUSTER BY (user decides columns)</td></tr>
+    </table></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q3: When would you use SOS vs clustering vs QAS?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>Clustering:</strong> Range queries on specific columns (dates, categories). Best when queries consistently filter on 1-3 columns. Reorganizes data.</li>
+      <li><strong>SOS (Search Optimization):</strong> Point lookups on high-cardinality columns (ID=X), substring searches (LIKE '%X%'), VARIANT field access. Adds search structures WITHOUT reorganizing data.</li>
+      <li><strong>QAS (Query Acceleration):</strong> Queries that benefit from MORE parallelism - large scans, many OR conditions, uneven work distribution. Adds temporary serverless compute to your warehouse.</li>
+    </ul>
+    They complement each other: Clustering = data organization, SOS = lookup speed, QAS = compute scaling.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q4: How do you decide warehouse size for a workload?</strong>
+    <p><strong>A:</strong> Start small, measure, and scale:
+    <ol>
+      <li>Start with <strong>X-Small or Small</strong></li>
+      <li>Run representative queries</li>
+      <li>Check Query Profile for <strong>spilling</strong>:
+        <ul><li>No spill = size is adequate</li><li>Spill to local = might benefit from 1 size up</li><li>Spill to remote = definitely need larger warehouse</li></ul>
+      </li>
+      <li>Doubling warehouse size doesn't guarantee 2x speed (Amdahl's law)</li>
+      <li>For concurrency: prefer multi-cluster (scale out) over larger single cluster</li>
+    </ol></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q5: What queries does the result cache NOT work for?</strong>
+    <p><strong>A:</strong> Result cache miss when:
+    <ul>
+      <li>Underlying data changed since last execution</li>
+      <li>Query uses non-deterministic functions: <code>CURRENT_TIMESTAMP()</code>, <code>RANDOM()</code>, <code>UUID_STRING()</code>, <code>CURRENT_DATE()</code></li>
+      <li>Different role than original execution</li>
+      <li>Different query text (even whitespace changes)</li>
+      <li>Explicitly disabled: <code>ALTER SESSION SET USE_CACHED_RESULT = FALSE</code></li>
+      <li>Past 24-hour window (or 31 days if repeatedly accessed)</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q6: What is the Query Acceleration Service and how is it billed?</strong>
+    <p><strong>A:</strong> QAS offloads query processing to additional serverless compute:
+    <ul>
+      <li><strong>Billing:</strong> Serverless credits (separate from warehouse). Only charged when QAS actually accelerates a query.</li>
+      <li><strong>Scale factor:</strong> QUERY_ACCELERATION_MAX_SCALE_FACTOR controls maximum additional compute (1-100, default 8 = up to 8x warehouse size)</li>
+      <li><strong>Automatic:</strong> Optimizer decides per-query whether QAS helps. Not all queries benefit.</li>
+      <li><strong>No impact on other queries:</strong> QAS resources are isolated, don't take from warehouse pool</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q7: A table has 100TB and queries filter on user_id (1 billion unique values). Best optimization?</strong>
+    <p><strong>A:</strong> <strong>Search Optimization Service (SOS)</strong> - because:
+    <ul>
+      <li>user_id is high-cardinality (1B values) - bad candidate for clustering key</li>
+      <li>Point lookups (WHERE user_id = X) benefit from SOS search structures</li>
+      <li>Clustering on user_id would create too many overlapping partitions</li>
+      <li>SOS creates efficient lookup paths without rearranging data</li>
+    </ul>
+    If queries ALSO filter on date range: CLUSTER BY (date_col) + SOS ON EQUALITY(user_id) = best combo.</p>
+  </div>
+
+  <hr/>
+
+  <h2>Quick Revision Checklist</h2>
+  <table>
+    <thead><tr><th>#</th><th>Concept</th><th>Remember</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Query Profile shows</td><td>DAG of operators, partitions, spilling, cache stats</td></tr>
+      <tr><td>2</td><td>Partition pruning uses</td><td>Min/max metadata per column per partition</td></tr>
+      <tr><td>3</td><td>Functions kill pruning</td><td>WHERE YEAR(col)=X bad, WHERE col BETWEEN good</td></tr>
+      <tr><td>4</td><td>Clustering key max columns</td><td>Recommend 3-4 max</td></tr>
+      <tr><td>5</td><td>Clustering depth = 1</td><td>Perfectly clustered</td></tr>
+      <tr><td>6</td><td>Auto Clustering compute</td><td>Serverless (not your warehouse)</td></tr>
+      <tr><td>7</td><td>SOS best for</td><td>Point lookups, LIKE substring, VARIANT, GEO</td></tr>
+      <tr><td>8</td><td>SOS edition</td><td>Enterprise+</td></tr>
+      <tr><td>9</td><td>QAS does</td><td>Adds serverless compute to accelerate queries</td></tr>
+      <tr><td>10</td><td>QAS billing</td><td>Separate serverless credits (per-query)</td></tr>
+      <tr><td>11</td><td>Spill to local means</td><td>Warehouse running out of memory (moderate concern)</td></tr>
+      <tr><td>12</td><td>Spill to remote means</td><td>Definitely need bigger warehouse (serious)</td></tr>
+      <tr><td>13</td><td>Result cache duration</td><td>24h (extends to 31 days with repeated access)</td></tr>
+      <tr><td>14</td><td>Result cache invalidated by</td><td>Data change, different role, non-deterministic functions</td></tr>
+      <tr><td>15</td><td>Materialized views</td><td>Enterprise+, auto-maintained, optimizer decides usage</td></tr>
+    </tbody>
+  </table>
+
+  <hr/>
+  <p style="text-align:center; font-size: 0.85em; color: light-dark(#6b7280, #9ca3af);">
+    Snowflake SnowPro Core Certification Study Guide | Domain 3: Performance & Tuning<br/>
+    Generated: July 29, 2026 | Account: ZITTTER-AT35969
+  </p>
+
+</body>
+</html>

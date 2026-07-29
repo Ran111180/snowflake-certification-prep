@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Certification - 1.5 Connectivity</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-07-29",
+    "intent": "Snowflake SnowPro Core Certification - Domain 1.5 Connectivity",
+    "sections": [
+      { "id": "overview", "title": "Connectivity Overview" },
+      { "id": "snowsight", "title": "Snowsight (Web UI)" },
+      { "id": "snowsql", "title": "SnowSQL (CLI)" },
+      { "id": "connectors", "title": "Connectors & Drivers" },
+      { "id": "snow-cli", "title": "Snowflake CLI (snow)" },
+      { "id": "ecosystem", "title": "Ecosystem Integrations" },
+      { "id": "hands-on", "title": "Hands-On Scripts" },
+      { "id": "interview-qa", "title": "Interview Q&A" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, system-ui, 'Segoe UI', sans-serif; max-width: 960px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #111827); line-height: 1.7; }
+    h1 { color: light-dark(#1e40af, #93c5fd); border-bottom: 3px solid light-dark(#3b82f6, #1d4ed8); padding-bottom: 12px; }
+    h2 { color: light-dark(#1e3a5f, #7dd3fc); margin-top: 40px; border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding-left: 12px; }
+    h3 { color: light-dark(#374151, #d1d5db); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9em; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#eff6ff, #1e3a5f); font-weight: 600; }
+    tr:nth-child(even) { background: light-dark(#f8fafc, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+    pre { background: light-dark(#0f172a, #0f172a); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; line-height: 1.5; }
+    .highlight { background: light-dark(#fef3c7, #422006); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#f59e0b, #fbbf24); margin: 16px 0; }
+    .key-point { background: light-dark(#ecfdf5, #022c22); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#10b981, #34d399); margin: 16px 0; }
+    .warning { background: light-dark(#fef2f2, #450a0a); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#ef4444, #f87171); margin: 16px 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+    .badge-cert { background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); }
+    .badge-interview { background: light-dark(#fce7f3, #500724); color: light-dark(#be185d, #f9a8d4); }
+    .badge-new { background: light-dark(#d1fae5, #022c22); color: light-dark(#065f46, #6ee7b7); }
+    .qa-block { margin: 20px 0; padding: 16px; background: light-dark(#f8fafc, #1a2332); border-radius: 8px; }
+    .qa-block strong { color: light-dark(#1e40af, #93c5fd); }
+  </style>
+</head>
+<body>
+
+  <h1>Domain 1.5: Connectivity</h1>
+  <p><span class="badge badge-cert">SnowPro Core</span> <span class="badge badge-interview">Interview Essential</span> <span class="badge badge-new">Includes Snowflake CLI</span></p>
+  <p><strong>Date:</strong> July 29, 2026</p>
+
+  <hr/>
+
+  <h2 id="overview">1. Connectivity Overview</h2>
+
+  <h3>How Users Connect to Snowflake</h3>
+  <pre>
+  +------------------+     +------------------+     +------------------+
+  |   WEB BROWSER    |     |    CLI TOOLS     |     |  APPLICATIONS    |
+  |   (Snowsight)    |     | (SnowSQL, snow)  |     | (Python, Java..) |
+  +--------+---------+     +--------+---------+     +--------+---------+
+           |                         |                         |
+           +-------------------------+-------------------------+
+                                     |
+                              HTTPS (Port 443)
+                              TLS 1.2+ Encrypted
+                                     |
+                                     v
+           +=====================================================+
+           |              SNOWFLAKE CLOUD SERVICES               |
+           |         (Authentication + Query Processing)         |
+           +=====================================================+
+  </pre>
+
+  <div class="key-point">
+    <strong>All Connectivity Facts:</strong>
+    <ul>
+      <li>ALL connections use <strong>HTTPS (port 443)</strong> - no other ports needed</li>
+      <li>ALL data in transit encrypted with <strong>TLS 1.2</strong> minimum</li>
+      <li>NO direct connection to compute or storage - always through Cloud Services</li>
+      <li>Connection requires: <strong>Account identifier + Authentication credentials</strong></li>
+      <li>Connection URL format: <code>https://&lt;account&gt;.snowflakecomputing.com</code></li>
+    </ul>
+  </div>
+
+  <h2 id="snowsight">2. Snowsight (Web UI)</h2>
+
+  <h3>What Is Snowsight?</h3>
+  <p>Snowsight is Snowflake's modern web-based interface (replaced the legacy "Classic Console" in 2022).</p>
+
+  <table>
+    <thead><tr><th>Feature</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Worksheets</strong></td><td>SQL editor with autocomplete, syntax highlighting, multiple tabs</td></tr>
+      <tr><td><strong>Dashboards</strong></td><td>Visual dashboards from SQL query results (charts, tiles)</td></tr>
+      <tr><td><strong>Query History</strong></td><td>View all executed queries, profiles, execution plans</td></tr>
+      <tr><td><strong>Query Profile</strong></td><td>Visual DAG showing query execution operators and metrics</td></tr>
+      <tr><td><strong>Data Preview</strong></td><td>Browse databases, schemas, tables, preview data</td></tr>
+      <tr><td><strong>Activity Monitor</strong></td><td>Warehouse usage, query performance, copy history</td></tr>
+      <tr><td><strong>Admin Panel</strong></td><td>Users, roles, warehouses, resource monitors, billing</td></tr>
+      <tr><td><strong>Marketplace</strong></td><td>Browse/install third-party data & apps</td></tr>
+      <tr><td><strong>Notebooks</strong></td><td>Interactive notebooks with SQL, Python, Markdown cells</td></tr>
+      <tr><td><strong>Streamlit</strong></td><td>Deploy Streamlit apps directly in Snowflake</td></tr>
+    </tbody>
+  </table>
+
+  <div class="highlight">
+    <strong>Exam Tip:</strong> Snowsight is the ONLY web interface now (Classic Console deprecated). Key things only available in Snowsight: Dashboards, Query Profile visualization, Snowflake Notebooks, Streamlit deployment, Marketplace browsing.
+  </div>
+
+  <h2 id="snowsql">3. SnowSQL (CLI Client)</h2>
+
+  <h3>Overview</h3>
+  <p>SnowSQL is the official command-line client for Snowflake.</p>
+
+  <pre>
+  # Installation (example)
+  # Windows: MSI installer or chocolatey
+  # Mac: brew install snowflake-snowsql
+  # Linux: RPM/DEB package
+
+  # Connection
+  snowsql -a &lt;account_identifier&gt; -u &lt;username&gt;
+
+  # With connection config file (~/.snowsql/config)
+  snowsql -c my_connection
+
+  # Execute SQL file
+  snowsql -f my_script.sql
+
+  # Execute inline SQL
+  snowsql -q "SELECT CURRENT_VERSION()"
+  </pre>
+
+  <h3>Configuration File (~/.snowsql/config)</h3>
+  <pre>
+  [connections]
+  accountname = xy12345.us-east-1
+  username = myuser
+  password = mypassword
+  dbname = mydb
+  schemaname = public
+  warehousename = compute_wh
+  rolename = sysadmin
+
+  [connections.dev]
+  accountname = xy12345.us-east-1
+  username = dev_user
+  ...
+  </pre>
+
+  <table>
+    <thead><tr><th>Feature</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>Auto-updates</td><td>SnowSQL auto-updates to latest version</td></tr>
+      <tr><td>Named connections</td><td>Store multiple connection profiles</td></tr>
+      <tr><td>Variables</td><td>Use &amp;var or $var in scripts</td></tr>
+      <tr><td>PUT/GET</td><td>Upload/download files to/from stages</td></tr>
+      <tr><td>Output formats</td><td>Table, CSV, JSON, TSV, PSV</td></tr>
+      <tr><td>Scripting</td><td>Can be used in shell scripts, CI/CD</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="connectors">4. Connectors & Drivers</h2>
+
+  <h3>Official Connectors/Drivers</h3>
+  <table>
+    <thead><tr><th>Connector/Driver</th><th>Language/Platform</th><th>Use Case</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Python Connector</strong></td><td>Python</td><td>Python apps, scripts, data science</td></tr>
+      <tr><td><strong>Snowpark Python</strong></td><td>Python</td><td>DataFrame API, ML, UDFs in Snowflake</td></tr>
+      <tr><td><strong>JDBC Driver</strong></td><td>Java/JVM</td><td>Java apps, BI tools (Tableau, etc.)</td></tr>
+      <tr><td><strong>ODBC Driver</strong></td><td>C/C++, any ODBC app</td><td>Windows apps, Excel, legacy tools</td></tr>
+      <tr><td><strong>Node.js Driver</strong></td><td>JavaScript/Node.js</td><td>Web applications, serverless functions</td></tr>
+      <tr><td><strong>.NET Driver</strong></td><td>C#/.NET</td><td>.NET applications</td></tr>
+      <tr><td><strong>Go Driver</strong></td><td>Go</td><td>Go applications, microservices</td></tr>
+      <tr><td><strong>Spark Connector</strong></td><td>Spark/Scala/Python</td><td>Read/write between Spark and Snowflake</td></tr>
+      <tr><td><strong>Kafka Connector</strong></td><td>Kafka</td><td>Stream data from Kafka to Snowflake</td></tr>
+      <tr><td><strong>PHP PDO Driver</strong></td><td>PHP</td><td>PHP web applications</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Connector Architecture</h3>
+  <pre>
+  APPLICATION CODE
+       |
+       v
+  +------------------+
+  | Snowflake Driver |  (Python/JDBC/ODBC/Node.js etc.)
+  | - Authentication |
+  | - Query submit   |
+  | - Result fetch   |
+  | - PUT/GET files  |
+  +--------+---------+
+           |
+           | HTTPS (443) - TLS 1.2+
+           |
+           v
+  +------------------+
+  | Cloud Services   |  Snowflake
+  +------------------+
+  </pre>
+
+  <h3>Connection String / Parameters</h3>
+  <pre>
+  # Python Connector
+  import snowflake.connector
+
+  conn = snowflake.connector.connect(
+      account='xy12345.us-east-1',   # Account identifier
+      user='myuser',                  # Username
+      password='mypassword',          # Password (or use key-pair/SSO)
+      warehouse='compute_wh',         # Virtual warehouse
+      database='mydb',                # Database
+      schema='public',                # Schema
+      role='analyst_role'             # Role
+  )
+
+  # Snowpark Session
+  from snowflake.snowpark import Session
+
+  session = Session.builder.configs({
+      "account": "xy12345.us-east-1",
+      "user": "myuser",
+      "password": "mypassword",
+      "warehouse": "compute_wh",
+      "database": "mydb",
+      "schema": "public"
+  }).create()
+  </pre>
+
+  <h3>Connection Configuration File (connections.toml)</h3>
+  <p><span class="badge badge-new">NEW (Recommended)</span></p>
+  <pre>
+  # ~/.snowflake/connections.toml
+  
+  [default]
+  account = "xy12345.us-east-1"
+  user = "myuser"
+  password = "mypassword"
+  warehouse = "compute_wh"
+  database = "mydb"
+  schema = "public"
+  role = "sysadmin"
+
+  [dev]
+  account = "xy12345.us-east-1"
+  user = "dev_user"
+  authenticator = "externalbrowser"  # SSO
+  warehouse = "dev_wh"
+  </pre>
+
+  <div class="key-point">
+    <strong>Key Point:</strong> The <code>connections.toml</code> file is the modern standard for storing connection parameters. It's used by the Python connector, Snowpark, Snowflake CLI, and Cortex Code. Location: <code>~/.snowflake/connections.toml</code>
+  </div>
+
+  <h2 id="snow-cli">5. Snowflake CLI (snow)</h2>
+  <p><span class="badge badge-new">NEW - Modern CLI</span></p>
+
+  <h3>What Is the Snowflake CLI?</h3>
+  <p>The <code>snow</code> CLI is the next-generation command-line tool that replaces many SnowSQL use cases and adds DevOps capabilities.</p>
+
+  <table>
+    <thead><tr><th>Feature</th><th>SnowSQL</th><th>Snowflake CLI (snow)</th></tr></thead>
+    <tbody>
+      <tr><td>Primary purpose</td><td>Interactive SQL</td><td>DevOps, deployment, development</td></tr>
+      <tr><td>SQL execution</td><td>Yes (primary)</td><td>Yes (snow sql)</td></tr>
+      <tr><td>Snowpark deployment</td><td>No</td><td>Yes (snow snowpark)</td></tr>
+      <tr><td>Streamlit deployment</td><td>No</td><td>Yes (snow streamlit)</td></tr>
+      <tr><td>Native App management</td><td>No</td><td>Yes (snow app)</td></tr>
+      <tr><td>Git integration</td><td>No</td><td>Yes (snow git)</td></tr>
+      <tr><td>Object management</td><td>Via SQL only</td><td>Yes (snow object)</td></tr>
+      <tr><td>Stage file ops</td><td>PUT/GET in SQL</td><td>snow stage (put/get/list)</td></tr>
+      <tr><td>Connection config</td><td>~/.snowsql/config</td><td>~/.snowflake/connections.toml</td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+  # Common snow CLI commands
+  snow --version                          # Check version
+  snow connection test                    # Test connection
+  snow sql -q "SELECT CURRENT_VERSION()" # Execute SQL
+
+  # Snowpark operations
+  snow snowpark deploy                    # Deploy UDFs/procedures
+  snow snowpark build                     # Build packages
+  
+  # Streamlit
+  snow streamlit deploy                   # Deploy Streamlit app
+  
+  # Stage operations
+  snow stage list @my_stage              # List files
+  snow stage put local.csv @my_stage     # Upload file
+  
+  # Object management
+  snow object list table --database mydb --schema public
+  </pre>
+
+  <h2 id="ecosystem">6. Ecosystem Integrations</h2>
+
+  <h3>BI & Visualization Tools</h3>
+  <table>
+    <thead><tr><th>Tool</th><th>Connector Type</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Tableau</td><td>Native connector (JDBC-based)</td><td>Most popular BI integration</td></tr>
+      <tr><td>Power BI</td><td>Native connector (ODBC-based)</td><td>Microsoft ecosystem</td></tr>
+      <tr><td>Looker</td><td>JDBC</td><td>Google Cloud ecosystem</td></tr>
+      <tr><td>Sigma Computing</td><td>Native</td><td>Cloud-native BI built for Snowflake</td></tr>
+      <tr><td>ThoughtSpot</td><td>Native</td><td>Search & AI analytics</td></tr>
+      <tr><td>Qlik</td><td>ODBC/Native</td><td>Self-service analytics</td></tr>
+    </tbody>
+  </table>
+
+  <h3>ETL/ELT & Data Integration</h3>
+  <table>
+    <thead><tr><th>Tool</th><th>Type</th><th>Integration Method</th></tr></thead>
+    <tbody>
+      <tr><td>dbt</td><td>ELT (transform)</td><td>Native Snowflake adapter</td></tr>
+      <tr><td>Fivetran</td><td>ELT (extract/load)</td><td>Native connector, auto-schema</td></tr>
+      <tr><td>Airbyte</td><td>ELT</td><td>Snowflake destination connector</td></tr>
+      <tr><td>Matillion</td><td>ELT</td><td>Runs inside Snowflake</td></tr>
+      <tr><td>Informatica</td><td>ETL/ELT</td><td>Cloud connector</td></tr>
+      <tr><td>Talend</td><td>ETL</td><td>JDBC connector</td></tr>
+      <tr><td>Apache Airflow</td><td>Orchestration</td><td>Snowflake operator/hook</td></tr>
+      <tr><td>Snowflake Openflow</td><td>CDC/Replication</td><td>Native (NiFi-based)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Programming & Data Science</h3>
+  <table>
+    <thead><tr><th>Tool/Framework</th><th>Integration</th></tr></thead>
+    <tbody>
+      <tr><td>Snowpark (Python/Java/Scala)</td><td>Native - runs computations IN Snowflake</td></tr>
+      <tr><td>pandas on Snowflake</td><td>pandas API running on Snowflake compute</td></tr>
+      <tr><td>Jupyter Notebooks</td><td>Python connector / Snowpark</td></tr>
+      <tr><td>Snowflake Notebooks</td><td>Native - run directly in Snowsight</td></tr>
+      <tr><td>VS Code / Cortex Code</td><td>Extension + Snowflake connection</td></tr>
+      <tr><td>Apache Spark</td><td>Spark Connector (bidirectional)</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="hands-on">7. Hands-On SQL Scripts</h2>
+
+  <h3>Script 1: Connection & Session Information</h3>
+  <pre>
+-- Your current session context
+SELECT 
+  CURRENT_USER() AS user,
+  CURRENT_ROLE() AS role,
+  CURRENT_WAREHOUSE() AS warehouse,
+  CURRENT_DATABASE() AS database,
+  CURRENT_SCHEMA() AS schema,
+  CURRENT_SESSION() AS session_id,
+  CURRENT_CLIENT() AS client_type,
+  CURRENT_VERSION() AS sf_version;
+
+-- Connection parameters
+SHOW PARAMETERS LIKE '%NETWORK%' IN SESSION;
+SHOW PARAMETERS LIKE '%TIMEOUT%' IN SESSION;
+  </pre>
+
+  <h3>Script 2: Login History (Who's Connecting)</h3>
+  <pre>
+-- View login attempts (useful for security auditing)
+SELECT 
+  event_timestamp,
+  user_name,
+  client_ip,
+  reported_client_type,
+  first_authentication_factor,
+  second_authentication_factor,
+  is_success,
+  error_message
+FROM SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY
+WHERE event_timestamp > DATEADD('day', -7, CURRENT_TIMESTAMP())
+ORDER BY event_timestamp DESC
+LIMIT 20;
+  </pre>
+
+  <h3>Script 3: Session & Client Analysis</h3>
+  <pre>
+-- What clients are connecting to your account?
+SELECT 
+  reported_client_type,
+  reported_client_version,
+  COUNT(*) AS login_count,
+  COUNT(DISTINCT user_name) AS unique_users
+FROM SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY
+WHERE event_timestamp > DATEADD('day', -7, CURRENT_TIMESTAMP())
+  AND is_success = 'YES'
+GROUP BY reported_client_type, reported_client_version
+ORDER BY login_count DESC;
+  </pre>
+
+  <h3>Script 4: Network Policies</h3>
+  <pre>
+-- View existing network policies
+SHOW NETWORK POLICIES;
+
+-- Create a network policy (restrict access by IP)
+CREATE NETWORK POLICY IF NOT EXISTS study_policy
+  ALLOWED_IP_LIST = ('0.0.0.0/0')  -- Allow all (demo only!)
+  COMMENT = 'Demo network policy for cert study';
+
+-- View policy details
+DESCRIBE NETWORK POLICY study_policy;
+
+-- Note: To enforce, you'd assign to account or user:
+-- ALTER ACCOUNT SET NETWORK_POLICY = study_policy;
+-- ALTER USER myuser SET NETWORK_POLICY = study_policy;
+  </pre>
+
+  <h3>Script 5: Integration Objects</h3>
+  <pre>
+-- View existing integrations
+SHOW INTEGRATIONS;
+
+-- Storage integrations (for external stages)
+SHOW STORAGE INTEGRATIONS;
+
+-- Security integrations (for SSO/OAuth)
+SHOW SECURITY INTEGRATIONS;
+
+-- Notification integrations (for alerts)
+SHOW NOTIFICATION INTEGRATIONS;
+  </pre>
+
+  <h2 id="interview-qa">8. Interview & Certification Q&A</h2>
+
+  <div class="qa-block">
+    <strong>Q1: What port does Snowflake use for connections?</strong>
+    <p><strong>A:</strong> <strong>Port 443 (HTTPS)</strong> exclusively. All communication is encrypted with TLS 1.2+. There's no need to open additional ports for Snowflake. This simplifies firewall configuration - you just need outbound HTTPS to <code>*.snowflakecomputing.com</code>.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q2: What's the difference between SnowSQL and the Snowflake CLI (snow)?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>SnowSQL:</strong> Traditional SQL-focused CLI. Best for interactive SQL queries, scripting, PUT/GET file operations. Config in <code>~/.snowsql/config</code>.</li>
+      <li><strong>Snowflake CLI (snow):</strong> Modern DevOps-oriented CLI. Handles SQL execution PLUS Snowpark deployment, Streamlit apps, Native Apps, Git integration, object management. Config in <code>~/.snowflake/connections.toml</code>.</li>
+    </ul>
+    The Snowflake CLI is the recommended tool going forward, but SnowSQL remains supported.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q3: How does Snowflake connect to BI tools like Tableau and Power BI?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>Tableau:</strong> Uses a native Snowflake connector (JDBC-based internally). User provides account URL + credentials. Tableau pushes SQL to Snowflake for execution.</li>
+      <li><strong>Power BI:</strong> Uses Snowflake ODBC driver. Supports both Import mode (data copied to Power BI) and DirectQuery mode (live queries to Snowflake).</li>
+    </ul>
+    In both cases, the BI tool sends SQL through the Snowflake driver and the virtual warehouse processes it. Result cache can serve repeated dashboard queries efficiently.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q4: What is the connections.toml file?</strong>
+    <p><strong>A:</strong> <code>~/.snowflake/connections.toml</code> is the modern connection configuration file for Snowflake. It stores connection profiles (account, user, password, warehouse, etc.) in TOML format. Benefits:
+    <ul>
+      <li>Shared across Snowflake CLI, Python connector, Snowpark, Cortex Code</li>
+      <li>Supports multiple named connections ([default], [dev], [prod])</li>
+      <li>Supports all auth methods (password, key-pair, SSO, OAuth)</li>
+      <li>Avoids hardcoding credentials in application code</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q5: What are the authentication methods supported by Snowflake connectors?</strong>
+    <p><strong>A:</strong>
+    <ol>
+      <li><strong>Username/Password:</strong> Basic auth (least secure, avoid in production)</li>
+      <li><strong>Key-Pair Authentication:</strong> RSA key pair (2048-bit min). Most secure for service accounts.</li>
+      <li><strong>External Browser (SSO):</strong> Opens browser for SAML/SSO login. Good for interactive use.</li>
+      <li><strong>OAuth:</strong> External OAuth or Snowflake OAuth. For applications and integrations.</li>
+      <li><strong>Programmatic Access Token (PAT):</strong> Token-based auth for automation (NEW)</li>
+      <li><strong>MFA (Multi-Factor):</strong> Duo push or TOTP as second factor</li>
+    </ol></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q6: What is Snowpark and how does it differ from the Python Connector?</strong>
+    <p><strong>A:</strong>
+    <table>
+      <tr><th></th><th>Python Connector</th><th>Snowpark</th></tr>
+      <tr><td>Purpose</td><td>Execute SQL from Python</td><td>DataFrame API + deploy code TO Snowflake</td></tr>
+      <tr><td>Execution</td><td>SQL sent to Snowflake, results to client</td><td>Logic pushed down, runs IN Snowflake warehouse</td></tr>
+      <tr><td>API Style</td><td>cursor.execute("SQL")</td><td>df.filter().group_by().agg() (lazy evaluation)</td></tr>
+      <tr><td>UDF/Procedures</td><td>Must write SQL CREATE FUNCTION</td><td>Can deploy Python functions as UDFs natively</td></tr>
+      <tr><td>Data Movement</td><td>Results pulled to client memory</td><td>Data stays in Snowflake until explicitly collected</td></tr>
+    </table>
+    Snowpark is preferred for data engineering and ML workloads because computation happens in Snowflake.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q7: How does the Kafka connector work with Snowflake?</strong>
+    <p><strong>A:</strong> The Snowflake Kafka Connector runs as a Kafka Connect sink connector:
+    <ul>
+      <li>Reads messages from Kafka topics</li>
+      <li>Buffers records and writes them to a Snowflake internal stage as files</li>
+      <li>Uses <strong>Snowpipe</strong> to automatically load staged files into target tables</li>
+      <li>Each Kafka topic maps to a Snowflake table</li>
+      <li>Supports JSON and Avro formats</li>
+      <li>Near real-time loading (typically seconds of latency)</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q8: What is the Spark Connector used for?</strong>
+    <p><strong>A:</strong> The Snowflake Spark Connector allows bidirectional data transfer:
+    <ul>
+      <li><strong>Read:</strong> Load Snowflake table data into Spark DataFrames (pushes filters to Snowflake)</li>
+      <li><strong>Write:</strong> Write Spark DataFrames to Snowflake tables (bulk load via internal stage)</li>
+      <li><strong>Query Pushdown:</strong> Can push entire Spark operations to Snowflake for execution</li>
+    </ul>
+    Common in environments transitioning from Spark/Databricks to Snowflake, or using Spark for ML with Snowflake as storage. Note: Snowpark Connect now offers a simpler alternative for PySpark code.</p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q9: Can Snowflake integrate with Git repositories?</strong>
+    <p><strong>A:</strong> Yes, multiple ways:
+    <ul>
+      <li><strong>Git Integration (native):</strong> <code>CREATE GIT REPOSITORY</code> - clone a repo as a Snowflake stage. Access files directly from SQL.</li>
+      <li><strong>Snowflake CLI:</strong> <code>snow git</code> commands for repository management</li>
+      <li><strong>CI/CD:</strong> Use SnowSQL or Snowflake CLI in GitHub Actions/Jenkins/GitLab CI pipelines to deploy changes</li>
+      <li><strong>SchemaChange/Flyway:</strong> Database migration tools with Snowflake support</li>
+    </ul></p>
+  </div>
+
+  <div class="qa-block">
+    <strong>Q10: What networking considerations are important for Snowflake connectivity?</strong>
+    <p><strong>A:</strong>
+    <ul>
+      <li><strong>Port 443 only:</strong> All traffic over HTTPS</li>
+      <li><strong>Network Policies:</strong> IP allow/block lists (can be applied per account or per user)</li>
+      <li><strong>Private Connectivity:</strong> AWS PrivateLink, Azure Private Link, GCP Private Service Connect (Business Critical+)</li>
+      <li><strong>Proxy Support:</strong> Most drivers support HTTP proxy configuration</li>
+      <li><strong>DNS:</strong> Must resolve <code>*.snowflakecomputing.com</code> (or private endpoints)</li>
+      <li><strong>Firewall:</strong> Outbound HTTPS to Snowflake endpoints + cloud storage (S3/Blob/GCS for data transfer)</li>
+    </ul></p>
+  </div>
+
+  <hr/>
+
+  <h2>Quick Revision Checklist</h2>
+  <table>
+    <thead><tr><th>#</th><th>Concept</th><th>Remember</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Connection port</td><td>443 (HTTPS only)</td></tr>
+      <tr><td>2</td><td>Encryption in transit</td><td>TLS 1.2 minimum</td></tr>
+      <tr><td>3</td><td>Web UI</td><td>Snowsight (Classic Console deprecated)</td></tr>
+      <tr><td>4</td><td>CLI tools</td><td>SnowSQL (SQL), snow CLI (DevOps)</td></tr>
+      <tr><td>5</td><td>Config file (modern)</td><td>~/.snowflake/connections.toml</td></tr>
+      <tr><td>6</td><td>Python connector</td><td>snowflake.connector (SQL execution)</td></tr>
+      <tr><td>7</td><td>Snowpark</td><td>DataFrame API, code runs IN Snowflake</td></tr>
+      <tr><td>8</td><td>JDBC</td><td>Java apps, Tableau, most BI tools</td></tr>
+      <tr><td>9</td><td>ODBC</td><td>Windows apps, Power BI, legacy tools</td></tr>
+      <tr><td>10</td><td>Kafka connector</td><td>Sink connector + Snowpipe for loading</td></tr>
+      <tr><td>11</td><td>Spark connector</td><td>Bidirectional read/write, query pushdown</td></tr>
+      <tr><td>12</td><td>Private connectivity</td><td>Business Critical+ (PrivateLink/Private Link)</td></tr>
+      <tr><td>13</td><td>Network policy</td><td>IP allow/block lists, per account or user</td></tr>
+      <tr><td>14</td><td>Auth methods</td><td>Password, Key-pair, SSO, OAuth, PAT, MFA</td></tr>
+      <tr><td>15</td><td>PUT/GET commands</td><td>Upload/download files to/from stages</td></tr>
+    </tbody>
+  </table>
+
+  <hr/>
+  <p style="text-align:center; font-size: 0.85em; color: light-dark(#6b7280, #9ca3af);">
+    Snowflake SnowPro Core Certification Study Guide | Domain 1.5: Connectivity<br/>
+    Generated: July 29, 2026 | Account: ZITTTER-AT35969
+  </p>
+
+</body>
+</html>
