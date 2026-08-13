@@ -73,6 +73,58 @@
     </tbody>
   </table>
 
+  <h3>What Tasks CAN Do (Features)</h3>
+  <table>
+    <thead><tr><th>#</th><th>Feature</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>CRON scheduling</td><td>Full CRON syntax with timezone support (minute, hour, day, month, DOW)</td></tr>
+      <tr><td>2</td><td>Fixed interval scheduling</td><td>Simple intervals like <code>5 MINUTE</code>, <code>1 HOUR</code></td></tr>
+      <tr><td>3</td><td>Stream-triggered execution</td><td><code>WHEN SYSTEM$STREAM_HAS_DATA('stream')</code> - only run when new data arrives</td></tr>
+      <tr><td>4</td><td>DAG / task chaining</td><td>Parent-child relationships with AFTER clause (fan-in and fan-out)</td></tr>
+      <tr><td>5</td><td>Call stored procedures</td><td>Multi-step logic, loops, error handling, variables</td></tr>
+      <tr><td>6</td><td>Serverless compute</td><td>No warehouse needed - Snowflake auto-provisions compute</td></tr>
+      <tr><td>7</td><td>Auto-suspend on failures</td><td><code>SUSPEND_TASK_AFTER_NUM_FAILURES</code> prevents runaway errors</td></tr>
+      <tr><td>8</td><td>Error notification integration</td><td>Send alerts on failure via notification integration</td></tr>
+      <tr><td>9</td><td>Finalizer tasks</td><td>Cleanup tasks that run regardless of success/failure (like try-finally)</td></tr>
+      <tr><td>10</td><td>Manual execution</td><td><code>EXECUTE TASK</code> runs immediately, even if suspended</td></tr>
+      <tr><td>11</td><td>Return values</td><td>Procedures can RETURN values; visible in TASK_HISTORY.return_value</td></tr>
+      <tr><td>12</td><td>CONFIG parameters</td><td>Pass runtime config to task graphs via <code>SYSTEM$GET_TASK_GRAPH_CONFIG</code></td></tr>
+      <tr><td>13</td><td>Predecessor return values</td><td>Child tasks can read parent output via <code>SYSTEM$GET_PREDECESSOR_RETURN_VALUE</code></td></tr>
+      <tr><td>14</td><td>Overlap control</td><td>Prevent/allow concurrent runs with <code>ALLOW_OVERLAPPING_EXECUTION</code></td></tr>
+      <tr><td>15</td><td>Session parameters</td><td>Set session params like TIMEZONE, QUERY_TAG for the task session</td></tr>
+    </tbody>
+  </table>
+
+  <h3>What Tasks CANNOT Do (Limitations)</h3>
+  <div class="warning">
+    <strong>Know these for the exam - common trick questions!</strong>
+  </div>
+  <table>
+    <thead><tr><th>#</th><th>Limitation</th><th>Workaround</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><strong>Cannot run multiple SQL statements directly</strong> - only ONE statement per task</td><td>Use a stored procedure (CALL) to wrap multiple statements</td></tr>
+      <tr><td>2</td><td><strong>Cannot pass parameters at runtime</strong> - no input arguments like a procedure</td><td>Use CONFIG or session variables, or read from a control table</td></tr>
+      <tr><td>3</td><td><strong>No built-in retry on failure</strong> - failed tasks don't auto-retry</td><td>Build retry logic in stored procedure, or use error integration + alerting</td></tr>
+      <tr><td>4</td><td><strong>No conditional branching in DAG</strong> - all children of a parent always run</td><td>Add WHEN condition on each child task, or use IF/ELSE inside procedure</td></tr>
+      <tr><td>5</td><td><strong>Cannot run interactively</strong> - no UI feedback, no RESULT_SCAN access</td><td>Log results to a table for later inspection</td></tr>
+      <tr><td>6</td><td><strong>Minimum schedule is 1 minute</strong> - cannot run more frequently</td><td>Use Snowpipe Streaming or Dynamic Tables for sub-minute latency</td></tr>
+      <tr><td>7</td><td><strong>Cannot send email directly</strong> - task itself has no email capability</td><td>Call SYSTEM$SEND_EMAIL inside a stored procedure</td></tr>
+      <tr><td>8</td><td><strong>No file/stage operations directly</strong> - can't PUT/GET files</td><td>Use COPY INTO in the SQL statement, or call a procedure</td></tr>
+      <tr><td>9</td><td><strong>Cannot be owned by ACCOUNTADMIN</strong> in best practice - tasks should be owned by functional roles</td><td>Grant EXECUTE TASK to a lower role, let that role own tasks</td></tr>
+      <tr><td>10</td><td><strong>Cannot access other accounts' data</strong> - no cross-account queries</td><td>Use data sharing to bring data into your account first</td></tr>
+      <tr><td>11</td><td><strong>WHEN condition limited</strong> - only boolean SQL expressions (no subqueries in some contexts)</td><td>Use SYSTEM$STREAM_HAS_DATA or simple boolean expressions</td></tr>
+      <tr><td>12</td><td><strong>No dynamic scheduling</strong> - cannot change schedule based on data/conditions</td><td>Use a meta-task that ALTER TASKs programmatically via procedure</td></tr>
+      <tr><td>13</td><td><strong>Serverless tasks have size limits</strong> - max XXLARGE equivalent</td><td>Use user-managed warehouse for very large workloads</td></tr>
+      <tr><td>14</td><td><strong>Cannot be cloned individually</strong> - tasks are not cloned with database/schema CLONE</td><td>Recreate tasks manually in the cloned environment</td></tr>
+      <tr><td>15</td><td><strong>No Time Travel on task objects</strong> - dropped task cannot be UNDROP'd</td><td>Keep task DDL in version control (Git)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="highlight">
+    <strong>Interview Question:</strong> "Why use a stored procedure with a task instead of just SQL?"<br/>
+    Answer: Tasks only support ONE SQL statement. For multi-step ETL (multiple CREATE/INSERT, error handling, variable logic, email notifications), you MUST wrap in a stored procedure and CALL it from the task.
+  </div>
+
   <h2 id="task-syntax">2. Complete Syntax Reference</h2>
 
   <h3>CREATE TASK</h3>
