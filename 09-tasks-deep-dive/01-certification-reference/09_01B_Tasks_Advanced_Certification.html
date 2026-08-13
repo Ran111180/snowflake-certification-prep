@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Certification - 9.1B Tasks Advanced Topics</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-13",
+    "intent": "SnowPro Core & Advanced DE - Tasks Part 2: Streams+Tasks, Serverless, CONFIG, Finalizers, Error Handling",
+    "sections": [
+      { "id": "streams-tasks", "title": "Streams + Tasks (CDC Pattern)" },
+      { "id": "serverless", "title": "Serverless Tasks" },
+      { "id": "task-config", "title": "Task Graph CONFIG & Return Values" },
+      { "id": "finalizer", "title": "Finalizer Tasks" },
+      { "id": "error-handling", "title": "Error Handling & Auto-Suspend" },
+      { "id": "ownership", "title": "Task Ownership & Rights" },
+      { "id": "cost", "title": "Task Cost Calculation" },
+      { "id": "replication", "title": "Tasks & Replication" },
+      { "id": "overlap", "title": "Overlap Policies" },
+      { "id": "observability", "title": "Task Graph Observability" },
+      { "id": "exam-qa", "title": "Exam Q&A (Part 2)" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, system-ui, 'Segoe UI', sans-serif; max-width: 960px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #111827); line-height: 1.7; }
+    h1 { color: light-dark(#1e40af, #93c5fd); border-bottom: 3px solid light-dark(#3b82f6, #1d4ed8); padding-bottom: 12px; }
+    h2 { color: light-dark(#1e3a5f, #7dd3fc); margin-top: 40px; border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding-left: 12px; }
+    h3 { color: light-dark(#374151, #d1d5db); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9em; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#eff6ff, #1e3a5f); font-weight: 600; }
+    tr:nth-child(even) { background: light-dark(#f8fafc, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+    pre { background: light-dark(#0f172a, #0f172a); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; line-height: 1.5; }
+    .highlight { background: light-dark(#fef3c7, #422006); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#f59e0b, #fbbf24); margin: 16px 0; }
+    .key-point { background: light-dark(#ecfdf5, #022c22); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#10b981, #34d399); margin: 16px 0; }
+    .warning { background: light-dark(#fef2f2, #450a0a); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#ef4444, #f87171); margin: 16px 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+    .badge-cert { background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); }
+    .badge-adv { background: light-dark(#fce7f3, #500724); color: light-dark(#be185d, #f9a8d4); }
+    .qa-block { margin: 20px 0; padding: 16px; background: light-dark(#f8fafc, #1a2332); border-radius: 8px; border: 1px solid light-dark(#e2e8f0, #374151); }
+    .qa-block strong { color: light-dark(#1e40af, #93c5fd); }
+  </style>
+</head>
+<body>
+
+  <h1>9.1B Snowflake Tasks - Advanced Topics (Part 2)</h1>
+  <p><span class="badge badge-cert">SnowPro Core</span> <span class="badge badge-adv">SnowPro Advanced DE</span></p>
+  <p><strong>Date:</strong> August 13, 2026 | <strong>Prereq:</strong> 09_01_Tasks_Certification.html (Part 1)</p>
+
+  <hr/>
+
+  <!-- ============================================ -->
+  <h2 id="streams-tasks">1. Streams + Tasks (CDC Pattern)</h2>
+  <!-- ============================================ -->
+
+  <div class="key-point">
+    <strong>The #1 exam pattern:</strong> Streams capture changes (INSERT/UPDATE/DELETE) on a table. Tasks consume the stream on a schedule. Together = Snowflake-native CDC without Kafka/Debezium.
+  </div>
+
+  <h3>How Streams Work</h3>
+  <table>
+    <thead><tr><th>Concept</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td>What it tracks</td><td>DML changes (INSERT, UPDATE, DELETE) on a table</td></tr>
+      <tr><td>Metadata columns</td><td><code>METADATA$ACTION</code>, <code>METADATA$ISUPDATE</code>, <code>METADATA$ROW_ID</code></td></tr>
+      <tr><td>Consumption</td><td>Once a DML reads from stream in a transaction, those rows are "consumed" (removed from stream)</td></tr>
+      <tr><td>Types</td><td>Standard (default), Append-only, Insert-only</td></tr>
+      <tr><td>Cost</td><td>Zero additional cost (uses Time Travel metadata)</td></tr>
+      <tr><td>Staleness</td><td>Stream goes stale if not consumed within data retention period</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Stream Types</h3>
+  <table>
+    <thead><tr><th>Type</th><th>Tracks</th><th>Use Case</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Standard</strong> (default)</td><td>INSERT + UPDATE + DELETE</td><td>Full CDC (SCD Type 2, MERGE)</td></tr>
+      <tr><td><strong>Append-only</strong></td><td>INSERT only (ignores UPDATE/DELETE)</td><td>Event logs, clickstream, IoT</td></tr>
+      <tr><td><strong>Insert-only</strong></td><td>INSERT only (for external tables)</td><td>Files landing on stage</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Complete Pattern: Stream + Task</h3>
+  <pre>
+-- 1. Create stream on source table
+CREATE OR REPLACE STREAM orders_stream
+  ON TABLE raw.orders;
+
+-- 2. Create task that triggers ONLY when stream has data
+CREATE OR REPLACE TASK process_new_orders
+  WAREHOUSE = transform_wh
+  SCHEDULE = '1 MINUTE'
+  WHEN SYSTEM$STREAM_HAS_DATA('orders_stream')
+AS
+  MERGE INTO silver.orders t
+  USING orders_stream s
+  ON t.order_id = s.order_id
+  WHEN MATCHED AND s.METADATA$ACTION = 'INSERT' AND s.METADATA$ISUPDATE = TRUE
+    THEN UPDATE SET t.amount = s.amount, t.updated_at = CURRENT_TIMESTAMP()
+  WHEN NOT MATCHED AND s.METADATA$ACTION = 'INSERT'
+    THEN INSERT (order_id, amount, created_at)
+         VALUES (s.order_id, s.amount, CURRENT_TIMESTAMP())
+  WHEN MATCHED AND s.METADATA$ACTION = 'DELETE'
+    THEN DELETE;
+
+-- 3. Resume
+ALTER TASK process_new_orders RESUME;
+  </pre>
+
+  <div class="highlight">
+    <strong>How WHEN works:</strong><br/>
+    - Task still has a SCHEDULE (checks every 1 minute)<br/>
+    - Every minute, Snowflake evaluates SYSTEM$STREAM_HAS_DATA<br/>
+    - If FALSE (no new data) → task is SKIPPED (no compute cost)<br/>
+    - If TRUE → task body executes<br/>
+    - The schedule check itself is FREE (cloud services layer)
+  </div>
+
+  <div class="warning">
+    <strong>Exam Traps:</strong><br/>
+    - WHEN clause does NOT eliminate the SCHEDULE - you still need one<br/>
+    - A stream with no data returns 0 rows but still "exists" - it's not stale<br/>
+    - Stream staleness = data retention expired without consumption → stream becomes unusable<br/>
+    - Consuming a stream is TRANSACTIONAL - if the DML fails/rolls back, stream data is NOT consumed
+  </div>
+
+  <!-- ============================================ -->
+  <h2 id="serverless">2. Serverless Tasks</h2>
+  <!-- ============================================ -->
+
+  <pre>
+-- Serverless: Snowflake manages compute (no warehouse specified)
+CREATE OR REPLACE TASK serverless_etl
+  USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = 'XSMALL'
+  SCHEDULE = '5 MINUTE'
+AS
+  INSERT INTO silver.events
+  SELECT * FROM bronze.raw_events
+  WHERE loaded_at > DATEADD('minute', -5, CURRENT_TIMESTAMP());
+  </pre>
+
+  <table>
+    <thead><tr><th>Aspect</th><th>User-Managed (Warehouse)</th><th>Serverless</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Compute</strong></td><td>You specify WAREHOUSE = wh_name</td><td>Snowflake auto-provisions</td></tr>
+      <tr><td><strong>Sizing</strong></td><td>Fixed size you choose</td><td>Starts at INITIAL_SIZE, can auto-scale</td></tr>
+      <tr><td><strong>Cost</strong></td><td>Normal credit rate</td><td>1.5x credit multiplier (serverless premium)</td></tr>
+      <tr><td><strong>Privilege</strong></td><td>EXECUTE TASK</td><td>EXECUTE MANAGED TASK</td></tr>
+      <tr><td><strong>Best for</strong></td><td>Predictable workloads, cost control</td><td>Variable workloads, no infra management</td></tr>
+      <tr><td><strong>Max size</strong></td><td>6XL</td><td>XXLARGE equivalent</td></tr>
+      <tr><td><strong>Concurrency</strong></td><td>Shares warehouse with other queries</td><td>Dedicated compute per task run</td></tr>
+    </tbody>
+  </table>
+
+  <div class="key-point">
+    <strong>When to use serverless:</strong><br/>
+    - Unpredictable data volumes (auto-scales)<br/>
+    - Don't want to manage warehouse suspend/resume timing<br/>
+    - Many small tasks (avoid warehouse startup overhead)<br/>
+    - Willing to pay 1.5x premium for zero management
+  </div>
+
+  <!-- ============================================ -->
+  <h2 id="task-config">3. Task Graph CONFIG &amp; Return Values</h2>
+  <!-- ============================================ -->
+
+  <h3>Passing Configuration to Task Graphs</h3>
+  <pre>
+-- Root task with CONFIG (parameters passed to entire DAG)
+CREATE OR REPLACE TASK root_task
+  WAREHOUSE = wh
+  SCHEDULE = 'USING CRON 0 6 * * * UTC'
+  CONFIG = '{"environment": "prod", "batch_size": 10000}'
+AS
+  CALL load_data();
+
+-- Inside the procedure, read CONFIG:
+CREATE OR REPLACE PROCEDURE load_data()
+RETURNS STRING LANGUAGE SQL
+AS
+DECLARE
+  v_config VARIANT;
+  v_env STRING;
+BEGIN
+  v_config := PARSE_JSON(SYSTEM$GET_TASK_GRAPH_CONFIG());
+  v_env := :v_config:environment::STRING;
+  -- Use v_env in logic...
+  RETURN 'Loaded for ' || :v_env;
+END;
+  </pre>
+
+  <h3>Return Values Between Tasks</h3>
+  <pre>
+-- Parent task: SET return value
+CREATE TASK parent_task
+  WAREHOUSE = wh
+  SCHEDULE = '60 MINUTE'
+AS
+  CALL SYSTEM$SET_RETURN_VALUE('{"rows_loaded": 5000, "status": "ok"}');
+
+-- Child task: GET predecessor's return value
+CREATE TASK child_task
+  WAREHOUSE = wh
+  AFTER parent_task
+AS
+BEGIN
+  LET parent_result VARCHAR := SYSTEM$GET_PREDECESSOR_RETURN_VALUE('parent_task');
+  LET rows_loaded INT := PARSE_JSON(:parent_result):rows_loaded::INT;
+  -- Use rows_loaded in logic...
+END;
+  </pre>
+
+  <div class="highlight">
+    <strong>Key Points:</strong><br/>
+    - CONFIG is set on the ROOT task, available to all tasks in the DAG<br/>
+    - SYSTEM$SET_RETURN_VALUE stores a string (use JSON for structured data)<br/>
+    - SYSTEM$GET_PREDECESSOR_RETURN_VALUE reads a specific predecessor's output<br/>
+    - Return values are visible in TASK_HISTORY.return_value column
+  </div>
+
+  <!-- ============================================ -->
+  <h2 id="finalizer">4. Finalizer Tasks</h2>
+  <!-- ============================================ -->
+
+  <pre>
+-- Finalizer: runs AFTER the entire DAG completes (success OR failure)
+CREATE OR REPLACE TASK cleanup_task
+  WAREHOUSE = wh
+  FINALIZE = root_task
+AS
+  CALL send_completion_notification();
+  </pre>
+
+  <table>
+    <thead><tr><th>Aspect</th><th>Regular Child Task (AFTER)</th><th>Finalizer Task (FINALIZE)</th></tr></thead>
+    <tbody>
+      <tr><td><strong>When it runs</strong></td><td>Only after predecessor SUCCEEDS</td><td>After entire graph completes (success OR failure)</td></tr>
+      <tr><td><strong>Use case</strong></td><td>Next step in pipeline</td><td>Cleanup, alerting, audit logging</td></tr>
+      <tr><td><strong>Can it be a predecessor?</strong></td><td>Yes</td><td>No (it's always the final step)</td></tr>
+      <tr><td><strong>Access to error info</strong></td><td>No</td><td>Can check graph status for failures</td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+-- Finalizer that checks for failures and alerts
+CREATE OR REPLACE PROCEDURE send_completion_notification()
+RETURNS STRING LANGUAGE SQL
+AS
+BEGIN
+  -- Check if any task in the graph failed
+  LET v_graph_status STRING := SYSTEM$GET_TASK_GRAPH_STATUS();
+  -- Send appropriate notification
+  IF (PARSE_JSON(:v_graph_status):status::STRING = 'FAILED') THEN
+    CALL SYSTEM$SEND_EMAIL('email_int', 'oncall@company.com', 'PIPELINE FAILED', 'Check task history');
+  ELSE
+    CALL SYSTEM$SEND_EMAIL('email_int', 'team@company.com', 'Pipeline OK', 'All steps succeeded');
+  END IF;
+  RETURN :v_graph_status;
+END;
+  </pre>
+
+  <!-- ============================================ -->
+  <h2 id="error-handling">5. Error Handling &amp; Auto-Suspend</h2>
+  <!-- ============================================ -->
+
+  <h3>SUSPEND_TASK_AFTER_NUM_FAILURES</h3>
+  <pre>
+-- Auto-suspend after 3 consecutive failures (default is 10)
+CREATE OR REPLACE TASK my_task
+  WAREHOUSE = wh
+  SCHEDULE = '5 MINUTE'
+  SUSPEND_TASK_AFTER_NUM_FAILURES = 3
+AS
+  CALL my_procedure();
+
+-- Check why a task was suspended
+SHOW TASKS LIKE 'MY_TASK';
+-- Look at 'last_suspended_reason' column
+-- Values: USER_SUSPENDED, TASK_FAILURE_THRESHOLD_EXCEEDED
+  </pre>
+
+  <h3>ERROR_INTEGRATION (Auto-Alert on Failure)</h3>
+  <pre>
+-- Automatically notify when task fails (no code needed!)
+CREATE OR REPLACE TASK critical_pipeline
+  WAREHOUSE = wh
+  SCHEDULE = '60 MINUTE'
+  ERROR_INTEGRATION = my_email_int
+  SUSPEND_TASK_AFTER_NUM_FAILURES = 5
+AS
+  CALL run_critical_etl();
+
+-- When the task FAILS, Snowflake automatically sends an error email
+-- to the integration's DEFAULT_RECIPIENTS
+-- Subject: "Snowflake task CRITICAL_PIPELINE has failed"
+-- Body: includes error message, scheduled time, task name
+  </pre>
+
+  <div class="key-point">
+    <strong>Error handling strategy:</strong><br/>
+    1. <code>SUSPEND_TASK_AFTER_NUM_FAILURES</code> = prevent runaway costs<br/>
+    2. <code>ERROR_INTEGRATION</code> = auto-alert on failure (no code!)<br/>
+    3. Finalizer task = custom logic on success OR failure<br/>
+    4. Inside procedure: TRY/CATCH with EXCEPTION handling
+  </div>
+
+  <!-- ============================================ -->
+  <h2 id="ownership">6. Task Ownership &amp; Rights</h2>
+  <!-- ============================================ -->
+
+  <table>
+    <thead><tr><th>Concept</th><th>Meaning</th><th>Impact</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Owner's rights (default)</strong></td><td>Task runs with privileges of the OWNER role</td><td>Owner role needs access to all tables, integrations, etc.</td></tr>
+      <tr><td><strong>Caller's rights</strong></td><td>Procedure inside task runs as caller</td><td>N/A for tasks - tasks always use owner's rights</td></tr>
+      <tr><td><strong>EXECUTE AS USER</strong></td><td>Task runs as if a specific user triggered it</td><td>Useful for audit trails</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warning">
+    <strong>Common Gotcha:</strong> You create a task as DATA_ENGINEER role. The procedure calls SYSTEM$SEND_EMAIL. Even if YOUR user has ACCOUNTADMIN, the task runs as DATA_ENGINEER. DATA_ENGINEER needs USAGE on the integration - not your user, not your other roles.<br/><br/>
+    Fix: <code>GRANT USAGE ON INTEGRATION email_int TO ROLE DATA_ENGINEER;</code>
+  </div>
+
+  <!-- ============================================ -->
+  <h2 id="cost">7. Task Cost Calculation</h2>
+  <!-- ============================================ -->
+
+  <pre>
+-- Credits consumed by task runs (via warehouse metering)
+SELECT
+  warehouse_name,
+  DATE_TRUNC('day', start_time) AS day,
+  SUM(credits_used) AS total_credits,
+  COUNT(*) AS run_count
+FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY
+WHERE warehouse_name = 'TASK_WH'
+  AND start_time > DATEADD('day', -30, CURRENT_DATE())
+GROUP BY 1, 2
+ORDER BY day DESC;
+
+-- Serverless task cost (different view)
+SELECT
+  task_name,
+  DATE_TRUNC('day', start_time) AS day,
+  SUM(credits_used) AS total_credits
+FROM SNOWFLAKE.ACCOUNT_USAGE.SERVERLESS_TASK_HISTORY
+WHERE start_time > DATEADD('day', -30, CURRENT_DATE())
+GROUP BY 1, 2
+ORDER BY day DESC;
+
+-- Correlate task runs with warehouse cost
+SELECT
+  th.name AS task_name,
+  th.scheduled_time,
+  DATEDIFF('second', th.query_start_time, th.completed_time) AS runtime_sec,
+  -- XS warehouse = 1 credit/hour = 0.000278 credits/second
+  ROUND(DATEDIFF('second', th.query_start_time, th.completed_time) * 0.000278, 6) AS est_credits
+FROM SNOWFLAKE.ACCOUNT_USAGE.TASK_HISTORY th
+WHERE th.name = 'BIWEEKLY_REFRESH_TASK'
+  AND th.state = 'SUCCEEDED'
+ORDER BY th.scheduled_time DESC
+LIMIT 10;
+  </pre>
+
+  <div class="highlight">
+    <strong>Cost Rules:</strong><br/>
+    - User-managed tasks: Standard warehouse credit rate (XS = 1 credit/hr)<br/>
+    - Serverless tasks: 1.5x multiplier on compute<br/>
+    - WHEN condition check (cloud services): FREE<br/>
+    - Warehouse auto-resume: 60-second minimum billing even for 5-second task<br/>
+    - Best practice: Group small tasks into one procedure to avoid repeated warehouse startup
+  </div>
+
+  <!-- ============================================ -->
+  <h2 id="replication">8. Tasks &amp; Replication</h2>
+  <!-- ============================================ -->
+
+  <table>
+    <thead><tr><th>Scenario</th><th>Behavior</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Database replication</strong></td><td>Tasks ARE replicated to secondary</td></tr>
+      <tr><td><strong>State on secondary</strong></td><td>Always SUSPENDED (never auto-starts)</td></tr>
+      <tr><td><strong>Failover</strong></td><td>Must manually RESUME tasks after failover</td></tr>
+      <tr><td><strong>Database clone</strong></td><td>Tasks are NOT cloned (only tables, views, etc.)</td></tr>
+      <tr><td><strong>Schema clone</strong></td><td>Tasks are NOT cloned</td></tr>
+      <tr><td><strong>Time Travel</strong></td><td>Tasks have NO Time Travel (can't UNDROP)</td></tr>
+      <tr><td><strong>Best practice</strong></td><td>Keep task DDL in Git for disaster recovery</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warning">
+    <strong>Exam Trap:</strong> "After cloning a database, will the tasks run?" → NO. Tasks are not included in clone operations. You must recreate them.
+  </div>
+
+  <!-- ============================================ -->
+  <h2 id="overlap">9. Overlap Policies</h2>
+  <!-- ============================================ -->
+
+  <pre>
+-- Default: NO overlap (safe - prevents pile-up)
+CREATE TASK safe_task
+  WAREHOUSE = wh
+  SCHEDULE = '5 MINUTE'
+  ALLOW_OVERLAPPING_EXECUTION = FALSE  -- default
+AS ...;
+
+-- Allow overlap (dangerous - use carefully)
+CREATE TASK parallel_ok_task
+  WAREHOUSE = wh
+  SCHEDULE = '1 MINUTE'
+  ALLOW_OVERLAPPING_EXECUTION = TRUE
+AS ...;
+  </pre>
+
+  <table>
+    <thead><tr><th>Policy</th><th>Behavior</th><th>When to Use</th></tr></thead>
+    <tbody>
+      <tr><td><code>FALSE</code> (default)</td><td>If previous run still running, next run is SKIPPED</td><td>Most cases - prevents resource pile-up</td></tr>
+      <tr><td><code>TRUE</code></td><td>Multiple runs can execute simultaneously</td><td>Independent batches that don't conflict (rare)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="key-point">
+    <strong>What happens with NO_OVERLAP:</strong><br/>
+    - Schedule = 5 min, task takes 7 min<br/>
+    - Run 1 starts at 00:00, finishes at 00:07<br/>
+    - Run 2 (scheduled 00:05) → SKIPPED (run 1 still active)<br/>
+    - Run 3 starts at 00:10 normally<br/>
+    - Check TASK_HISTORY: skipped run shows state = SKIPPED
+  </div>
+
+  <!-- ============================================ -->
+  <h2 id="observability">10. Task Graph Observability</h2>
+  <!-- ============================================ -->
+
+  <pre>
+-- View currently running task graphs
+SELECT *
+FROM TABLE(INFORMATION_SCHEMA.CURRENT_TASK_GRAPHS())
+ORDER BY scheduled_time DESC;
+
+-- Columns: ROOT_TASK_NAME, DATABASE_NAME, SCHEMA_NAME,
+--          STATE, FIRST_ERROR_TASK_NAME, FIRST_ERROR_CODE,
+--          SCHEDULED_TIME, COMPLETED_TIME
+
+-- Complete task run history with all details
+SELECT
+  name,
+  database_name,
+  schema_name,
+  state,
+  scheduled_time,
+  completed_time,
+  DATEDIFF('second', query_start_time, completed_time) AS duration_sec,
+  return_value,
+  error_code,
+  error_message,
+  graph_version,
+  run_id
+FROM SNOWFLAKE.ACCOUNT_USAGE.TASK_HISTORY
+WHERE root_task_name = 'MY_ROOT_TASK'
+  AND scheduled_time > DATEADD('day', -7, CURRENT_DATE())
+ORDER BY scheduled_time DESC;
+  </pre>
+
+  <h3>Key Monitoring Views</h3>
+  <table>
+    <thead><tr><th>View / Function</th><th>Scope</th><th>Latency</th></tr></thead>
+    <tbody>
+      <tr><td><code>INFORMATION_SCHEMA.TASK_HISTORY()</code></td><td>Current database</td><td>Real-time</td></tr>
+      <tr><td><code>SNOWFLAKE.ACCOUNT_USAGE.TASK_HISTORY</code></td><td>Entire account</td><td>2-3 hour delay</td></tr>
+      <tr><td><code>INFORMATION_SCHEMA.CURRENT_TASK_GRAPHS()</code></td><td>Currently running DAGs</td><td>Real-time</td></tr>
+      <tr><td><code>SNOWFLAKE.ACCOUNT_USAGE.SERVERLESS_TASK_HISTORY</code></td><td>Serverless task credits</td><td>2-3 hour delay</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ============================================ -->
+  <h2 id="exam-qa">11. Exam Q&amp;A (Part 2)</h2>
+  <!-- ============================================ -->
+
+  <div class="qa-block">
+    <strong>Q: A stream goes stale. What happens to the task with WHEN SYSTEM$STREAM_HAS_DATA?</strong><br/>
+    A: The WHEN condition will return an error. The stream must be recreated. Staleness occurs when the stream isn't consumed within the table's data retention period.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: What's the cost of a WHEN condition check when the stream is empty?</strong><br/>
+    A: FREE. The condition check runs in the cloud services layer. You only pay when the task body actually executes.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: Serverless task costs 1.5x. When is it CHEAPER than a warehouse?</strong><br/>
+    A: When tasks are short (< 60 sec) and infrequent. A warehouse has 60-second minimum billing on resume. If your task takes 5 seconds, you pay for 60 sec anyway. Serverless bills per-second with no minimum.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: Can a finalizer task have child tasks?</strong><br/>
+    A: NO. A finalizer is always the terminal node. It cannot be a predecessor to anything.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: You clone a database. Do tasks run on the clone?</strong><br/>
+    A: NO. Tasks are NOT included in clone operations. Must recreate manually.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: A task runs as DATA_ENGINEER role but needs to read from another database owned by ANALYTICS role. What do you do?</strong><br/>
+    A: Grant SELECT on the source tables to DATA_ENGINEER role. Tasks run with owner's rights - the owner role needs all necessary privileges.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: How does SYSTEM$GET_PREDECESSOR_RETURN_VALUE work with multiple predecessors (fan-in)?</strong><br/>
+    A: Pass the predecessor task name as argument: <code>SYSTEM$GET_PREDECESSOR_RETURN_VALUE('task_a')</code>. Each predecessor's value is accessed independently.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: Task has SUSPEND_TASK_AFTER_NUM_FAILURES = 3. It fails 3 times then you fix the bug. What next?</strong><br/>
+    A: The task auto-suspended. You must <code>ALTER TASK ... RESUME</code> manually after fixing. The failure counter resets on next successful run.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: What's the difference between ERROR_INTEGRATION and a finalizer task for error alerting?</strong><br/>
+    A: ERROR_INTEGRATION = automatic email on any task failure (zero code, basic alert). Finalizer = custom logic (can check which step failed, send rich notifications, do cleanup). Use both together for production.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: An append-only stream is created on a table. Someone UPDATEs a row. Does the stream capture it?</strong><br/>
+    A: NO. Append-only streams only capture INSERTs. Updates and deletes are invisible to it.
+  </div>
+
+  <hr/>
+  <p style="font-size: 0.8em; color: light-dark(#6b7280, #9ca3af);">Generated: August 13, 2026 | Part 2 of 2 | SnowPro Core + Advanced Data Engineer</p>
+
+</body>
+</html>
