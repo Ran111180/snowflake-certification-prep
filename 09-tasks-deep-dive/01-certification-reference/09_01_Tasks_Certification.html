@@ -348,44 +348,99 @@ AS
 
   <h2 id="email-notify">8. Email Notifications</h2>
 
-  <h3>Setup</h3>
+  <h3>Key Facts</h3>
+  <table>
+    <thead><tr><th>Property</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Sender address</strong></td><td><code>no-reply@snowflake.net</code> (CANNOT be changed)</td></tr>
+      <tr><td><strong>Email service</strong></td><td>AWS Simple Email Service (SES)</td></tr>
+      <tr><td><strong>Who creates integration</strong></td><td>ACCOUNTADMIN only</td></tr>
+      <tr><td><strong>Other roles need</strong></td><td><code>GRANT USAGE ON INTEGRATION ... TO ROLE ...</code></td></tr>
+      <tr><td><strong>Supported MIME types</strong></td><td><code>text/plain</code> (default), <code>text/html</code></td></tr>
+      <tr><td><strong>Max body size</strong></td><td>~1 MB</td></tr>
+      <tr><td><strong>Attachments</strong></td><td>NOT supported (use presigned URLs instead)</td></tr>
+      <tr><td><strong>Retention</strong></td><td>Content retained up to 30 days by AWS for delivery, then deleted</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Create Integration</h3>
   <pre>
--- 1. Create notification integration (ACCOUNTADMIN)
+-- Only ACCOUNTADMIN can create notification integrations
+USE ROLE ACCOUNTADMIN;
+
 CREATE NOTIFICATION INTEGRATION my_email_int
   TYPE = EMAIL
   ENABLED = TRUE
-  ALLOWED_RECIPIENTS = ('user@company.com', 'team@company.com');
+  ALLOWED_RECIPIENTS = ('user@company.com', 'team@company.com')
+  DEFAULT_RECIPIENTS = ('user@company.com')
+  DEFAULT_SUBJECT = 'Snowflake Pipeline Alert'
+  COMMENT = 'Email alerts for data pipelines';
 
--- 2. Grant usage
+-- Grant to functional role
 GRANT USAGE ON INTEGRATION my_email_int TO ROLE data_engineer;
   </pre>
 
-  <h3>Send Email</h3>
+  <h3>ALTER Integration</h3>
   <pre>
--- Plain text
+-- Add more recipients
+ALTER NOTIFICATION INTEGRATION my_email_int
+  SET ALLOWED_RECIPIENTS = ('user@company.com', 'manager@company.com', 'oncall@company.com');
+
+-- Change default subject
+ALTER NOTIFICATION INTEGRATION my_email_int
+  SET DEFAULT_SUBJECT = 'Data Pipeline Notification';
+
+-- Disable temporarily
+ALTER NOTIFICATION INTEGRATION my_email_int SET ENABLED = FALSE;
+
+-- Describe / inspect
+DESCRIBE NOTIFICATION INTEGRATION my_email_int;
+SHOW NOTIFICATION INTEGRATIONS;
+  </pre>
+
+  <h3>Send Email (SYSTEM$SEND_EMAIL)</h3>
+  <pre>
+-- Syntax:
 CALL SYSTEM$SEND_EMAIL(
-  'my_email_int',           -- integration name
-  'user@company.com',       -- recipients (comma-separated)
-  'Subject Line',           -- subject
-  'Email body text'         -- body
+  'integration_name',       -- notification integration
+  'recipient1,recipient2',  -- comma-separated (must be in ALLOWED_RECIPIENTS)
+  'Subject Line',           -- subject (cannot be empty)
+  'Body content',           -- body (cannot be empty)
+  'text/html'               -- OPTIONAL: MIME type (default: text/plain)
 );
 
--- HTML email (5th parameter = MIME type)
+-- Plain text example
+CALL SYSTEM$SEND_EMAIL(
+  'my_email_int',
+  'user@company.com',
+  'Pipeline Complete',
+  'All tables refreshed successfully at ' || CURRENT_TIMESTAMP()::STRING
+);
+
+-- HTML email example
 CALL SYSTEM$SEND_EMAIL(
   'my_email_int',
   'user@company.com',
   'Report Ready',
-  '&lt;html&gt;&lt;body&gt;&lt;h1&gt;Done&lt;/h1&gt;&lt;/body&gt;&lt;/html&gt;',
+  '&lt;html&gt;&lt;body&gt;&lt;h1 style="color:green"&gt;Success&lt;/h1&gt;&lt;p&gt;6 tables refreshed&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;',
   'text/html'
 );
   </pre>
 
+  <div class="warning">
+    <strong>Common Errors:</strong><br/>
+    - <code>Integration does not exist or not authorized</code> = Role needs USAGE grant on the integration<br/>
+    - <code>Recipient not in allowed list</code> = Email not in ALLOWED_RECIPIENTS property<br/>
+    - <code>Empty subject/body</code> = Both are required, cannot be empty strings
+  </div>
+
   <div class="highlight">
-    <strong>Limitations:</strong><br/>
-    - No file attachments (use presigned URLs instead)<br/>
-    - Recipients must be in ALLOWED_RECIPIENTS list<br/>
-    - Sent from no-reply@snowflake.net<br/>
-    - Max ~1MB body size
+    <strong>Exam &amp; Interview Points:</strong><br/>
+    - Sender is ALWAYS <code>no-reply@snowflake.net</code> - cannot customize<br/>
+    - No attachments - use <code>GET_PRESIGNED_URL(@stage, 'file', expiry_seconds)</code> for file links<br/>
+    - Stored procedure with owner's rights: the OWNER role needs USAGE on integration, not the caller<br/>
+    - Integration is an ACCOUNT-level object (not database/schema level)<br/>
+    - HTML is NOT validated - malformed HTML will still send (just render poorly)
   </div>
 
   <h2 id="dt-vs-task">9. Dynamic Tables vs Tasks</h2>
