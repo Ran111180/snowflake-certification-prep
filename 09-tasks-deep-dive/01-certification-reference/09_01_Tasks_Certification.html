@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Certification - 9.1 Tasks Deep Dive</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-13",
+    "intent": "Snowflake SnowPro Core & Advanced DE - Tasks, Stored Procedures, Email Notifications",
+    "sections": [
+      { "id": "task-basics", "title": "Task Fundamentals" },
+      { "id": "task-syntax", "title": "Complete Syntax Reference" },
+      { "id": "task-scheduling", "title": "Scheduling (CRON)" },
+      { "id": "task-dags", "title": "Task DAGs (Chaining)" },
+      { "id": "task-privileges", "title": "Privileges Required" },
+      { "id": "task-monitoring", "title": "Monitoring & History" },
+      { "id": "stored-procs", "title": "Stored Procedures with Tasks" },
+      { "id": "email-notify", "title": "Email Notifications" },
+      { "id": "dt-vs-task", "title": "Dynamic Tables vs Tasks" },
+      { "id": "exam-tips", "title": "Exam Tips & Tricky Questions" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, system-ui, 'Segoe UI', sans-serif; max-width: 960px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #111827); line-height: 1.7; }
+    h1 { color: light-dark(#1e40af, #93c5fd); border-bottom: 3px solid light-dark(#3b82f6, #1d4ed8); padding-bottom: 12px; }
+    h2 { color: light-dark(#1e3a5f, #7dd3fc); margin-top: 40px; border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding-left: 12px; }
+    h3 { color: light-dark(#374151, #d1d5db); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9em; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#eff6ff, #1e3a5f); font-weight: 600; }
+    tr:nth-child(even) { background: light-dark(#f8fafc, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+    pre { background: light-dark(#0f172a, #0f172a); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; line-height: 1.5; }
+    .highlight { background: light-dark(#fef3c7, #422006); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#f59e0b, #fbbf24); margin: 16px 0; }
+    .key-point { background: light-dark(#ecfdf5, #022c22); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#10b981, #34d399); margin: 16px 0; }
+    .warning { background: light-dark(#fef2f2, #450a0a); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#ef4444, #f87171); margin: 16px 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+    .badge-cert { background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); }
+    .badge-adv { background: light-dark(#fce7f3, #500724); color: light-dark(#be185d, #f9a8d4); }
+    .qa-block { margin: 20px 0; padding: 16px; background: light-dark(#f8fafc, #1a2332); border-radius: 8px; border: 1px solid light-dark(#e2e8f0, #374151); }
+    .qa-block strong { color: light-dark(#1e40af, #93c5fd); }
+  </style>
+</head>
+<body>
+
+  <h1>9.1 Snowflake Tasks - Certification Reference</h1>
+  <p><span class="badge badge-cert">SnowPro Core</span> <span class="badge badge-adv">SnowPro Advanced DE</span></p>
+  <p><strong>Date:</strong> August 13, 2026</p>
+
+  <hr/>
+
+  <h2 id="task-basics">1. Task Fundamentals</h2>
+
+  <div class="key-point">
+    <strong>What is a Task?</strong> A Snowflake object that executes a single SQL statement or stored procedure on a schedule or triggered by data (stream).
+  </div>
+
+  <table>
+    <thead><tr><th>Feature</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td>Execution</td><td>Single SQL statement OR CALL procedure</td></tr>
+      <tr><td>Schedule</td><td>CRON expression OR fixed interval (e.g., 5 MINUTE)</td></tr>
+      <tr><td>Trigger</td><td>WHEN clause (typically SYSTEM$STREAM_HAS_DATA)</td></tr>
+      <tr><td>Compute</td><td>User-managed warehouse OR serverless</td></tr>
+      <tr><td>Default state</td><td>SUSPENDED (must explicitly RESUME)</td></tr>
+      <tr><td>DAG support</td><td>Yes - parent/child task chains</td></tr>
+      <tr><td>Max tree depth</td><td>1000 tasks per DAG</td></tr>
+      <tr><td>Overlap</td><td>Default: NO_OVERLAP (skips if previous still running)</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="task-syntax">2. Complete Syntax Reference</h2>
+
+  <h3>CREATE TASK</h3>
+  <pre>
+CREATE [ OR REPLACE ] TASK [ IF NOT EXISTS ] task_name
+  WAREHOUSE = wh_name              -- OR omit for serverless
+  [ SCHEDULE = 'cron_or_interval' ]
+  [ AFTER predecessor_task ]       -- child task (no SCHEDULE)
+  [ WHEN condition ]               -- boolean expression
+  [ ALLOW_OVERLAPPING_EXECUTION = TRUE | FALSE ]
+  [ SUSPEND_TASK_AFTER_NUM_FAILURES = n ]
+  [ ERROR_INTEGRATION = notification_integration ]
+  [ COMMENT = 'description' ]
+AS
+  sql_statement | CALL procedure_name();
+  </pre>
+
+  <h3>ALTER TASK</h3>
+  <pre>
+-- Suspend/Resume
+ALTER TASK task_name SUSPEND;
+ALTER TASK task_name RESUME;
+
+-- Change schedule
+ALTER TASK task_name SET SCHEDULE = 'USING CRON 0 6 * * * UTC';
+
+-- Change warehouse
+ALTER TASK task_name SET WAREHOUSE = new_wh;
+
+-- Remove schedule (convert to child task)
+ALTER TASK task_name UNSET SCHEDULE;
+
+-- Add predecessor
+ALTER TASK child_task ADD AFTER parent_task;
+
+-- Remove predecessor
+ALTER TASK child_task REMOVE AFTER parent_task;
+  </pre>
+
+  <h3>Other Commands</h3>
+  <pre>
+DROP TASK task_name;
+SHOW TASKS [ IN SCHEMA schema_name ];
+DESCRIBE TASK task_name;
+EXECUTE TASK task_name;  -- manual trigger (does not need RESUME)
+  </pre>
+
+  <h2 id="task-scheduling">3. Scheduling (CRON)</h2>
+
+  <h3>CRON Format</h3>
+  <pre>
+SCHEDULE = 'USING CRON minute hour day_of_month month day_of_week timezone'
+
+-- Examples:
+'USING CRON 0 6 * * * America/New_York'       -- Daily 6 AM ET
+'USING CRON 0 0 1,15 * * Asia/Kolkata'        -- 1st &amp; 15th midnight IST
+'USING CRON */5 * * * * UTC'                   -- Every 5 minutes
+'USING CRON 0 9 * * MON-FRI UTC'              -- Weekdays 9 AM
+'USING CRON 0 0 L * * UTC'                    -- Last day of month
+  </pre>
+
+  <h3>Fixed Interval</h3>
+  <pre>
+SCHEDULE = '5 MINUTE'     -- Every 5 minutes
+SCHEDULE = '1 HOUR'       -- Every hour
+SCHEDULE = '1440 MINUTE'  -- Every day (legacy, prefer CRON)
+  </pre>
+
+  <div class="warning">
+    <strong>Exam Trap:</strong> Fixed interval is measured from the START of the last run, not from completion. If a task takes 3 min and interval is 5 min, next run starts 5 min after previous START (not 5 min after it finishes).
+  </div>
+
+  <h2 id="task-dags">4. Task DAGs (Chaining)</h2>
+
+  <pre>
+-- Root task (has SCHEDULE)
+CREATE TASK root_task
+  WAREHOUSE = wh
+  SCHEDULE = 'USING CRON 0 6 * * * UTC'
+AS ...;
+
+-- Child task (has AFTER, no SCHEDULE)
+CREATE TASK child_step_1
+  WAREHOUSE = wh
+  AFTER root_task
+AS ...;
+
+-- Grandchild
+CREATE TASK child_step_2
+  WAREHOUSE = wh
+  AFTER child_step_1
+AS ...;
+
+-- RESUME order: children FIRST, then root LAST
+ALTER TASK child_step_2 RESUME;
+ALTER TASK child_step_1 RESUME;
+ALTER TASK root_task RESUME;
+
+-- SUSPEND order: root FIRST, then children
+ALTER TASK root_task SUSPEND;
+ALTER TASK child_step_1 SUSPEND;
+ALTER TASK child_step_2 SUSPEND;
+  </pre>
+
+  <div class="highlight">
+    <strong>Key Rules:</strong><br/>
+    - Only the ROOT task has a SCHEDULE<br/>
+    - Child tasks use AFTER (no schedule)<br/>
+    - Resume from leaf to root; Suspend from root to leaf<br/>
+    - A child can have multiple predecessors (fan-in)<br/>
+    - A parent can have multiple children (fan-out)
+  </div>
+
+  <h3>Finalizer Tasks</h3>
+  <pre>
+-- Runs regardless of success/failure (cleanup)
+CREATE TASK cleanup_task
+  WAREHOUSE = wh
+  FINALIZE = root_task
+AS
+  CALL cleanup_procedure();
+  </pre>
+
+  <h2 id="task-privileges">5. Privileges Required</h2>
+
+  <table>
+    <thead><tr><th>Privilege</th><th>Granted On</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>EXECUTE TASK</code></td><td>ACCOUNT</td><td>Allow role to own tasks that execute on schedule</td></tr>
+      <tr><td><code>EXECUTE MANAGED TASK</code></td><td>ACCOUNT</td><td>Allow serverless tasks</td></tr>
+      <tr><td><code>OWNERSHIP</code></td><td>TASK</td><td>Full control (alter, drop)</td></tr>
+      <tr><td><code>OPERATE</code></td><td>TASK</td><td>Resume, suspend, execute</td></tr>
+      <tr><td><code>MONITOR</code></td><td>TASK</td><td>View task history</td></tr>
+      <tr><td><code>USAGE + OPERATE</code></td><td>WAREHOUSE</td><td>Run queries on the warehouse</td></tr>
+    </tbody>
+  </table>
+
+  <pre>
+-- Grant task execution to a role (ACCOUNTADMIN required)
+GRANT EXECUTE TASK ON ACCOUNT TO ROLE data_engineer;
+GRANT EXECUTE MANAGED TASK ON ACCOUNT TO ROLE data_engineer;
+  </pre>
+
+  <div class="warning">
+    <strong>Exam Trap:</strong> EXECUTE TASK is an ACCOUNT-level privilege. Only ACCOUNTADMIN can grant it. Without it, tasks will be created but never fire.
+  </div>
+
+  <h2 id="task-monitoring">6. Monitoring &amp; History</h2>
+
+  <pre>
+-- View task run history
+SELECT name, state, scheduled_time, completed_time,
+       return_value, error_code, error_message
+FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY(
+  TASK_NAME =&gt; 'MY_TASK',
+  SCHEDULED_TIME_RANGE_START =&gt; DATEADD('hour', -24, CURRENT_TIMESTAMP())
+))
+ORDER BY scheduled_time DESC;
+
+-- Account-level history (all tasks)
+SELECT *
+FROM SNOWFLAKE.ACCOUNT_USAGE.TASK_HISTORY
+WHERE scheduled_time &gt; DATEADD('day', -7, CURRENT_DATE())
+ORDER BY scheduled_time DESC;
+
+-- Current task state
+SHOW TASKS IN SCHEMA my_schema;
+-- Check 'state' column: 'started' = active, 'suspended' = paused
+  </pre>
+
+  <h3>Task States</h3>
+  <table>
+    <thead><tr><th>State</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>started</code></td><td>Active and scheduled to run</td></tr>
+      <tr><td><code>suspended</code></td><td>Paused, will not run</td></tr>
+      <tr><td><code>SUCCEEDED</code></td><td>Run completed successfully (in history)</td></tr>
+      <tr><td><code>FAILED</code></td><td>Run encountered an error</td></tr>
+      <tr><td><code>SKIPPED</code></td><td>Skipped (WHEN condition false / overlap)</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="stored-procs">7. Stored Procedures with Tasks</h2>
+
+  <pre>
+CREATE OR REPLACE PROCEDURE my_schema.refresh_reports()
+RETURNS STRING
+LANGUAGE SQL
+AS
+DECLARE
+  v_count INT;
+  v_msg STRING DEFAULT '';
+BEGIN
+  -- Execute transforms
+  CREATE OR REPLACE TABLE gold.report AS SELECT ...;
+
+  -- Get row count into variable
+  SELECT COUNT(*) INTO :v_count FROM gold.report;
+
+  -- String concatenation
+  v_msg := 'Refreshed ' || :v_count || ' rows';
+
+  RETURN :v_msg;
+END;
+
+-- Call from a task
+CREATE TASK my_task
+  WAREHOUSE = wh
+  SCHEDULE = '60 MINUTE'
+AS
+  CALL my_schema.refresh_reports();
+  </pre>
+
+  <div class="key-point">
+    <strong>Key SQL Scripting Rules:</strong><br/>
+    - Variables need <code>:</code> prefix inside SQL statements: <code>SELECT ... INTO :v_count</code><br/>
+    - Assignment uses <code>:=</code> in code blocks: <code>v_msg := 'hello';</code><br/>
+    - DECLARE block for variables, LET for inline declaration<br/>
+    - RETURN ends execution and returns value
+  </div>
+
+  <h2 id="email-notify">8. Email Notifications</h2>
+
+  <h3>Setup</h3>
+  <pre>
+-- 1. Create notification integration (ACCOUNTADMIN)
+CREATE NOTIFICATION INTEGRATION my_email_int
+  TYPE = EMAIL
+  ENABLED = TRUE
+  ALLOWED_RECIPIENTS = ('user@company.com', 'team@company.com');
+
+-- 2. Grant usage
+GRANT USAGE ON INTEGRATION my_email_int TO ROLE data_engineer;
+  </pre>
+
+  <h3>Send Email</h3>
+  <pre>
+-- Plain text
+CALL SYSTEM$SEND_EMAIL(
+  'my_email_int',           -- integration name
+  'user@company.com',       -- recipients (comma-separated)
+  'Subject Line',           -- subject
+  'Email body text'         -- body
+);
+
+-- HTML email (5th parameter = MIME type)
+CALL SYSTEM$SEND_EMAIL(
+  'my_email_int',
+  'user@company.com',
+  'Report Ready',
+  '&lt;html&gt;&lt;body&gt;&lt;h1&gt;Done&lt;/h1&gt;&lt;/body&gt;&lt;/html&gt;',
+  'text/html'
+);
+  </pre>
+
+  <div class="highlight">
+    <strong>Limitations:</strong><br/>
+    - No file attachments (use presigned URLs instead)<br/>
+    - Recipients must be in ALLOWED_RECIPIENTS list<br/>
+    - Sent from no-reply@snowflake.net<br/>
+    - Max ~1MB body size
+  </div>
+
+  <h2 id="dt-vs-task">9. Dynamic Tables vs Tasks</h2>
+
+  <table>
+    <thead><tr><th>Factor</th><th>Task</th><th>Dynamic Table</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Schedule control</strong></td><td>You decide exactly when</td><td>Snowflake decides (TARGET_LAG)</td></tr>
+      <tr><td><strong>Logic</strong></td><td>Any SQL, procedures, multi-step</td><td>Single SELECT only</td></tr>
+      <tr><td><strong>Cost model</strong></td><td>Pay only when running</td><td>Continuous monitoring cost</td></tr>
+      <tr><td><strong>Best for</strong></td><td>Fixed schedules, complex logic</td><td>Near-real-time, simple transforms</td></tr>
+      <tr><td><strong>CREATE OR REPLACE</strong></td><td>Supported</td><td>Not applicable (declarative)</td></tr>
+      <tr><td><strong>Orchestration</strong></td><td>Manual (DAGs, procedures)</td><td>Automatic (dependency resolution)</td></tr>
+      <tr><td><strong>Maintenance</strong></td><td>You manage retries, alerting</td><td>Snowflake handles it</td></tr>
+    </tbody>
+  </table>
+
+  <div class="key-point">
+    <strong>Decision Rule:</strong><br/>
+    - Data changes frequently + simple SELECT + need freshness = <strong>Dynamic Table</strong><br/>
+    - Fixed schedule + complex logic + cost-sensitive = <strong>Task</strong><br/>
+    - Need email notifications or multi-step = <strong>Task + Stored Procedure</strong>
+  </div>
+
+  <h2 id="exam-tips">10. Exam Tips &amp; Tricky Questions</h2>
+
+  <div class="qa-block">
+    <strong>Q: A task is created but never runs. What's wrong?</strong><br/>
+    A: Most common reasons: (1) Task is SUSPENDED (must ALTER TASK ... RESUME), (2) Role doesn't have EXECUTE TASK privilege, (3) Warehouse is suspended and AUTO_RESUME = FALSE.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: Which role creates notification integrations?</strong><br/>
+    A: ACCOUNTADMIN (integration is account-level object). Other roles need USAGE grant.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: Can a child task have a SCHEDULE?</strong><br/>
+    A: NO. A child task (one with AFTER) cannot have a SCHEDULE. Only root tasks have schedules.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: What happens if a task takes longer than its interval?</strong><br/>
+    A: With default ALLOW_OVERLAPPING_EXECUTION = FALSE, the next run is SKIPPED. It does NOT queue.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: EXECUTE TASK command - does it require the task to be RESUMED?</strong><br/>
+    A: NO. EXECUTE TASK runs a task immediately regardless of its state (even if suspended). It's for manual/testing triggers.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: What's the difference between EXECUTE TASK and EXECUTE MANAGED TASK?</strong><br/>
+    A: EXECUTE TASK = user-managed warehouse tasks. EXECUTE MANAGED TASK = serverless tasks (Snowflake picks compute automatically).
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: Can a task call a stored procedure?</strong><br/>
+    A: YES. Use <code>AS CALL my_procedure()</code> in the task definition.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: How to trigger a task only when a stream has new data?</strong><br/>
+    A: Use WHEN clause: <code>WHEN SYSTEM$STREAM_HAS_DATA('my_stream')</code>. Task still needs a schedule but only executes the body when condition is TRUE.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: What is SUSPEND_TASK_AFTER_NUM_FAILURES?</strong><br/>
+    A: Auto-suspends a task after N consecutive failures. Default: 10. Prevents runaway errors from burning credits.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: Which role should create roles - ACCOUNTADMIN or SECURITYADMIN?</strong><br/>
+    A: <strong>SECURITYADMIN</strong>. It's purpose-built for role/grant management. ACCOUNTADMIN works but violates least privilege.
+  </div>
+
+  <hr/>
+  <p style="font-size: 0.8em; color: light-dark(#6b7280, #9ca3af);">Generated: August 13, 2026 | Snowflake SnowPro Core + Advanced Data Engineer</p>
+
+</body>
+</html>

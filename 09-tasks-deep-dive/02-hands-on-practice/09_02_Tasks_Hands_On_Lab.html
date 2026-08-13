@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Tasks - Hands-On Lab</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-13",
+    "intent": "Complete hands-on lab: RBAC + Tasks + Stored Procedures + HTML Email Notifications",
+    "sections": [
+      { "id": "overview", "title": "Lab Overview" },
+      { "id": "step0", "title": "Step 0: Enterprise RBAC Setup" },
+      { "id": "step1", "title": "Step 1: Create Database & Schemas" },
+      { "id": "step2", "title": "Step 2: Create Base Tables" },
+      { "id": "step3", "title": "Step 3: Stored Procedure with Email" },
+      { "id": "step4", "title": "Step 4: Create & Schedule Task" },
+      { "id": "step5", "title": "Step 5: Monitor & Verify" },
+      { "id": "step6", "title": "Step 6: Cleanup" },
+      { "id": "grant-analyst", "title": "Bonus: Grant ANALYST Access" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, system-ui, 'Segoe UI', sans-serif; max-width: 1000px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #111827); line-height: 1.7; }
+    h1 { color: light-dark(#1e40af, #93c5fd); border-bottom: 3px solid light-dark(#3b82f6, #1d4ed8); padding-bottom: 12px; }
+    h2 { color: light-dark(#1e3a5f, #7dd3fc); margin-top: 40px; border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding-left: 12px; }
+    h3 { color: light-dark(#374151, #d1d5db); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9em; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#eff6ff, #1e3a5f); font-weight: 600; }
+    tr:nth-child(even) { background: light-dark(#f8fafc, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+    pre { background: light-dark(#0f172a, #0f172a); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.82em; line-height: 1.5; }
+    .step-box { background: light-dark(#f0f9ff, #0c1929); border: 2px solid light-dark(#bae6fd, #1e3a5f); border-radius: 12px; padding: 20px; margin: 24px 0; }
+    .step-num { display: inline-block; background: light-dark(#2563eb, #1d4ed8); color: white; width: 32px; height: 32px; border-radius: 50%; text-align: center; line-height: 32px; font-weight: bold; margin-right: 8px; }
+    .highlight { background: light-dark(#fef3c7, #422006); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#f59e0b, #fbbf24); margin: 16px 0; }
+    .key-point { background: light-dark(#ecfdf5, #022c22); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#10b981, #34d399); margin: 16px 0; }
+    .warning { background: light-dark(#fef2f2, #450a0a); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#ef4444, #f87171); margin: 16px 0; }
+  </style>
+</head>
+<body>
+
+  <h1>9.2 Tasks Hands-On Lab</h1>
+  <p><strong>Objective:</strong> Build an enterprise-grade scheduled report refresh system with RBAC, stored procedures, and HTML email notifications.</p>
+  <p><strong>Date:</strong> August 13, 2026</p>
+
+  <div class="highlight">
+    <strong>What you'll build:</strong><br/>
+    SECURITYADMIN creates roles &rarr; SYSADMIN creates infrastructure &rarr; DATA_ENGINEER creates base tables, reports stored procedure, and scheduled task &rarr; Task refreshes 6 report tables biweekly and sends styled HTML email with row counts.
+  </div>
+
+  <h2 id="overview">Architecture</h2>
+  <pre>
++------------------+     +-------------------+     +------------------+
+|  BASE Schema     | --> | Stored Procedure  | --> |  REPORTS Schema  |
+|  (Source Tables) |     | REFRESH_ALL()     |     |  (Report Tables) |
++------------------+     +-------------------+     +------------------+
+        |                         |                         |
+        |                         v                         |
+        |                 +---------------+                 |
+        |                 | SEND_EMAIL()  |                 |
+        |                 | (HTML report) |                 |
+        |                 +---------------+                 |
+        v                         ^                         v
++------------------+     +-------------------+     +------------------+
+|  TASK (CRON)     | --> |  Executes every   | --> |  Email to inbox  |
+|  Biweekly sched  |     |  1st & 15th       |     |  with row counts |
++------------------+     +-------------------+     +------------------+
+  </pre>
+
+  <hr/>
+
+  <h2 id="step0"><span class="step-num">0</span> Enterprise RBAC Setup</h2>
+
+  <div class="key-point">
+    <strong>Role responsibilities:</strong><br/>
+    SECURITYADMIN = creates roles &amp; grants<br/>
+    SYSADMIN = creates databases &amp; warehouses<br/>
+    ACCOUNTADMIN = account-level privileges only<br/>
+    DATA_ENGINEER = owns pipelines (our working role)
+  </div>
+
+  <pre>
+-- ============================================================
+-- STEP 0A: Create roles (SECURITYADMIN)
+-- ============================================================
+USE ROLE SECURITYADMIN;
+
+CREATE ROLE IF NOT EXISTS DATA_ENGINEER
+  COMMENT = 'Builds pipelines, creates tasks, owns transformations';
+
+CREATE ROLE IF NOT EXISTS ANALYST
+  COMMENT = 'Read-only access to report tables';
+
+-- Role hierarchy (both roll up to SYSADMIN)
+GRANT ROLE DATA_ENGINEER TO ROLE SYSADMIN;
+GRANT ROLE ANALYST TO ROLE SYSADMIN;
+
+-- Assign to your user
+GRANT ROLE DATA_ENGINEER TO USER RANGAK565;
+GRANT ROLE ANALYST TO USER RANGAK565;
+
+-- ============================================================
+-- STEP 0B: Create infrastructure (SYSADMIN)
+-- ============================================================
+USE ROLE SYSADMIN;
+
+CREATE WAREHOUSE IF NOT EXISTS TASK_WH
+  WAREHOUSE_SIZE = 'XSMALL'
+  AUTO_SUSPEND = 60
+  AUTO_RESUME = TRUE
+  COMMENT = 'Warehouse for scheduled task execution';
+
+CREATE DATABASE IF NOT EXISTS TASK_PRACTICE_DB
+  COMMENT = 'Practice: Scheduled task refresh of report tables';
+
+-- Grant ownership to DATA_ENGINEER
+GRANT OWNERSHIP ON DATABASE TASK_PRACTICE_DB TO ROLE DATA_ENGINEER;
+GRANT USAGE ON WAREHOUSE TASK_WH TO ROLE DATA_ENGINEER;
+GRANT OPERATE ON WAREHOUSE TASK_WH TO ROLE DATA_ENGINEER;
+GRANT USAGE ON WAREHOUSE TASK_WH TO ROLE ANALYST;
+
+-- ============================================================
+-- STEP 0C: Account-level privileges (ACCOUNTADMIN)
+-- ============================================================
+USE ROLE ACCOUNTADMIN;
+GRANT EXECUTE TASK ON ACCOUNT TO ROLE DATA_ENGINEER;
+GRANT EXECUTE MANAGED TASK ON ACCOUNT TO ROLE DATA_ENGINEER;
+  </pre>
+
+  <h3>Verify Setup</h3>
+  <pre>
+SHOW GRANTS TO ROLE DATA_ENGINEER;
+-- Should show: OWNERSHIP on TASK_PRACTICE_DB, USAGE+OPERATE on TASK_WH, EXECUTE TASK
+  </pre>
+
+  <hr/>
+
+  <h2 id="step1"><span class="step-num">1</span> Create Database &amp; Schemas</h2>
+
+  <pre>
+USE ROLE DATA_ENGINEER;
+USE WAREHOUSE TASK_WH;
+USE DATABASE TASK_PRACTICE_DB;
+
+CREATE SCHEMA BASE COMMENT = 'Source/base tables (simulating Salesforce/CRM data)';
+CREATE SCHEMA REPORTS COMMENT = 'Report tables refreshed by scheduled tasks';
+  </pre>
+
+  <hr/>
+
+  <h2 id="step2"><span class="step-num">2</span> Create Base Tables with Sample Data</h2>
+
+  <pre>
+USE SCHEMA BASE;
+
+-- 1. Accounts (companies/customers)
+CREATE OR REPLACE TABLE ACCOUNTS (
+    account_id INT,
+    account_name VARCHAR(100),
+    industry VARCHAR(50),
+    region VARCHAR(30),
+    annual_revenue DECIMAL(15,2),
+    created_date DATE,
+    is_active BOOLEAN
+);
+
+INSERT INTO ACCOUNTS VALUES
+(1, 'Tata Consultancy', 'Technology', 'APAC', 15000000.00, '2022-01-15', TRUE),
+(2, 'Infosys Ltd', 'Technology', 'APAC', 12000000.00, '2022-03-20', TRUE),
+(3, 'Reliance Digital', 'Retail', 'APAC', 8000000.00, '2022-06-10', TRUE),
+(4, 'HDFC Bank', 'Banking', 'APAC', 20000000.00, '2021-11-01', TRUE),
+(5, 'Wipro Technologies', 'Technology', 'APAC', 9500000.00, '2022-09-14', TRUE),
+(6, 'Amazon Web Services', 'Cloud', 'NA', 50000000.00, '2020-05-22', TRUE),
+(7, 'Microsoft India', 'Technology', 'APAC', 35000000.00, '2021-02-10', TRUE),
+(8, 'Flipkart', 'E-Commerce', 'APAC', 6000000.00, '2023-01-05', TRUE),
+(9, 'Accenture', 'Consulting', 'EMEA', 18000000.00, '2021-08-30', TRUE),
+(10, 'Deloitte', 'Consulting', 'NA', 22000000.00, '2020-12-18', FALSE);
+
+-- 2. Opportunities (deals/pipeline)
+CREATE OR REPLACE TABLE OPPORTUNITIES (
+    opp_id INT,
+    account_id INT,
+    opp_name VARCHAR(200),
+    stage VARCHAR(50),
+    amount DECIMAL(15,2),
+    close_date DATE,
+    created_date DATE,
+    owner_name VARCHAR(100)
+);
+
+INSERT INTO OPPORTUNITIES VALUES
+(101, 1, 'TCS Cloud Migration', 'Closed Won', 2500000.00, '2026-06-15', '2026-01-10', 'Ravi Kumar'),
+(102, 1, 'TCS Data Platform', 'Negotiation', 1800000.00, '2026-09-30', '2026-04-20', 'Priya Sharma'),
+(103, 2, 'Infosys Analytics', 'Closed Won', 1200000.00, '2026-05-20', '2026-02-15', 'Ravi Kumar'),
+(104, 3, 'Reliance BI Dashboard', 'Closed Lost', 800000.00, '2026-04-10', '2026-01-25', 'Ankit Patel'),
+(105, 4, 'HDFC Fraud Detection', 'Closed Won', 3500000.00, '2026-07-01', '2026-03-10', 'Priya Sharma'),
+(106, 5, 'Wipro DevOps', 'Proposal', 950000.00, '2026-10-15', '2026-06-01', 'Ankit Patel'),
+(107, 6, 'AWS Partnership', 'Closed Won', 5000000.00, '2026-03-30', '2025-11-15', 'Ravi Kumar'),
+(108, 7, 'Microsoft Integration', 'Qualification', 2200000.00, '2026-12-01', '2026-07-05', 'Sneha Reddy'),
+(109, 8, 'Flipkart Recommender', 'Closed Won', 1500000.00, '2026-08-10', '2026-05-12', 'Sneha Reddy'),
+(110, 9, 'Accenture Consulting', 'Negotiation', 4000000.00, '2026-11-20', '2026-06-25', 'Ravi Kumar'),
+(111, 4, 'HDFC Credit Scoring', 'Proposal', 2800000.00, '2026-10-30', '2026-07-15', 'Priya Sharma'),
+(112, 2, 'Infosys Migration', 'Closed Won', 1600000.00, '2026-08-01', '2026-04-10', 'Ankit Patel');
+
+-- 3. Contacts
+CREATE OR REPLACE TABLE CONTACTS (
+    contact_id INT, account_id INT, first_name VARCHAR(50),
+    last_name VARCHAR(50), email VARCHAR(100), title VARCHAR(100),
+    phone VARCHAR(20), created_date DATE
+);
+
+INSERT INTO CONTACTS VALUES
+(201, 1, 'Rajesh', 'Gopinathan', 'rajesh.g@tcs.com', 'CTO', '+91-9876543210', '2022-01-15'),
+(202, 1, 'Meena', 'Iyer', 'meena.i@tcs.com', 'VP Engineering', '+91-9876543211', '2022-03-20'),
+(203, 2, 'Salil', 'Parekh', 'salil.p@infosys.com', 'CEO', '+91-9876543212', '2022-03-20'),
+(204, 3, 'Amit', 'Jain', 'amit.j@reliance.com', 'Head of Data', '+91-9876543213', '2022-06-10'),
+(205, 4, 'Sashi', 'Jagdishan', 'sashi.j@hdfc.com', 'CIO', '+91-9876543214', '2021-11-01'),
+(206, 5, 'Thierry', 'Delaporte', 'thierry.d@wipro.com', 'CEO', '+91-9876543215', '2022-09-14'),
+(207, 6, 'Prasad', 'Kalyanaraman', 'prasad.k@aws.com', 'Solutions Architect', '+1-5551234567', '2020-05-22'),
+(208, 7, 'Anant', 'Maheshwari', 'anant.m@microsoft.com', 'President', '+91-9876543216', '2021-02-10'),
+(209, 8, 'Kalyan', 'Krishnamurthy', 'kalyan.k@flipkart.com', 'CEO', '+91-9876543217', '2023-01-05'),
+(210, 9, 'Julie', 'Sweet', 'julie.s@accenture.com', 'CEO', '+1-5559876543', '2021-08-30');
+
+-- 4. Activities (calls, emails, meetings)
+CREATE OR REPLACE TABLE ACTIVITIES (
+    activity_id INT, opp_id INT, account_id INT,
+    activity_type VARCHAR(30), subject VARCHAR(200),
+    activity_date DATE, duration_minutes INT, owner_name VARCHAR(100)
+);
+
+INSERT INTO ACTIVITIES VALUES
+(301, 101, 1, 'Meeting', 'Discovery Call - Cloud Requirements', '2026-01-15', 60, 'Ravi Kumar'),
+(302, 101, 1, 'Email', 'Proposal Sent', '2026-02-10', 5, 'Ravi Kumar'),
+(303, 101, 1, 'Meeting', 'Technical Deep Dive', '2026-03-05', 90, 'Ravi Kumar'),
+(304, 103, 2, 'Call', 'Initial Discussion', '2026-02-20', 30, 'Ravi Kumar'),
+(305, 103, 2, 'Meeting', 'Demo Session', '2026-03-15', 60, 'Ravi Kumar'),
+(306, 105, 4, 'Meeting', 'Executive Presentation', '2026-04-10', 45, 'Priya Sharma'),
+(307, 105, 4, 'Email', 'Contract Review', '2026-05-20', 10, 'Priya Sharma'),
+(308, 107, 6, 'Meeting', 'Partnership Kickoff', '2025-12-01', 120, 'Ravi Kumar'),
+(309, 109, 8, 'Call', 'Requirements Gathering', '2026-05-20', 45, 'Sneha Reddy'),
+(310, 109, 8, 'Meeting', 'Solution Presentation', '2026-06-15', 60, 'Sneha Reddy'),
+(311, 110, 9, 'Meeting', 'Scope Discussion', '2026-07-01', 90, 'Ravi Kumar'),
+(312, 111, 4, 'Call', 'Credit Model Overview', '2026-07-20', 30, 'Priya Sharma');
+
+-- Verify
+SELECT 'ACCOUNTS' AS tbl, COUNT(*) AS rows FROM ACCOUNTS
+UNION ALL SELECT 'OPPORTUNITIES', COUNT(*) FROM OPPORTUNITIES
+UNION ALL SELECT 'CONTACTS', COUNT(*) FROM CONTACTS
+UNION ALL SELECT 'ACTIVITIES', COUNT(*) FROM ACTIVITIES;
+  </pre>
+
+  <hr/>
+
+  <h2 id="step3"><span class="step-num">3</span> Stored Procedure with HTML Email</h2>
+
+  <div class="key-point">
+    <strong>What this does:</strong> Refreshes 6 report tables (CREATE OR REPLACE) then sends a styled HTML email with row counts for each table.
+  </div>
+
+  <pre>
+CREATE OR REPLACE PROCEDURE REPORTS.REFRESH_ALL_REPORTS()
+RETURNS STRING
+LANGUAGE SQL
+COMMENT = 'Refreshes all report tables and sends HTML email with row counts'
+AS
+DECLARE
+  v_body STRING DEFAULT '';
+  v_cnt1 INT; v_cnt2 INT; v_cnt3 INT;
+  v_cnt4 INT; v_cnt5 INT; v_cnt6 INT;
+BEGIN
+
+  -- Report 1: Revenue by Region
+  CREATE OR REPLACE TABLE REPORTS.RPT_REVENUE_BY_REGION AS
+  SELECT a.region, COUNT(DISTINCT a.account_id) AS total_accounts,
+    COUNT(o.opp_id) AS total_opportunities,
+    SUM(CASE WHEN o.stage = 'Closed Won' THEN o.amount ELSE 0 END) AS won_revenue,
+    SUM(o.amount) AS pipeline_total, CURRENT_TIMESTAMP() AS refreshed_at
+  FROM BASE.ACCOUNTS a LEFT JOIN BASE.OPPORTUNITIES o ON a.account_id = o.account_id
+  GROUP BY a.region;
+  SELECT COUNT(*) INTO :v_cnt1 FROM REPORTS.RPT_REVENUE_BY_REGION;
+
+  -- Report 2: Sales Rep Performance
+  CREATE OR REPLACE TABLE REPORTS.RPT_SALES_REP_PERFORMANCE AS
+  SELECT o.owner_name, COUNT(o.opp_id) AS total_deals,
+    SUM(CASE WHEN o.stage = 'Closed Won' THEN 1 ELSE 0 END) AS deals_won,
+    SUM(CASE WHEN o.stage = 'Closed Lost' THEN 1 ELSE 0 END) AS deals_lost,
+    SUM(CASE WHEN o.stage = 'Closed Won' THEN o.amount ELSE 0 END) AS revenue_won,
+    ROUND(SUM(CASE WHEN o.stage='Closed Won' THEN 1 ELSE 0 END)*100.0/COUNT(*),1) AS win_rate_pct,
+    CURRENT_TIMESTAMP() AS refreshed_at
+  FROM BASE.OPPORTUNITIES o GROUP BY o.owner_name;
+  SELECT COUNT(*) INTO :v_cnt2 FROM REPORTS.RPT_SALES_REP_PERFORMANCE;
+
+  -- Report 3: Pipeline by Stage
+  CREATE OR REPLACE TABLE REPORTS.RPT_PIPELINE_BY_STAGE AS
+  SELECT o.stage, COUNT(*) AS deal_count, SUM(o.amount) AS total_amount,
+    AVG(o.amount) AS avg_deal_size, MIN(o.close_date) AS earliest_close,
+    MAX(o.close_date) AS latest_close, CURRENT_TIMESTAMP() AS refreshed_at
+  FROM BASE.OPPORTUNITIES o GROUP BY o.stage;
+  SELECT COUNT(*) INTO :v_cnt3 FROM REPORTS.RPT_PIPELINE_BY_STAGE;
+
+  -- Report 4: Account Health
+  CREATE OR REPLACE TABLE REPORTS.RPT_ACCOUNT_HEALTH AS
+  SELECT a.account_id, a.account_name, a.industry, a.region,
+    COUNT(act.activity_id) AS total_activities,
+    MAX(act.activity_date) AS last_activity_date,
+    DATEDIFF('day', MAX(act.activity_date), CURRENT_DATE()) AS days_since_last_activity,
+    CASE WHEN DATEDIFF('day', MAX(act.activity_date), CURRENT_DATE()) &lt;= 30 THEN 'Healthy'
+         WHEN DATEDIFF('day', MAX(act.activity_date), CURRENT_DATE()) &lt;= 90 THEN 'At Risk'
+         ELSE 'Inactive' END AS health_status,
+    CURRENT_TIMESTAMP() AS refreshed_at
+  FROM BASE.ACCOUNTS a LEFT JOIN BASE.ACTIVITIES act ON a.account_id = act.account_id
+  WHERE a.is_active = TRUE GROUP BY a.account_id, a.account_name, a.industry, a.region;
+  SELECT COUNT(*) INTO :v_cnt4 FROM REPORTS.RPT_ACCOUNT_HEALTH;
+
+  -- Report 5: Industry Summary
+  CREATE OR REPLACE TABLE REPORTS.RPT_INDUSTRY_SUMMARY AS
+  SELECT a.industry, COUNT(DISTINCT a.account_id) AS account_count,
+    SUM(a.annual_revenue) AS total_annual_revenue, COUNT(o.opp_id) AS opportunities,
+    SUM(CASE WHEN o.stage = 'Closed Won' THEN o.amount ELSE 0 END) AS won_amount,
+    CURRENT_TIMESTAMP() AS refreshed_at
+  FROM BASE.ACCOUNTS a LEFT JOIN BASE.OPPORTUNITIES o ON a.account_id = o.account_id
+  GROUP BY a.industry;
+  SELECT COUNT(*) INTO :v_cnt5 FROM REPORTS.RPT_INDUSTRY_SUMMARY;
+
+  -- Report 6: Monthly Activity
+  CREATE OR REPLACE TABLE REPORTS.RPT_MONTHLY_ACTIVITY AS
+  SELECT DATE_TRUNC('month', act.activity_date) AS activity_month,
+    act.activity_type, COUNT(*) AS activity_count,
+    SUM(act.duration_minutes) AS total_minutes,
+    COUNT(DISTINCT act.account_id) AS accounts_touched,
+    CURRENT_TIMESTAMP() AS refreshed_at
+  FROM BASE.ACTIVITIES act
+  GROUP BY DATE_TRUNC('month', act.activity_date), act.activity_type;
+  SELECT COUNT(*) INTO :v_cnt6 FROM REPORTS.RPT_MONTHLY_ACTIVITY;
+
+  -- Build HTML email body (see lab_queries.sql for full HTML template)
+  v_body := '&lt;html&gt;&lt;body style="font-family:Arial"&gt;'
+    || '&lt;h2 style="color:#29B5E8"&gt;Report Refresh Complete&lt;/h2&gt;'
+    || '&lt;table border="1" cellpadding="8"&gt;'
+    || '&lt;tr style="background:#29B5E8;color:white"&gt;&lt;th&gt;Report&lt;/th&gt;&lt;th&gt;Rows&lt;/th&gt;&lt;/tr&gt;'
+    || '&lt;tr&gt;&lt;td&gt;RPT_REVENUE_BY_REGION&lt;/td&gt;&lt;td&gt;' || :v_cnt1 || '&lt;/td&gt;&lt;/tr&gt;'
+    || '&lt;tr&gt;&lt;td&gt;RPT_SALES_REP_PERFORMANCE&lt;/td&gt;&lt;td&gt;' || :v_cnt2 || '&lt;/td&gt;&lt;/tr&gt;'
+    || '&lt;tr&gt;&lt;td&gt;RPT_PIPELINE_BY_STAGE&lt;/td&gt;&lt;td&gt;' || :v_cnt3 || '&lt;/td&gt;&lt;/tr&gt;'
+    || '&lt;tr&gt;&lt;td&gt;RPT_ACCOUNT_HEALTH&lt;/td&gt;&lt;td&gt;' || :v_cnt4 || '&lt;/td&gt;&lt;/tr&gt;'
+    || '&lt;tr&gt;&lt;td&gt;RPT_INDUSTRY_SUMMARY&lt;/td&gt;&lt;td&gt;' || :v_cnt5 || '&lt;/td&gt;&lt;/tr&gt;'
+    || '&lt;tr&gt;&lt;td&gt;RPT_MONTHLY_ACTIVITY&lt;/td&gt;&lt;td&gt;' || :v_cnt6 || '&lt;/td&gt;&lt;/tr&gt;'
+    || '&lt;/table&gt;&lt;p&gt;Total: ' || (:v_cnt1+:v_cnt2+:v_cnt3+:v_cnt4+:v_cnt5+:v_cnt6) || ' rows&lt;/p&gt;'
+    || '&lt;/body&gt;&lt;/html&gt;';
+
+  CALL SYSTEM$SEND_EMAIL(
+    'LEARNING_EMAIL_NOTIFICATION',
+    'ranga.k565@gmail.com',
+    'Report Refresh - ' || CURRENT_DATE()::STRING,
+    :v_body,
+    'text/html'
+  );
+
+  RETURN '6 tables refreshed. Email sent. Total: ' || (:v_cnt1+:v_cnt2+:v_cnt3+:v_cnt4+:v_cnt5+:v_cnt6);
+END;
+  </pre>
+
+  <hr/>
+
+  <h2 id="step4"><span class="step-num">4</span> Create &amp; Schedule Task</h2>
+
+  <pre>
+-- Create the task (biweekly: 1st and 15th at midnight IST)
+CREATE OR REPLACE TASK REPORTS.BIWEEKLY_REFRESH_TASK
+  WAREHOUSE = TASK_WH
+  SCHEDULE = 'USING CRON 0 0 1,15 * * Asia/Kolkata'
+  COMMENT = 'Refreshes all 6 report tables biweekly'
+AS
+  CALL REPORTS.REFRESH_ALL_REPORTS();
+
+-- Resume the task
+ALTER TASK REPORTS.BIWEEKLY_REFRESH_TASK RESUME;
+
+-- For testing: change to every 5 minutes
+ALTER TASK REPORTS.BIWEEKLY_REFRESH_TASK SUSPEND;
+ALTER TASK REPORTS.BIWEEKLY_REFRESH_TASK SET SCHEDULE = '5 MINUTE';
+ALTER TASK REPORTS.BIWEEKLY_REFRESH_TASK RESUME;
+
+-- Or test manually (works even when suspended)
+CALL REPORTS.REFRESH_ALL_REPORTS();
+  </pre>
+
+  <hr/>
+
+  <h2 id="step5"><span class="step-num">5</span> Monitor &amp; Verify</h2>
+
+  <pre>
+-- Check task status
+SHOW TASKS IN SCHEMA TASK_PRACTICE_DB.REPORTS;
+
+-- View run history
+SELECT name, state, scheduled_time, completed_time,
+  DATEDIFF('second', query_start_time, completed_time) AS duration_sec,
+  return_value, error_code, error_message
+FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY(
+  TASK_NAME =&gt; 'BIWEEKLY_REFRESH_TASK',
+  SCHEDULED_TIME_RANGE_START =&gt; DATEADD('hour', -1, CURRENT_TIMESTAMP())
+))
+ORDER BY scheduled_time DESC;
+
+-- Check report tables refreshed_at timestamps
+SELECT 'RPT_REVENUE_BY_REGION' AS report, MAX(refreshed_at) AS last_refresh
+  FROM REPORTS.RPT_REVENUE_BY_REGION
+UNION ALL SELECT 'RPT_SALES_REP_PERFORMANCE', MAX(refreshed_at) FROM REPORTS.RPT_SALES_REP_PERFORMANCE
+UNION ALL SELECT 'RPT_PIPELINE_BY_STAGE', MAX(refreshed_at) FROM REPORTS.RPT_PIPELINE_BY_STAGE
+UNION ALL SELECT 'RPT_ACCOUNT_HEALTH', MAX(refreshed_at) FROM REPORTS.RPT_ACCOUNT_HEALTH
+UNION ALL SELECT 'RPT_INDUSTRY_SUMMARY', MAX(refreshed_at) FROM REPORTS.RPT_INDUSTRY_SUMMARY
+UNION ALL SELECT 'RPT_MONTHLY_ACTIVITY', MAX(refreshed_at) FROM REPORTS.RPT_MONTHLY_ACTIVITY
+ORDER BY 1;
+
+-- View actual report data
+SELECT * FROM REPORTS.RPT_SALES_REP_PERFORMANCE;
+SELECT * FROM REPORTS.RPT_REVENUE_BY_REGION;
+  </pre>
+
+  <hr/>
+
+  <h2 id="step6"><span class="step-num">6</span> Cleanup (After Testing)</h2>
+
+  <pre>
+-- Suspend the task (stop it from running)
+ALTER TASK REPORTS.BIWEEKLY_REFRESH_TASK SUSPEND;
+
+-- Set back to production schedule
+ALTER TASK REPORTS.BIWEEKLY_REFRESH_TASK SET SCHEDULE = 'USING CRON 0 0 1,15 * * Asia/Kolkata';
+ALTER TASK REPORTS.BIWEEKLY_REFRESH_TASK RESUME;
+
+-- OR drop everything if just practicing
+ALTER TASK REPORTS.BIWEEKLY_REFRESH_TASK SUSPEND;
+DROP TASK REPORTS.BIWEEKLY_REFRESH_TASK;
+DROP DATABASE TASK_PRACTICE_DB;
+DROP WAREHOUSE TASK_WH;
+  </pre>
+
+  <hr/>
+
+  <h2 id="grant-analyst"><span class="step-num">+</span> Bonus: Grant ANALYST Read Access</h2>
+
+  <pre>
+-- As DATA_ENGINEER (owns the database)
+GRANT USAGE ON DATABASE TASK_PRACTICE_DB TO ROLE ANALYST;
+GRANT USAGE ON SCHEMA TASK_PRACTICE_DB.REPORTS TO ROLE ANALYST;
+GRANT SELECT ON ALL TABLES IN SCHEMA TASK_PRACTICE_DB.REPORTS TO ROLE ANALYST;
+
+-- Future grants (new tables auto-get SELECT)
+GRANT SELECT ON FUTURE TABLES IN SCHEMA TASK_PRACTICE_DB.REPORTS TO ROLE ANALYST;
+
+-- Test as ANALYST
+USE ROLE ANALYST;
+USE WAREHOUSE TASK_WH;
+SELECT * FROM TASK_PRACTICE_DB.REPORTS.RPT_REVENUE_BY_REGION;
+-- Works! But ANALYST cannot CREATE/ALTER/DROP anything.
+  </pre>
+
+  <hr/>
+  <p style="font-size: 0.8em; color: light-dark(#6b7280, #9ca3af);">Generated: August 13, 2026 | Hands-On Lab by Ranga Naik</p>
+
+</body>
+</html>
