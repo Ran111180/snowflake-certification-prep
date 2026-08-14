@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Streams Certification - Part 2: Advanced & Production</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-14",
+    "intent": "Streams Part 2 - Streams+Tasks CDC, RBAC, Production Debug, Dynamic Tables comparison, SCD patterns",
+    "sections": [
+      { "id": "streams-tasks", "title": "Streams + Tasks Pattern", "dataSources": [], "producerNotes": "Automated CDC pipelines" },
+      { "id": "rbac", "title": "RBAC & Privileges", "dataSources": [], "producerNotes": "Who can create, consume, monitor" },
+      { "id": "dynamic-tables", "title": "Streams vs Dynamic Tables", "dataSources": [], "producerNotes": "When to use which" },
+      { "id": "scd-patterns", "title": "SCD Patterns with Streams", "dataSources": [], "producerNotes": "Type 1, Type 2 implementations" },
+      { "id": "production-debug", "title": "Production Debugging", "dataSources": [], "producerNotes": "Common issues and fixes" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #0f172a); line-height: 1.6; }
+    h1 { font-size: 2rem; color: light-dark(#0f172a, #f8fafc); margin-bottom: 8px; border-bottom: 3px solid light-dark(#7c3aed, #a78bfa); padding-bottom: 12px; }
+    h2 { font-size: 1.5rem; color: light-dark(#5b21b6, #c4b5fd); margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid light-dark(#ede9fe, #2e1065); }
+    h3 { font-size: 1.15rem; color: light-dark(#4c1d95, #ddd6fe); margin: 24px 0 12px; }
+    p { margin: 8px 0; }
+    .subtitle { color: light-dark(#6b7280, #9ca3af); font-size: 0.95rem; margin-bottom: 24px; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; }
+    th, td { border: 1px solid light-dark(#e5e7eb, #374151); padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: light-dark(#f5f3ff, #1e293b); font-weight: 600; color: light-dark(#5b21b6, #c4b5fd); }
+    tr:nth-child(even) td { background: light-dark(#f9fafb, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
+    pre { background: light-dark(#1e293b, #0c1322); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; font-size: 0.85rem; line-height: 1.5; }
+    .card { background: light-dark(#faf5ff, #1e293b); border: 1px solid light-dark(#c4b5fd, #334155); border-radius: 8px; padding: 20px; margin: 16px 0; }
+    .card-title { font-weight: 700; color: light-dark(#5b21b6, #a78bfa); margin-bottom: 8px; }
+    .warning { background: light-dark(#fef3c7, #451a03); border-left: 4px solid light-dark(#f59e0b, #fbbf24); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .info { background: light-dark(#ede9fe, #1e1b4b); border-left: 4px solid light-dark(#7c3aed, #a78bfa); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .success { background: light-dark(#d1fae5, #022c22); border-left: 4px solid light-dark(#10b981, #34d399); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .danger { background: light-dark(#fee2e2, #450a0a); border-left: 4px solid light-dark(#ef4444, #f87171); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .toc { background: light-dark(#f8fafc, #1e293b); border: 1px solid light-dark(#e2e8f0, #334155); border-radius: 8px; padding: 20px; margin: 24px 0; }
+    .toc a { color: light-dark(#7c3aed, #a78bfa); text-decoration: none; }
+    .toc ul { list-style: none; padding-left: 0; }
+    .toc li { padding: 4px 0; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+    ul, ol { padding-left: 24px; margin: 8px 0; }
+    li { margin: 4px 0; }
+    .arch-box { background: light-dark(#faf5ff, #0f0524); border: 2px solid light-dark(#a78bfa, #4c1d95); border-radius: 12px; padding: 24px; margin: 20px 0; text-align: center; font-family: monospace; font-size: 0.85rem; line-height: 2; }
+  </style>
+</head>
+<body>
+
+<h1>Streams - Part 2: Advanced & Production</h1>
+<p class="subtitle">SnowPro Core Certification | Streams+Tasks, RBAC, SCD, Dynamic Tables | August 2026</p>
+
+<div class="toc">
+  <strong>Table of Contents</strong>
+  <ul>
+    <li><a href="#streams-tasks">1. Streams + Tasks Pattern (Automated CDC)</a></li>
+    <li><a href="#scd-patterns">2. SCD Patterns with Streams (Type 1 & Type 2)</a></li>
+    <li><a href="#dynamic-tables">3. Streams vs Dynamic Tables (Decision Framework)</a></li>
+    <li><a href="#rbac">4. RBAC & Privileges</a></li>
+    <li><a href="#production-debug">5. Production Debugging</a></li>
+    <li><a href="#multi-stream">6. Multi-Stream & Multi-Table Patterns</a></li>
+    <li><a href="#cost">7. Cost & Performance Considerations</a></li>
+    <li><a href="#change-tracking">8. Change Tracking (Internal Mechanism)</a></li>
+  </ul>
+</div>
+
+<!-- SECTION 1 -->
+<h2 id="streams-tasks">1. Streams + Tasks Pattern (Automated CDC)</h2>
+
+<div class="arch-box">
+<strong>The Classic CDC Pipeline:</strong><br><br>
+[Source Table] --changes--> [Stream (captures CDC)] --WHEN HAS_DATA--> [Task (runs DML)]<br>
+                                                                              |<br>
+                                                                              v<br>
+                                                                    [Target Table (incremental)]
+</div>
+
+<h3>Complete Example: Automated Incremental Load</h3>
+<pre>-- 1. Source table (data arrives here from Snowpipe or other sources)
+CREATE TABLE raw_orders (
+  order_id INT, customer VARCHAR, amount DECIMAL, status VARCHAR, updated_at TIMESTAMP
+);
+
+-- 2. Stream on source (captures all changes)
+CREATE STREAM raw_orders_stream ON TABLE raw_orders;
+
+-- 3. Target table (clean/transformed data)
+CREATE TABLE processed_orders (
+  order_id INT PRIMARY KEY, customer VARCHAR, amount DECIMAL,
+  status VARCHAR, updated_at TIMESTAMP, loaded_at TIMESTAMP
+);
+
+-- 4. Task that processes changes every 5 minutes
+CREATE TASK process_orders_task
+  WAREHOUSE = my_wh
+  SCHEDULE = '5 MINUTE'
+  WHEN SYSTEM$STREAM_HAS_DATA('raw_orders_stream')
+AS
+  MERGE INTO processed_orders t
+  USING (
+    SELECT * FROM raw_orders_stream
+    WHERE METADATA$ACTION = 'INSERT'
+  ) s ON t.order_id = s.order_id
+  WHEN MATCHED THEN
+    UPDATE SET t.customer = s.customer, t.amount = s.amount,
+              t.status = s.status, t.updated_at = s.updated_at,
+              t.loaded_at = CURRENT_TIMESTAMP()
+  WHEN NOT MATCHED THEN
+    INSERT VALUES (s.order_id, s.customer, s.amount, s.status, s.updated_at, CURRENT_TIMESTAMP());
+
+-- 5. Resume the task
+ALTER TASK process_orders_task RESUME;</pre>
+
+<h3>SYSTEM$STREAM_HAS_DATA</h3>
+<table>
+  <tr><th>Aspect</th><th>Detail</th></tr>
+  <tr><td>Purpose</td><td>Returns TRUE/FALSE indicating if stream has unconsumed data</td></tr>
+  <tr><td>Used in</td><td>Task WHEN clause (skip run if no changes)</td></tr>
+  <tr><td>Cost</td><td>Very cheap - metadata check only, no warehouse needed</td></tr>
+  <tr><td>Behavior</td><td>Does NOT advance offset (it's just a check)</td></tr>
+</table>
+
+<div class="info">
+  <strong>Why use WHEN clause?</strong> Without it, the task runs every 5 minutes regardless (wasting credits on empty runs). With SYSTEM$STREAM_HAS_DATA, the task only fires when there are actual changes to process.
+</div>
+
+<h3>Task DAG with Multiple Streams</h3>
+<div class="arch-box">
+[orders_table] --> [orders_stream] --> [Task A: MERGE into dim_orders]<br>
+                                              |<br>
+[customers_table] --> [customers_stream] --> [Task B: MERGE into dim_customers]<br>
+                                              |<br>
+                                              v<br>
+                                      [Task C (child): Build fact_sales from dim tables]
+</div>
+
+<!-- SECTION 2 -->
+<h2 id="scd-patterns">2. SCD Patterns with Streams</h2>
+
+<h3>SCD Type 1 (Overwrite) — Simple MERGE</h3>
+<pre>-- Changes overwrite existing values. No history kept.
+MERGE INTO dim_customer t
+USING customer_stream s
+  ON t.customer_id = s.customer_id
+WHEN MATCHED AND s.METADATA$ACTION = 'INSERT' AND s.METADATA$ISUPDATE = TRUE
+  THEN UPDATE SET
+    t.name = s.name,
+    t.email = s.email,
+    t.updated_at = CURRENT_TIMESTAMP()
+WHEN MATCHED AND s.METADATA$ACTION = 'DELETE' AND s.METADATA$ISUPDATE = FALSE
+  THEN DELETE
+WHEN NOT MATCHED AND s.METADATA$ACTION = 'INSERT'
+  THEN INSERT (customer_id, name, email, created_at, updated_at)
+       VALUES (s.customer_id, s.name, s.email, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP());</pre>
+
+<h3>SCD Type 2 (History Preserved) — Multi-Step</h3>
+<pre>-- Step 1: Expire old records (close the previous version)
+UPDATE dim_customer_scd2 t
+SET t.is_current = FALSE,
+    t.valid_to = CURRENT_TIMESTAMP()
+WHERE t.customer_id IN (
+  SELECT customer_id FROM customer_stream
+  WHERE METADATA$ACTION = 'INSERT' AND METADATA$ISUPDATE = TRUE
+)
+AND t.is_current = TRUE;
+
+-- Step 2: Insert new version of changed records
+INSERT INTO dim_customer_scd2 (customer_id, name, email, valid_from, valid_to, is_current)
+SELECT customer_id, name, email, CURRENT_TIMESTAMP(), NULL, TRUE
+FROM customer_stream
+WHERE METADATA$ACTION = 'INSERT' AND METADATA$ISUPDATE = TRUE;
+
+-- Step 3: Insert brand new records
+INSERT INTO dim_customer_scd2 (customer_id, name, email, valid_from, valid_to, is_current)
+SELECT customer_id, name, email, CURRENT_TIMESTAMP(), NULL, TRUE
+FROM customer_stream
+WHERE METADATA$ACTION = 'INSERT' AND METADATA$ISUPDATE = FALSE;
+
+-- Step 4: Handle deletes (soft delete = expire)
+UPDATE dim_customer_scd2
+SET is_current = FALSE, valid_to = CURRENT_TIMESTAMP()
+WHERE customer_id IN (
+  SELECT customer_id FROM customer_stream
+  WHERE METADATA$ACTION = 'DELETE' AND METADATA$ISUPDATE = FALSE
+) AND is_current = TRUE;</pre>
+
+<div class="warning">
+  <strong>SCD2 + Streams Gotcha:</strong> All these statements must run in the SAME transaction (or be in a stored procedure). If the first DML commits and the second fails, the stream offset has already advanced, and you've lost the change data.
+</div>
+
+<!-- SECTION 3 -->
+<h2 id="dynamic-tables">3. Streams vs Dynamic Tables (Decision Framework)</h2>
+
+<table>
+  <thead><tr><th>Criteria</th><th>Streams + Tasks</th><th>Dynamic Tables</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Approach</strong></td><td>Imperative (you write the DML)</td><td>Declarative (you write SELECT, Snowflake handles refresh)</td></tr>
+    <tr><td><strong>Logic Type</strong></td><td>MERGE, SCD2, conditional logic, multi-step</td><td>SELECT-based transformations only</td></tr>
+    <tr><td><strong>Supported Operations</strong></td><td>INSERT, UPDATE, DELETE, MERGE</td><td>Full table refresh (no MERGE/DELETE on target)</td></tr>
+    <tr><td><strong>Refresh Control</strong></td><td>Manual (Task schedule or event)</td><td>Automatic (TARGET_LAG)</td></tr>
+    <tr><td><strong>Error Handling</strong></td><td>Full control (try/catch, retry, alerting)</td><td>Snowflake handles (limited visibility)</td></tr>
+    <tr><td><strong>State Management</strong></td><td>You manage offset (stream tracks it)</td><td>Snowflake manages everything</td></tr>
+    <tr><td><strong>Complexity</strong></td><td>More code, more control</td><td>Less code, less control</td></tr>
+    <tr><td><strong>SCD Type 2</strong></td><td>Supported (with multi-step logic)</td><td>NOT supported (no row-level history)</td></tr>
+    <tr><td><strong>Cost</strong></td><td>Warehouse credits for task runs</td><td>Serverless or warehouse credits for refresh</td></tr>
+    <tr><td><strong>Monitoring</strong></td><td>TASK_HISTORY, COPY_HISTORY, custom</td><td>DT refresh history, lag monitoring</td></tr>
+    <tr><td><strong>Multi-table JOIN</strong></td><td>You build the logic</td><td>Just write JOIN in SELECT</td></tr>
+  </tbody>
+</table>
+
+<h3>Decision Guide</h3>
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">Use Streams + Tasks When:</div>
+    <ul>
+      <li>You need MERGE (upsert) behavior</li>
+      <li>You need SCD Type 2 (history tracking)</li>
+      <li>You need DELETE propagation</li>
+      <li>Complex multi-step transformations</li>
+      <li>Custom error handling/alerting</li>
+      <li>Conditional processing logic</li>
+      <li>Need to call stored procedures</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-title">Use Dynamic Tables When:</div>
+    <ul>
+      <li>Pure SELECT-based transformations</li>
+      <li>Simple aggregations, JOINs, filters</li>
+      <li>Want minimal code/maintenance</li>
+      <li>No DELETE/UPDATE propagation needed</li>
+      <li>Acceptable to have "full refresh" semantics</li>
+      <li>Want Snowflake to auto-manage scheduling</li>
+      <li>Building multi-hop data pipelines</li>
+    </ul>
+  </div>
+</div>
+
+<!-- SECTION 4 -->
+<h2 id="rbac">4. RBAC & Privileges</h2>
+
+<table>
+  <thead><tr><th>Action</th><th>Required Privilege</th><th>On Object</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>Create a stream</td><td><code>CREATE STREAM</code></td><td>Schema</td><td>Plus SELECT on the source table</td></tr>
+    <tr><td>Query a stream (SELECT)</td><td><code>SELECT</code></td><td>Stream</td><td>Also needs SELECT on source table</td></tr>
+    <tr><td>Consume stream (DML)</td><td><code>SELECT</code> on stream + <code>INSERT/UPDATE/DELETE</code> on target</td><td>Stream + Table</td><td>DML advances the offset</td></tr>
+    <tr><td>Own stream</td><td><code>OWNERSHIP</code></td><td>Stream</td><td>Can drop, grant to others</td></tr>
+    <tr><td>Drop stream</td><td><code>OWNERSHIP</code></td><td>Stream</td><td>Owner or role with OWNERSHIP</td></tr>
+    <tr><td>View stream metadata</td><td><code>MONITOR</code> or <code>OWNERSHIP</code></td><td>Stream</td><td>SHOW STREAMS, DESCRIBE</td></tr>
+  </tbody>
+</table>
+
+<h3>RBAC Setup for Stream + Task Pipeline</h3>
+<pre>-- Roles
+-- DATA_ENGINEER: Creates and owns streams, tasks, tables
+-- DATA_OPS: Can monitor and operate tasks (pause/resume)
+-- DATA_ANALYST: Can query target tables (read-only)
+
+-- Grant stream creation
+GRANT CREATE STREAM ON SCHEMA my_schema TO ROLE DATA_ENGINEER;
+
+-- Grant SELECT on source table (needed to create stream)
+GRANT SELECT ON TABLE source_table TO ROLE DATA_ENGINEER;
+
+-- Grant INSERT/UPDATE/DELETE on target (needed to consume stream)
+GRANT INSERT, UPDATE, DELETE ON TABLE target_table TO ROLE DATA_ENGINEER;
+
+-- For monitoring by ops team
+GRANT SELECT ON STREAM my_stream TO ROLE DATA_OPS;
+GRANT MONITOR ON TASK my_task TO ROLE DATA_OPS;
+GRANT OPERATE ON TASK my_task TO ROLE DATA_OPS;</pre>
+
+<div class="info">
+  <strong>Key:</strong> The role that consumes the stream (runs the DML) needs SELECT on the stream AND appropriate privileges on the target table. The stream itself inherits the source table's access control.
+</div>
+
+<!-- SECTION 5 -->
+<h2 id="production-debug">5. Production Debugging</h2>
+
+<table>
+  <thead><tr><th>Problem</th><th>Symptom</th><th>Root Cause</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Stream is stale</td>
+      <td>SHOW STREAMS shows stale=TRUE</td>
+      <td>Stream not consumed within retention+14 days</td>
+      <td>Drop and recreate stream. Lost data cannot be recovered. Increase retention or consume more frequently.</td>
+    </tr>
+    <tr>
+      <td>Stream always empty</td>
+      <td>SYSTEM$STREAM_HAS_DATA = FALSE always</td>
+      <td>1) No changes on source table 2) Stream was just consumed 3) Changes cancel out (insert+delete)</td>
+      <td>Verify source table is receiving changes. Check if another process consumed it.</td>
+    </tr>
+    <tr>
+      <td>Task not firing</td>
+      <td>TASK_HISTORY shows no runs</td>
+      <td>1) Task not resumed 2) WHEN clause always FALSE 3) No warehouse</td>
+      <td>ALTER TASK RESUME. Verify SYSTEM$STREAM_HAS_DATA returns TRUE.</td>
+    </tr>
+    <tr>
+      <td>Duplicate processing</td>
+      <td>Same rows appear twice in target</td>
+      <td>Multiple tasks consuming same stream, or failed transaction + retry</td>
+      <td>Use one consumer per stream. Ensure DML is idempotent (MERGE instead of INSERT).</td>
+    </tr>
+    <tr>
+      <td>Missing changes</td>
+      <td>Target table doesn't reflect source changes</td>
+      <td>1) Standard stream collapsed net-zero changes 2) Stale stream recreated (gap)</td>
+      <td>For standard streams, insert+delete before consumption = invisible. Use append-only if needed.</td>
+    </tr>
+    <tr>
+      <td>Permission error on consume</td>
+      <td>"Insufficient privileges"</td>
+      <td>Role lacks SELECT on stream or DML privilege on target</td>
+      <td>Grant SELECT on stream + INSERT/UPDATE/DELETE on target table.</td>
+    </tr>
+    <tr>
+      <td>Stream shows unexpected changes</td>
+      <td>Reclustering appears as changes</td>
+      <td>Automatic clustering rewrites micro-partitions (standard streams may reflect this)</td>
+      <td>Use append-only streams for tables with heavy reclustering. Standard streams may show false changes.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Debug Queries</h3>
+<pre>-- Check stream status
+SHOW STREAMS LIKE 'my_stream' IN SCHEMA my_schema;
+-- Look at: stale, stale_after, mode, type
+
+-- Check if stream has data
+SELECT SYSTEM$STREAM_HAS_DATA('my_schema.my_stream');
+
+-- Preview stream contents without consuming
+SELECT * FROM my_stream LIMIT 100;
+-- (This does NOT advance the offset)
+
+-- Check task run history
+SELECT * FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY(
+  TASK_NAME => 'my_task',
+  SCHEDULED_TIME_RANGE_START => DATEADD(HOURS, -24, CURRENT_TIMESTAMP())
+)) ORDER BY SCHEDULED_TIME DESC;
+
+-- Count changes in stream
+SELECT METADATA$ACTION, METADATA$ISUPDATE, COUNT(*)
+FROM my_stream
+GROUP BY 1, 2;</pre>
+
+<!-- SECTION 6 -->
+<h2 id="multi-stream">6. Multi-Stream & Multi-Table Patterns</h2>
+
+<h3>Pattern: Multiple Independent Consumers</h3>
+<pre>-- Same source table, different consumers with independent offsets
+CREATE STREAM orders_stream_analytics ON TABLE orders;   -- For analytics team
+CREATE STREAM orders_stream_reporting ON TABLE orders;   -- For reporting team
+CREATE STREAM orders_stream_audit ON TABLE orders;       -- For audit log
+
+-- Each stream has its own offset — consuming one doesn't affect others</pre>
+
+<h3>Pattern: Stream on a View (Multi-Table CDC)</h3>
+<pre>-- Track changes across a JOIN
+CREATE VIEW v_order_details AS
+SELECT o.order_id, o.amount, c.customer_name, c.email
+FROM orders o JOIN customers c ON o.customer_id = c.customer_id;
+
+CREATE STREAM order_details_stream ON VIEW v_order_details;
+-- Tracks changes from BOTH orders and customers tables</pre>
+
+<h3>Pattern: Chained Streams (Pipeline)</h3>
+<div class="arch-box">
+[raw_table] --stream_1--> [Task A] --> [staging_table] --stream_2--> [Task B] --> [final_table]
+</div>
+
+<!-- SECTION 7 -->
+<h2 id="cost">7. Cost & Performance Considerations</h2>
+
+<table>
+  <tr><th>Cost Component</th><th>Amount</th><th>Notes</th></tr>
+  <tr><td>Stream creation/maintenance</td><td>Near zero</td><td>Only stores offset pointers</td></tr>
+  <tr><td>Querying a stream (SELECT)</td><td>Warehouse credits</td><td>Snowflake computes diff between offset and current state</td></tr>
+  <tr><td>Change tracking overhead on table</td><td>Minimal storage</td><td>Extra hidden columns for tracking (automatic)</td></tr>
+  <tr><td>Task execution consuming stream</td><td>Warehouse credits</td><td>Same as any DML operation</td></tr>
+  <tr><td>SYSTEM$STREAM_HAS_DATA check</td><td>Nearly free</td><td>Metadata check, no warehouse needed</td></tr>
+</table>
+
+<h3>Performance Tips</h3>
+<ul>
+  <li>Consume streams frequently (smaller batches = faster processing)</li>
+  <li>Use SYSTEM$STREAM_HAS_DATA to avoid empty warehouse runs</li>
+  <li>For high-volume tables, consider append-only streams (simpler = faster)</li>
+  <li>MERGE is more expensive than INSERT — use INSERT when possible</li>
+  <li>Multiple streams on same table = each one computes diff independently (cost multiplied)</li>
+</ul>
+
+<!-- SECTION 8 -->
+<h2 id="change-tracking">8. Change Tracking (Internal Mechanism)</h2>
+
+<div class="card">
+  <div class="card-title">How Snowflake Tracks Changes Internally</div>
+  <p>When a stream exists on a table (or change tracking is enabled), Snowflake adds hidden metadata columns to each micro-partition to track which rows were modified and when. This is automatic and transparent.</p>
+</div>
+
+<h3>Enabling Change Tracking Without a Stream</h3>
+<pre>-- You can enable change tracking on a table without creating a stream
+-- This is needed for streams on views (underlying tables need tracking)
+ALTER TABLE my_table SET CHANGE_TRACKING = TRUE;
+
+-- Check if enabled
+SHOW TABLES LIKE 'my_table';
+-- Look at 'change_tracking' column</pre>
+
+<h3>CHANGES Clause (Query Changes Directly)</h3>
+<pre>-- Query changes without a stream object (using Time Travel)
+SELECT *
+FROM my_table
+  CHANGES (INFORMATION => DEFAULT)
+  AT (TIMESTAMP => '2026-08-14 09:00:00'::TIMESTAMP_LTZ);
+
+-- Shows METADATA$ACTION, METADATA$ISUPDATE, METADATA$ROW_ID
+-- like a stream, but doesn't require a stream object
+-- Does NOT advance any offset (no offset exists)</pre>
+
+<div class="info">
+  <strong>CHANGES clause</strong> is useful for ad-hoc change analysis without creating a permanent stream. It uses Time Travel to reconstruct changes between two points in time. Available when CHANGE_TRACKING = TRUE on the table.
+</div>
+
+<div class="danger">
+  <strong>Top Exam Traps for Streams Advanced:</strong>
+  <ol>
+    <li><strong>Staleness = DATA_RETENTION_TIME + 14 days</strong> (not just retention)</li>
+    <li><strong>Stream on view</strong> requires CHANGE_TRACKING=TRUE on ALL underlying tables</li>
+    <li><strong>One stream = one consumer</strong> (need multiple streams for multiple consumers)</li>
+    <li><strong>CREATE OR REPLACE TABLE breaks streams</strong> — all streams become invalid</li>
+    <li><strong>Standard stream collapses net changes</strong> — INSERT+DELETE before consume = invisible</li>
+    <li><strong>Task WHEN clause</strong> prevents the task from running (saves credits) but doesn't advance offset</li>
+    <li><strong>Dynamic Tables CANNOT do MERGE/DELETE</strong> — use Streams+Tasks for those</li>
+  </ol>
+</div>
+
+<p style="margin-top: 40px; padding-top: 20px; border-top: 1px solid light-dark(#e5e7eb, #374151); color: light-dark(#6b7280, #9ca3af); font-size: 0.85rem;">
+  Streams Certification Reference - Part 2: Advanced | SnowPro Core Exam | August 14, 2026
+</p>
+
+</body>
+</html>

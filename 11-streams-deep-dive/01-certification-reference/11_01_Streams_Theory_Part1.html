@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Streams Certification - Part 1: Fundamentals</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-14",
+    "intent": "Comprehensive Streams Part 1 certification reference covering CDC, types, offset, staleness, syntax, features, limitations",
+    "sections": [
+      { "id": "what-are-streams", "title": "What are Streams", "dataSources": [], "producerNotes": "Core concepts and CDC" },
+      { "id": "syntax", "title": "Syntax Reference", "dataSources": [], "producerNotes": "CREATE, ALTER, DESCRIBE, DROP" },
+      { "id": "stream-types", "title": "Stream Types", "dataSources": [], "producerNotes": "Standard, Append-only, Insert-only" },
+      { "id": "metadata-columns", "title": "Metadata Columns", "dataSources": [], "producerNotes": "METADATA$ACTION, ISUPDATE, ROW_ID" },
+      { "id": "offset-staleness", "title": "Offset & Staleness", "dataSources": [], "producerNotes": "How offsets work, stale streams" },
+      { "id": "features", "title": "Features", "dataSources": [], "producerNotes": "15 key features" },
+      { "id": "limitations", "title": "Limitations", "dataSources": [], "producerNotes": "15 key limitations" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #0f172a); line-height: 1.6; }
+    h1 { font-size: 2rem; color: light-dark(#0f172a, #f8fafc); margin-bottom: 8px; border-bottom: 3px solid light-dark(#0891b2, #22d3ee); padding-bottom: 12px; }
+    h2 { font-size: 1.5rem; color: light-dark(#0e7490, #67e8f9); margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid light-dark(#cffafe, #164e63); }
+    h3 { font-size: 1.15rem; color: light-dark(#155e75, #a5f3fc); margin: 24px 0 12px; }
+    h4 { font-size: 1rem; color: light-dark(#374151, #d1d5db); margin: 16px 0 8px; }
+    p { margin: 8px 0; }
+    .subtitle { color: light-dark(#6b7280, #9ca3af); font-size: 0.95rem; margin-bottom: 24px; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; }
+    th, td { border: 1px solid light-dark(#e5e7eb, #374151); padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: light-dark(#ecfeff, #1e293b); font-weight: 600; color: light-dark(#0e7490, #67e8f9); }
+    tr:nth-child(even) td { background: light-dark(#f9fafb, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
+    pre { background: light-dark(#1e293b, #0c1322); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; font-size: 0.85rem; line-height: 1.5; }
+    .card { background: light-dark(#ecfeff, #1e293b); border: 1px solid light-dark(#a5f3fc, #334155); border-radius: 8px; padding: 20px; margin: 16px 0; }
+    .card-title { font-weight: 700; color: light-dark(#0e7490, #22d3ee); margin-bottom: 8px; }
+    .warning { background: light-dark(#fef3c7, #451a03); border-left: 4px solid light-dark(#f59e0b, #fbbf24); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .info { background: light-dark(#cffafe, #083344); border-left: 4px solid light-dark(#06b6d4, #22d3ee); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .success { background: light-dark(#d1fae5, #022c22); border-left: 4px solid light-dark(#10b981, #34d399); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .danger { background: light-dark(#fee2e2, #450a0a); border-left: 4px solid light-dark(#ef4444, #f87171); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .toc { background: light-dark(#f8fafc, #1e293b); border: 1px solid light-dark(#e2e8f0, #334155); border-radius: 8px; padding: 20px; margin: 24px 0; }
+    .toc a { color: light-dark(#0891b2, #22d3ee); text-decoration: none; }
+    .toc ul { list-style: none; padding-left: 0; }
+    .toc li { padding: 4px 0; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+    ul, ol { padding-left: 24px; margin: 8px 0; }
+    li { margin: 4px 0; }
+    .arch-box { background: light-dark(#ecfeff, #0a1929); border: 2px solid light-dark(#22d3ee, #0e7490); border-radius: 12px; padding: 24px; margin: 20px 0; text-align: center; font-family: monospace; font-size: 0.85rem; line-height: 2; }
+  </style>
+</head>
+<body>
+
+<h1>Streams - Part 1: Fundamentals</h1>
+<p class="subtitle">SnowPro Core Certification | Change Data Capture (CDC) | August 2026</p>
+
+<div class="toc">
+  <strong>Table of Contents</strong>
+  <ul>
+    <li><a href="#what-are-streams">1. What are Streams?</a></li>
+    <li><a href="#how-streams-work">2. How Streams Work (Offset Model)</a></li>
+    <li><a href="#syntax">3. Complete Syntax Reference</a></li>
+    <li><a href="#stream-types">4. Stream Types (Standard, Append-Only, Insert-Only)</a></li>
+    <li><a href="#metadata-columns">5. Metadata Columns (ACTION, ISUPDATE, ROW_ID)</a></li>
+    <li><a href="#offset-staleness">6. Offset Management & Staleness</a></li>
+    <li><a href="#stream-on-objects">7. Streams on Different Objects</a></li>
+    <li><a href="#consuming-streams">8. Consuming Streams (DML Transactions)</a></li>
+    <li><a href="#features">9. Features Summary (15 Key Features)</a></li>
+    <li><a href="#limitations">10. Limitations (15 Key Limitations)</a></li>
+    <li><a href="#best-practices">11. Best Practices</a></li>
+  </ul>
+</div>
+
+<!-- SECTION 1 -->
+<h2 id="what-are-streams">1. What are Streams?</h2>
+
+<div class="card">
+  <div class="card-title">Definition</div>
+  <p>A <strong>Stream</strong> is a Snowflake object that records <strong>data manipulation language (DML) changes</strong> made to a table — inserts, updates, and deletes. It provides a <strong>Change Data Capture (CDC)</strong> mechanism without requiring you to compare snapshots or maintain timestamps.</p>
+</div>
+
+<table>
+  <tr><th>Aspect</th><th>Detail</th></tr>
+  <tr><td>Purpose</td><td>Track changes (inserts, updates, deletes) to a source table</td></tr>
+  <tr><td>Storage Cost</td><td><strong>Near zero</strong> — streams store only metadata (offset pointers), not data copies</td></tr>
+  <tr><td>Compute</td><td>No compute to maintain; cost only when you QUERY the stream</td></tr>
+  <tr><td>How It Works</td><td>Stores an <strong>offset</strong> (point-in-time marker) on the source table's change history</td></tr>
+  <tr><td>Consumption</td><td>Reading a stream in a DML transaction <strong>advances the offset</strong> (changes are "consumed")</td></tr>
+  <tr><td>Multiple Streams</td><td>Multiple streams can track the same table independently</td></tr>
+  <tr><td>Common Pattern</td><td>Stream + Task = automated incremental ETL pipeline</td></tr>
+</table>
+
+<h3>Key Concept: Streams Don't Store Data</h3>
+<div class="info">
+  <strong>Exam Trap:</strong> Streams do NOT create a copy of the data. They store only an <strong>offset pointer</strong> to the table's change tracking metadata. The "data" you see when you SELECT from a stream is computed at query time by comparing the current table state to the offset. This is why streams have near-zero storage cost.
+</div>
+
+<!-- SECTION 2 -->
+<h2 id="how-streams-work">2. How Streams Work (Offset Model)</h2>
+
+<div class="arch-box">
+<strong>Stream Offset Model:</strong><br><br>
+Table Timeline:  [T1] ----insert 5 rows---- [T2] ----update 2 rows---- [T3] ----delete 1 row---- [T4]<br><br>
+Stream Offset:         ^                                                                                <br>
+                  (points here)                                                                          <br><br>
+SELECT * FROM stream; --> Shows: 5 inserts + 2 updates + 1 delete (all changes since T1)<br><br>
+After DML using stream data --> Offset advances to T4 (changes consumed)<br>
+SELECT * FROM stream; --> Empty (no new changes since T4)
+</div>
+
+<h3>Offset Advancement Rules</h3>
+<table>
+  <tr><th>Action</th><th>Does Offset Advance?</th><th>Why</th></tr>
+  <tr><td>SELECT from stream (read-only)</td><td><strong>NO</strong></td><td>Just viewing doesn't consume</td></tr>
+  <tr><td>DML (INSERT/UPDATE/DELETE/MERGE) using stream in a transaction</td><td><strong>YES</strong></td><td>Consuming changes advances offset</td></tr>
+  <tr><td>CREATE TABLE AS SELECT from stream</td><td><strong>YES</strong></td><td>It's a DML operation</td></tr>
+  <tr><td>Transaction that reads stream but ROLLS BACK</td><td><strong>NO</strong></td><td>Rollback = offset stays</td></tr>
+  <tr><td>Task reads stream but SYSTEM$STREAM_HAS_DATA = FALSE</td><td><strong>NO</strong></td><td>No changes = nothing consumed</td></tr>
+</table>
+
+<div class="warning">
+  <strong>Critical Exam Concept:</strong> The offset advances ONLY when a stream is consumed within a <strong>committed DML transaction</strong>. A simple SELECT does NOT advance it. A rolled-back transaction does NOT advance it.
+</div>
+
+<!-- SECTION 3 -->
+<h2 id="syntax">3. Complete Syntax Reference</h2>
+
+<h3>CREATE STREAM</h3>
+<pre>CREATE [ OR REPLACE ] STREAM [ IF NOT EXISTS ] &lt;stream_name&gt;
+  ON TABLE &lt;table_name&gt;
+  [ ON VIEW &lt;view_name&gt; ]
+  [ ON DIRECTORY TABLE &lt;stage_name&gt; ]
+  [ ON EXTERNAL TABLE &lt;ext_table_name&gt; ]
+  [ APPEND_ONLY = TRUE | FALSE ]         -- Default FALSE (standard)
+  [ INSERT_ONLY = TRUE ]                  -- For external tables only
+  [ SHOW_INITIAL_ROWS = TRUE | FALSE ]    -- Include existing rows at creation
+  [ AT ( { TIMESTAMP => &lt;t&gt; | OFFSET => &lt;n&gt; | STATEMENT => '&lt;id&gt;' | STREAM => '&lt;stream_name&gt;' } ) ]
+  [ BEFORE ( ... ) ]
+  [ COMMENT = '&lt;string&gt;' ]</pre>
+
+<h4>Example - Standard Stream (tracks INSERT, UPDATE, DELETE):</h4>
+<pre>CREATE STREAM orders_stream ON TABLE orders;</pre>
+
+<h4>Example - Append-Only Stream (tracks only INSERTs):</h4>
+<pre>CREATE STREAM orders_append_stream
+  ON TABLE orders
+  APPEND_ONLY = TRUE;</pre>
+
+<h4>Example - Stream with Initial Rows:</h4>
+<pre>-- Include all existing rows as INSERTs at creation time
+CREATE STREAM orders_full_stream
+  ON TABLE orders
+  SHOW_INITIAL_ROWS = TRUE;</pre>
+
+<h4>Example - Stream at a point in time:</h4>
+<pre>-- Start tracking from a specific timestamp
+CREATE STREAM orders_stream
+  ON TABLE orders
+  AT (TIMESTAMP => '2026-08-14 09:00:00'::TIMESTAMP_LTZ);</pre>
+
+<h3>ALTER STREAM</h3>
+<pre>-- Add/change comment
+ALTER STREAM &lt;stream_name&gt; SET COMMENT = 'Updated comment';
+
+-- Cannot change the source table or type after creation!
+-- Must DROP and CREATE a new stream.</pre>
+
+<h3>DESCRIBE / SHOW</h3>
+<pre>DESCRIBE STREAM &lt;stream_name&gt;;
+-- Returns: created_on, name, database, schema, owner, table_name,
+--          type, stale, stale_after, mode
+
+SHOW STREAMS [ LIKE '&lt;pattern&gt;' ] [ IN SCHEMA &lt;schema&gt; ];</pre>
+
+<h3>DROP STREAM</h3>
+<pre>DROP STREAM [ IF EXISTS ] &lt;stream_name&gt;;</pre>
+
+<!-- SECTION 4 -->
+<h2 id="stream-types">4. Stream Types</h2>
+
+<table>
+  <thead><tr><th>Type</th><th>Tracks</th><th>Syntax</th><th>Best For</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Standard</strong> (Default)</td>
+      <td>INSERT, UPDATE, DELETE</td>
+      <td><code>CREATE STREAM s ON TABLE t;</code></td>
+      <td>Full CDC - SCD Type 2, MERGE operations</td>
+    </tr>
+    <tr>
+      <td><strong>Append-Only</strong></td>
+      <td>INSERT only</td>
+      <td><code>CREATE STREAM s ON TABLE t APPEND_ONLY=TRUE;</code></td>
+      <td>Event/log tables, append-only workloads</td>
+    </tr>
+    <tr>
+      <td><strong>Insert-Only</strong></td>
+      <td>INSERT only (external tables)</td>
+      <td><code>CREATE STREAM s ON EXTERNAL TABLE t INSERT_ONLY=TRUE;</code></td>
+      <td>External tables (can only detect new files)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Standard vs Append-Only: Key Differences</h3>
+<table>
+  <thead><tr><th>Scenario</th><th>Standard Stream Shows</th><th>Append-Only Stream Shows</th></tr></thead>
+  <tbody>
+    <tr><td>INSERT 1 row</td><td>1 row: INSERT</td><td>1 row: INSERT</td></tr>
+    <tr><td>UPDATE that row</td><td>1 row: INSERT (net effect, with ISUPDATE=TRUE)</td><td>Nothing (update ignored)</td></tr>
+    <tr><td>DELETE that row</td><td>Nothing (insert+delete cancel out)</td><td>Still shows the original INSERT</td></tr>
+    <tr><td>INSERT then DELETE</td><td>Nothing (net zero change)</td><td>Shows the INSERT (delete ignored)</td></tr>
+  </tbody>
+</table>
+
+<div class="info">
+  <strong>Standard streams show NET changes.</strong> If you insert a row and then delete it before consuming the stream, the standard stream shows nothing (they cancel out). Append-only streams always show every INSERT regardless of subsequent changes.
+</div>
+
+<!-- SECTION 5 -->
+<h2 id="metadata-columns">5. Metadata Columns</h2>
+
+<p>When you SELECT from a stream, three special metadata columns are included:</p>
+
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>METADATA$ACTION</code></td>
+      <td>VARCHAR</td>
+      <td><strong>INSERT</strong> or <strong>DELETE</strong> (updates = DELETE old + INSERT new)</td>
+    </tr>
+    <tr>
+      <td><code>METADATA$ISUPDATE</code></td>
+      <td>BOOLEAN</td>
+      <td><strong>TRUE</strong> if the row is part of an UPDATE operation; FALSE for pure inserts/deletes</td>
+    </tr>
+    <tr>
+      <td><code>METADATA$ROW_ID</code></td>
+      <td>VARCHAR</td>
+      <td>Unique ID for the row across changes (used to match DELETE+INSERT pairs for updates)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>How Updates Appear in a Standard Stream</h3>
+<pre>-- Original: UPDATE orders SET amount = 200 WHERE id = 1;
+-- Stream shows TWO rows:
+
+-- Row 1: The OLD values (being removed)
+-- METADATA$ACTION = 'DELETE', METADATA$ISUPDATE = TRUE, amount = 100 (old value)
+
+-- Row 2: The NEW values (being added)
+-- METADATA$ACTION = 'INSERT', METADATA$ISUPDATE = TRUE, amount = 200 (new value)
+
+-- They share the same METADATA$ROW_ID</pre>
+
+<h3>Processing Pattern for MERGE</h3>
+<pre>MERGE INTO target t
+USING (
+  SELECT * FROM my_stream
+  WHERE METADATA$ACTION = 'INSERT'      -- New/updated rows
+    AND METADATA$ISUPDATE = FALSE       -- Only pure inserts (not updates)
+) s ON t.id = s.id
+WHEN MATCHED THEN UPDATE SET ...
+WHEN NOT MATCHED THEN INSERT ...;
+
+-- For handling deletes:
+DELETE FROM target
+WHERE id IN (
+  SELECT id FROM my_stream
+  WHERE METADATA$ACTION = 'DELETE'
+    AND METADATA$ISUPDATE = FALSE       -- Only pure deletes
+);</pre>
+
+<!-- SECTION 6 -->
+<h2 id="offset-staleness">6. Offset Management & Staleness</h2>
+
+<h3>What is Stream Staleness?</h3>
+<div class="card">
+  <div class="card-title">Stale Stream = Unusable Stream</div>
+  <p>A stream becomes <strong>stale</strong> when Snowflake can no longer guarantee it can reconstruct the changes since the offset. This happens when the underlying table's change tracking data (stored in micro-partitions) is garbage-collected past the stream's offset point.</p>
+</div>
+
+<h3>Staleness Rules</h3>
+<table>
+  <tr><th>Factor</th><th>Detail</th></tr>
+  <tr><td>When does a stream go stale?</td><td>When the offset falls outside the table's <strong>DATA_RETENTION_TIME_IN_DAYS</strong> window + 14 days</td></tr>
+  <tr><td>Default retention</td><td>1 day (Standard) or up to 90 days (Enterprise+)</td></tr>
+  <tr><td>Staleness window</td><td><code>DATA_RETENTION_TIME_IN_DAYS + 14 days</code></td></tr>
+  <tr><td>Example (1-day retention)</td><td>Stream goes stale if not consumed within 1 + 14 = <strong>15 days</strong></td></tr>
+  <tr><td>Example (90-day retention)</td><td>Stream goes stale if not consumed within 90 + 14 = <strong>104 days</strong></td></tr>
+  <tr><td>Can you recover a stale stream?</td><td><strong>NO</strong> — must drop and recreate</td></tr>
+  <tr><td>How to check</td><td><code>SHOW STREAMS</code> → <code>stale</code> column = TRUE/FALSE, <code>stale_after</code> = timestamp</td></tr>
+</table>
+
+<h3>Preventing Staleness</h3>
+<ul>
+  <li><strong>Consume regularly:</strong> Use tasks to consume stream data on a schedule</li>
+  <li><strong>Increase retention:</strong> <code>ALTER TABLE SET DATA_RETENTION_TIME_IN_DAYS = 14;</code></li>
+  <li><strong>Monitor:</strong> Check <code>stale_after</code> column in SHOW STREAMS</li>
+  <li><strong>Use SYSTEM$STREAM_HAS_DATA:</strong> Only process when there's data (but don't let it sit too long)</li>
+</ul>
+
+<div class="danger">
+  <strong>Exam Trap:</strong> A stale stream CANNOT be recovered. You must DROP it and CREATE a new one. The new stream starts from the current table state — you LOSE all intermediate changes. This is why regular consumption (via Tasks) is critical.
+</div>
+
+<!-- SECTION 7 -->
+<h2 id="stream-on-objects">7. Streams on Different Objects</h2>
+
+<table>
+  <thead><tr><th>Object</th><th>Stream Type</th><th>Tracks</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>Regular Table</td><td>Standard / Append-Only</td><td>INSERT, UPDATE, DELETE</td><td>Most common use case</td></tr>
+    <tr><td>View (non-materialized)</td><td>Standard / Append-Only</td><td>Changes to underlying tables</td><td>View must be non-materialized; underlying tables tracked</td></tr>
+    <tr><td>External Table</td><td>Insert-Only</td><td>New files added to stage</td><td>Cannot detect updates/deletes in external files</td></tr>
+    <tr><td>Directory Table</td><td>Standard</td><td>Files added/removed from stage</td><td>Tracks stage file metadata changes</td></tr>
+    <tr><td>Shared Table (from Data Sharing)</td><td>Standard / Append-Only</td><td>Changes from provider</td><td>Consumer creates stream on shared view/table</td></tr>
+  </tbody>
+</table>
+
+<h3>Stream on a View</h3>
+<pre>-- Stream tracks changes to ALL underlying tables referenced by the view
+CREATE VIEW v_active_orders AS
+  SELECT * FROM orders WHERE status = 'active';
+
+CREATE STREAM active_orders_stream ON VIEW v_active_orders;
+-- Tracks inserts/updates/deletes that affect the view's result set</pre>
+
+<div class="info">
+  <strong>View Stream Requirements:</strong> The view must be non-materialized. All underlying tables must have change tracking enabled. The stream tracks changes that affect the view's output (not all changes to underlying tables).
+</div>
+
+<!-- SECTION 8 -->
+<h2 id="consuming-streams">8. Consuming Streams (DML Transactions)</h2>
+
+<h3>The Golden Rule</h3>
+<div class="card">
+  <div class="card-title">Stream offset advances ONLY within a committed DML transaction</div>
+  <p>If you SELECT from a stream 100 times without using it in a DML, the offset never moves. The moment you INSERT INTO ... SELECT FROM stream (and it commits), the offset jumps forward.</p>
+</div>
+
+<h3>Common Consumption Patterns</h3>
+
+<h4>Pattern 1: Simple INSERT INTO (most common)</h4>
+<pre>INSERT INTO target_table
+SELECT col1, col2, col3
+FROM my_stream
+WHERE METADATA$ACTION = 'INSERT';</pre>
+
+<h4>Pattern 2: MERGE (for upserts)</h4>
+<pre>MERGE INTO dim_customer t
+USING my_stream s
+  ON t.customer_id = s.customer_id
+WHEN MATCHED AND s.METADATA$ACTION = 'DELETE' AND s.METADATA$ISUPDATE = FALSE
+  THEN DELETE
+WHEN MATCHED AND s.METADATA$ISUPDATE = TRUE
+  THEN UPDATE SET t.name = s.name, t.email = s.email, t.updated_at = CURRENT_TIMESTAMP()
+WHEN NOT MATCHED AND s.METADATA$ACTION = 'INSERT'
+  THEN INSERT (customer_id, name, email, created_at)
+       VALUES (s.customer_id, s.name, s.email, CURRENT_TIMESTAMP());</pre>
+
+<h4>Pattern 3: SYSTEM$STREAM_HAS_DATA (check before consuming)</h4>
+<pre>-- Used in Task WHEN clause to skip runs when stream is empty
+CREATE TASK process_changes
+  WAREHOUSE = my_wh
+  SCHEDULE = '5 MINUTE'
+  WHEN SYSTEM$STREAM_HAS_DATA('my_stream')
+  AS
+  INSERT INTO processed_table SELECT * FROM my_stream;</pre>
+
+<h3>Multiple Consumers</h3>
+<div class="warning">
+  <strong>Each stream has ONE offset.</strong> If you need multiple consumers processing the same changes independently, create <strong>multiple streams</strong> on the same source table. Each stream maintains its own offset.
+</div>
+
+<!-- SECTION 9 -->
+<h2 id="features">9. Features Summary (15 Key Features)</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Feature</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Change Data Capture</td><td>Tracks INSERT, UPDATE, DELETE without custom logic or timestamps</td></tr>
+    <tr><td>2</td><td>Near-Zero Storage</td><td>Only stores offset metadata, not data copies</td></tr>
+    <tr><td>3</td><td>Three Metadata Columns</td><td>METADATA$ACTION, METADATA$ISUPDATE, METADATA$ROW_ID</td></tr>
+    <tr><td>4</td><td>Multiple Stream Types</td><td>Standard (full CDC), Append-Only, Insert-Only</td></tr>
+    <tr><td>5</td><td>Transactional Consumption</td><td>Offset only advances on committed DML (safe, no data loss)</td></tr>
+    <tr><td>6</td><td>SHOW_INITIAL_ROWS</td><td>Optionally include all existing rows as INSERTs at creation</td></tr>
+    <tr><td>7</td><td>Time Travel Integration</td><td>Can create stream AT a specific timestamp/offset/statement</td></tr>
+    <tr><td>8</td><td>Works on Views</td><td>Track changes through non-materialized views</td></tr>
+    <tr><td>9</td><td>Works on External Tables</td><td>Detect new files added (Insert-Only)</td></tr>
+    <tr><td>10</td><td>Works on Directory Tables</td><td>Track file metadata changes on stages</td></tr>
+    <tr><td>11</td><td>Multiple Streams per Table</td><td>Independent offsets for different consumers</td></tr>
+    <tr><td>12</td><td>SYSTEM$STREAM_HAS_DATA</td><td>Efficient check without querying (used in Task WHEN)</td></tr>
+    <tr><td>13</td><td>Net Change Tracking</td><td>Standard streams collapse multiple changes into net result</td></tr>
+    <tr><td>14</td><td>Works with Data Sharing</td><td>Consumer can create streams on shared data</td></tr>
+    <tr><td>15</td><td>Staleness Monitoring</td><td>SHOW STREAMS shows stale status and stale_after timestamp</td></tr>
+  </tbody>
+</table>
+
+<!-- SECTION 10 -->
+<h2 id="limitations">10. Limitations (15 Key Limitations)</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Limitation</th><th>Impact / Workaround</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Stream goes stale</td><td>If not consumed within retention+14 days, data is LOST. Consume regularly.</td></tr>
+    <tr><td>2</td><td>Cannot recover stale stream</td><td>Must drop and recreate. Lost changes cannot be recovered.</td></tr>
+    <tr><td>3</td><td>One offset per stream</td><td>Multiple consumers need separate streams on same table.</td></tr>
+    <tr><td>4</td><td>Cannot ALTER source table</td><td>Changing stream's source table requires drop+create.</td></tr>
+    <tr><td>5</td><td>Cannot ALTER stream type</td><td>Cannot change Standard to Append-Only. Must recreate.</td></tr>
+    <tr><td>6</td><td>No stream on materialized views</td><td>Only non-materialized views supported.</td></tr>
+    <tr><td>7</td><td>External tables: Insert-Only</td><td>Cannot detect updates/deletes in external files.</td></tr>
+    <tr><td>8</td><td>Table recreation breaks stream</td><td>CREATE OR REPLACE TABLE invalidates all streams on it.</td></tr>
+    <tr><td>9</td><td>DDL changes may break streams</td><td>Dropping/renaming columns referenced by stream consumers.</td></tr>
+    <tr><td>10</td><td>SELECT doesn't consume</td><td>Must use in DML to advance offset. Can confuse beginners.</td></tr>
+    <tr><td>11</td><td>No filtering at stream level</td><td>Stream captures ALL changes. Filter when consuming.</td></tr>
+    <tr><td>12</td><td>Cost on query</td><td>Querying the stream uses warehouse compute (comparing states).</td></tr>
+    <tr><td>13</td><td>No stream on temp/transient tables</td><td>Temporary and transient tables don't support standard streams with full retention.</td></tr>
+    <tr><td>14</td><td>Clustering changes can cause data churn</td><td>Reclustering may appear as changes in standard streams.</td></tr>
+    <tr><td>15</td><td>Stream + Time Travel interaction</td><td>Stream depends on Time Travel data. Reducing retention may break streams.</td></tr>
+  </tbody>
+</table>
+
+<!-- SECTION 11 -->
+<h2 id="best-practices">11. Best Practices</h2>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">Consumption</div>
+    <ul>
+      <li>Consume streams regularly (via Tasks) to prevent staleness</li>
+      <li>Use SYSTEM$STREAM_HAS_DATA in Task WHEN clause</li>
+      <li>Keep task frequency < half the staleness window</li>
+      <li>Handle empty streams gracefully</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-title">Design</div>
+    <ul>
+      <li>Use Append-Only for log/event tables (simpler, no update tracking)</li>
+      <li>Use Standard for dimension tables needing SCD2/MERGE</li>
+      <li>Create separate streams for separate consumers</li>
+      <li>Use SHOW_INITIAL_ROWS for first-time full loads</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-title">Monitoring</div>
+    <ul>
+      <li>Check <code>stale_after</code> in SHOW STREAMS regularly</li>
+      <li>Set DATA_RETENTION_TIME_IN_DAYS appropriately</li>
+      <li>Alert if stream approaches staleness</li>
+      <li>Monitor Task history for consumption failures</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-title">Avoid</div>
+    <ul>
+      <li>Don't use CREATE OR REPLACE TABLE on streamed tables</li>
+      <li>Don't reduce DATA_RETENTION below stream's needs</li>
+      <li>Don't have single stream for multiple consumers</li>
+      <li>Don't forget that SELECT alone doesn't consume</li>
+    </ul>
+  </div>
+</div>
+
+<div class="danger">
+  <strong>Top 5 Exam Traps:</strong>
+  <ol>
+    <li><strong>SELECT does NOT advance offset</strong> — only committed DML does</li>
+    <li><strong>Staleness = retention + 14 days</strong> — not just retention alone</li>
+    <li><strong>Stale streams CANNOT be recovered</strong> — must drop and recreate</li>
+    <li><strong>Updates appear as DELETE + INSERT</strong> pairs with METADATA$ISUPDATE=TRUE</li>
+    <li><strong>Streams have near-zero storage cost</strong> — they store offsets, not data copies</li>
+  </ol>
+</div>
+
+<p style="margin-top: 40px; padding-top: 20px; border-top: 1px solid light-dark(#e5e7eb, #374151); color: light-dark(#6b7280, #9ca3af); font-size: 0.85rem;">
+  Streams Certification Reference - Part 1 | SnowPro Core Exam | Last Updated: August 14, 2026
+</p>
+
+</body>
+</html>

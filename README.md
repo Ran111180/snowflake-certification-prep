@@ -30,9 +30,12 @@ Complete hands-on study material for the **Snowflake SnowPro Core Certification*
 ├── 09-tasks-deep-dive/            # Tasks: CRON, DAGs, Streams+Tasks, Serverless, Email
 │   ├── 01-certification-reference/ # Part 1 & Part 2 HTML, queries.sql
 │   └── 02-hands-on-practice/       # Full lab with RBAC, stored proc, email notifications
-└── 10-snowpipe-deep-dive/         # Snowpipe: Auto-Ingest, Streaming, Kafka, RBAC, Debug
+├── 10-snowpipe-deep-dive/         # Snowpipe: Auto-Ingest, Streaming, Kafka, RBAC, Debug
+│   ├── 01-certification-reference/ # Part 1 (Fundamentals), Part 2 (Advanced), 50 Questions
+│   └── 02-hands-on-practice/       # Hands-on lab with internal stage, error handling, dedup
+└── 11-streams-deep-dive/          # Streams: CDC, Offset, Staleness, Streams+Tasks, SCD
     ├── 01-certification-reference/ # Part 1 (Fundamentals), Part 2 (Advanced), 50 Questions
-    └── 02-hands-on-practice/       # Hands-on lab with internal stage, error handling, dedup
+    └── 02-hands-on-practice/       # (Hands-on lab to be added)
 ```
 
 Each folder contains:

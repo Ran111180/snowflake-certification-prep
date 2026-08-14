@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Streams - 50 Exam Practice Questions (Interactive)</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-14",
+    "intent": "50 interactive SnowPro Core exam-level practice questions on Snowflake Streams",
+    "sections": [
+      { "id": "questions", "title": "50 Interactive Practice Questions", "dataSources": [], "producerNotes": "Click options to test yourself - green=correct, red=wrong" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 1000px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #0f172a); line-height: 1.6; }
+    h1 { font-size: 2rem; color: light-dark(#0f172a, #f8fafc); margin-bottom: 8px; border-bottom: 3px solid light-dark(#059669, #34d399); padding-bottom: 12px; }
+    h2 { font-size: 1.4rem; color: light-dark(#065f46, #6ee7b7); margin: 36px 0 16px; padding-bottom: 8px; border-bottom: 2px solid light-dark(#d1fae5, #064e3b); }
+    .subtitle { color: light-dark(#6b7280, #9ca3af); font-size: 0.95rem; margin-bottom: 24px; }
+    .q-block { border: 1px solid light-dark(#e5e7eb, #374151); border-radius: 8px; padding: 20px; margin: 20px 0; background: light-dark(#f9fafb, #111827); }
+    .q-num { display: inline-block; background: light-dark(#059669, #065f46); color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; margin-bottom: 10px; }
+    .q-text { font-weight: 600; margin-bottom: 12px; color: light-dark(#1f2937, #f3f4f6); }
+    .options { list-style: none; padding: 0; margin: 0; }
+    .options li { padding: 10px 14px; margin: 6px 0; border-radius: 6px; background: light-dark(#ffffff, #1e293b); border: 2px solid light-dark(#e5e7eb, #374151); cursor: pointer; transition: all 0.2s; }
+    .options li:hover { border-color: light-dark(#6366f1, #818cf8); background: light-dark(#eef2ff, #1e1b4b); }
+    .options li.correct { background: light-dark(#d1fae5, #052e16); border-color: light-dark(#10b981, #34d399); color: light-dark(#065f46, #6ee7b7); font-weight: 600; }
+    .options li.wrong { background: light-dark(#fee2e2, #450a0a); border-color: light-dark(#ef4444, #f87171); color: light-dark(#991b1b, #fca5a5); }
+    .options li.disabled { pointer-events: none; opacity: 0.7; cursor: default; }
+    .options li.highlight-correct { border-color: light-dark(#10b981, #34d399); border-style: dashed; }
+    .explanation-box { display: none; margin-top: 14px; padding: 14px; border-radius: 6px; font-size: 0.9rem; }
+    .explanation-box.show { display: block; }
+    .explanation-box.is-correct { background: light-dark(#ecfdf5, #022c22); border-left: 4px solid light-dark(#10b981, #34d399); }
+    .explanation-box.is-wrong { background: light-dark(#fef2f2, #1c0404); border-left: 4px solid light-dark(#ef4444, #f87171); }
+    .explanation-box .result-label { font-weight: 700; margin-bottom: 6px; }
+    .explanation-box .result-label.correct-label { color: light-dark(#059669, #34d399); }
+    .explanation-box .result-label.wrong-label { color: light-dark(#dc2626, #f87171); }
+    .explanation-text { color: light-dark(#374151, #d1d5db); }
+    .category { display: inline-block; background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 8px; }
+    .score-card { background: light-dark(#f0fdf4, #022c22); border: 2px solid light-dark(#86efac, #166534); border-radius: 12px; padding: 20px; margin: 24px 0; text-align: center; }
+    .score-display { font-size: 1.8rem; font-weight: 700; color: light-dark(#059669, #34d399); margin: 10px 0; }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
+    .reset-btn { background: light-dark(#4f46e5, #4338ca); color: #fff; border: none; padding: 10px 24px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; margin-top: 12px; }
+    .reset-btn:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+
+<h1>Streams - 50 Exam Practice Questions</h1>
+<p class="subtitle">SnowPro Core Certification | Click an option to answer | Green = Correct, Red = Wrong</p>
+
+<div class="score-card" id="score-top">
+  <strong>Score:</strong> <span class="score-display" id="score-display">0 / 0</span>
+  <br><button class="reset-btn" id="reset-btn">Reset All</button>
+</div>
+
+<h2>Fundamentals (Q1-Q10)</h2>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q1</span><span class="category">Basics</span>
+  <div class="q-text">What does a Snowflake stream record?</div>
+  <ul class="options">
+    <li data-opt="A">A) A full copy of the changed rows in a shadow table</li>
+    <li data-opt="B">B) Change data capture (CDC) information by storing an offset, not the data itself</li>
+    <li data-opt="C">C) A log of all SQL statements executed against the table</li>
+    <li data-opt="D">D) A real-time event queue of row-level changes</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Streams record CDC by maintaining an offset (pointer) into the table's change history. They do NOT store copies of the data, resulting in near-zero additional storage cost.</div></div>
+</div>
+
+<div class="q-block" data-answer="C">
+  <span class="q-num">Q2</span><span class="category">Storage</span>
+  <div class="q-text">How much additional storage does a stream consume?</div>
+  <ul class="options">
+    <li data-opt="A">A) Equal to the size of changed rows</li>
+    <li data-opt="B">B) 50% of the source table size</li>
+    <li data-opt="C">C) Near-zero (only stores an offset/pointer)</li>
+    <li data-opt="D">D) Depends on the number of DML operations</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Streams store only an offset pointer into the table's micro-partition versioning history. They leverage Time Travel data that already exists, consuming near-zero additional storage.</div></div>
+</div>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q3</span><span class="category">CDC</span>
+  <div class="q-text">What type of information does a stream provide when queried?</div>
+  <ul class="options">
+    <li data-opt="A">A) Only the current state of all rows in the source table</li>
+    <li data-opt="B">B) The set of changes (inserts, updates, deletes) since the last consumed offset</li>
+    <li data-opt="C">C) A diff between two specified timestamps</li>
+    <li data-opt="D">D) Only rows that were deleted</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Querying a stream returns the net set of changes (INSERTs, UPDATEs as DELETE+INSERT pairs, DELETEs) that occurred between the stream's current offset and the table's current version.</div></div>
+</div>
+
+<div class="q-block" data-answer="D">
+  <span class="q-num">Q4</span><span class="category">Offset</span>
+  <div class="q-text">When does a stream's offset advance?</div>
+  <ul class="options">
+    <li data-opt="A">A) When you SELECT from the stream</li>
+    <li data-opt="B">B) When the source table changes</li>
+    <li data-opt="C">C) Automatically every 5 minutes</li>
+    <li data-opt="D">D) When a DML statement that consumes the stream is committed in a transaction</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">A stream's offset advances ONLY when a DML operation (INSERT, UPDATE, DELETE, MERGE) that references the stream is successfully committed. SELECT alone does NOT advance the offset.</div></div>
+</div>
+
+<div class="q-block" data-answer="A">
+  <span class="q-num">Q5</span><span class="category">Consumption</span>
+  <div class="q-text">Which statement is TRUE about consuming a stream?</div>
+  <ul class="options">
+    <li data-opt="A">A) Only a committed DML transaction that reads from the stream advances the offset</li>
+    <li data-opt="B">B) Any SELECT query advances the offset</li>
+    <li data-opt="C">C) The offset advances when a Task checks SYSTEM$STREAM_HAS_DATA</li>
+    <li data-opt="D">D) Running SHOW STREAMS advances the offset</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Only a committed DML within a transaction that references the stream will advance the offset. If the transaction is rolled back, the offset stays unchanged.</div></div>
+</div>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q6</span><span class="category">Basics</span>
+  <div class="q-text">What happens to stream data if the consuming DML transaction is rolled back?</div>
+  <ul class="options">
+    <li data-opt="A">A) The stream data is lost permanently</li>
+    <li data-opt="B">B) The offset does NOT advance; stream data remains available for re-consumption</li>
+    <li data-opt="C">C) The stream becomes stale</li>
+    <li data-opt="D">D) The stream is automatically dropped</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">If the transaction rolls back, the stream offset remains at its previous position. The changes are still visible in the stream and can be consumed by a subsequent successful transaction.</div></div>
+</div>
+
+<div class="q-block" data-answer="C">
+  <span class="q-num">Q7</span><span class="category">Updates</span>
+  <div class="q-text">How does a stream represent an UPDATE operation?</div>
+  <ul class="options">
+    <li data-opt="A">A) A single row with METADATA$ACTION = 'UPDATE'</li>
+    <li data-opt="B">B) Only the new values with METADATA$ACTION = 'INSERT'</li>
+    <li data-opt="C">C) A DELETE row (old values) and an INSERT row (new values), both with METADATA$ISUPDATE = TRUE</li>
+    <li data-opt="D">D) A JSON diff of old vs new column values</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Updates appear as a pair: one DELETE row (pre-update values) and one INSERT row (post-update values). Both rows have METADATA$ISUPDATE = TRUE, distinguishing them from actual inserts/deletes.</div></div>
+</div>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q8</span><span class="category">Metadata</span>
+  <div class="q-text">Which metadata columns does a stream add to the output?</div>
+  <ul class="options">
+    <li data-opt="A">A) METADATA$FILENAME, METADATA$FILE_ROW_NUMBER</li>
+    <li data-opt="B">B) METADATA$ACTION, METADATA$ISUPDATE, METADATA$ROW_ID</li>
+    <li data-opt="C">C) METADATA$STREAM_NAME, METADATA$OFFSET, METADATA$TIMESTAMP</li>
+    <li data-opt="D">D) METADATA$CDC_TYPE, METADATA$SEQUENCE_NUM</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Streams add three metadata columns: METADATA$ACTION (INSERT or DELETE), METADATA$ISUPDATE (TRUE if part of an update pair), and METADATA$ROW_ID (unique row identifier).</div></div>
+</div>
+
+<div class="q-block" data-answer="A">
+  <span class="q-num">Q9</span><span class="category">Time Travel</span>
+  <div class="q-text">How do streams relate to Snowflake Time Travel?</div>
+  <ul class="options">
+    <li data-opt="A">A) Streams leverage the same micro-partition versioning used by Time Travel</li>
+    <li data-opt="B">B) Streams replace Time Travel for the source table</li>
+    <li data-opt="C">C) Streams require Time Travel to be disabled</li>
+    <li data-opt="D">D) Streams store data in a separate Time Travel history</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Streams use the same underlying micro-partition versioning that powers Time Travel. The stream's offset points to a specific version in this history, which is why streams have near-zero storage overhead.</div></div>
+</div>
+
+<div class="q-block" data-answer="D">
+  <span class="q-num">Q10</span><span class="category">Basics</span>
+  <div class="q-text">A row is inserted and then deleted before the stream is consumed. What does a Standard stream show?</div>
+  <ul class="options">
+    <li data-opt="A">A) One INSERT row and one DELETE row</li>
+    <li data-opt="B">B) One INSERT row only</li>
+    <li data-opt="C">C) One DELETE row only</li>
+    <li data-opt="D">D) Nothing - the net change is zero</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Standard streams track NET changes. If a row is inserted and then deleted before consumption, the net effect is zero, so nothing appears in the stream output.</div></div>
+</div>
+
+<h2>Stream Types (Q11-Q18)</h2>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q11</span><span class="category">Types</span>
+  <div class="q-text">What is the default stream type if not specified in CREATE STREAM?</div>
+  <ul class="options">
+    <li data-opt="A">A) Append-only</li>
+    <li data-opt="B">B) Standard (delta)</li>
+    <li data-opt="C">C) Insert-only</li>
+    <li data-opt="D">D) Full</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">The default stream type is Standard (also called delta). It captures the net changes including inserts, updates, and deletes. You must explicitly specify APPEND_ONLY = TRUE for append-only behavior.</div></div>
+</div>
+
+<div class="q-block" data-answer="C">
+  <span class="q-num">Q12</span><span class="category">Append-Only</span>
+  <div class="q-text">What does an Append-Only stream track?</div>
+  <ul class="options">
+    <li data-opt="A">A) All DML operations (INSERT, UPDATE, DELETE) with net changes</li>
+    <li data-opt="B">B) Only DELETE operations</li>
+    <li data-opt="C">C) Only INSERT operations (rows added to the table)</li>
+    <li data-opt="D">D) INSERT and UPDATE but not DELETE</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Append-only streams track ONLY inserts. They do not record updates or deletes. Ideal for append-heavy workloads like event logs where you only care about new rows arriving.</div></div>
+</div>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q13</span><span class="category">Insert-Only</span>
+  <div class="q-text">Where are Insert-Only streams specifically designed to be used?</div>
+  <ul class="options">
+    <li data-opt="A">A) On any standard table</li>
+    <li data-opt="B">B) On external tables</li>
+    <li data-opt="C">C) On materialized views</li>
+    <li data-opt="D">D) On temporary tables</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Insert-only streams are the ONLY stream type supported on external tables. External tables are read-only from Snowflake's perspective, so only new file arrivals (inserts) can be tracked.</div></div>
+</div>
+
+<div class="q-block" data-answer="A">
+  <span class="q-num">Q14</span><span class="category">Net Changes</span>
+  <div class="q-text">A row is inserted, updated 5 times, then the stream is consumed. What does a Standard stream show?</div>
+  <ul class="options">
+    <li data-opt="A">A) One INSERT row with the final (latest) values</li>
+    <li data-opt="B">B) One INSERT plus 5 UPDATE pairs (11 rows total)</li>
+    <li data-opt="C">C) Six INSERT rows</li>
+    <li data-opt="D">D) Nothing because updates cancel each other</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Standard streams show NET changes. Since the row didn't exist before and now exists with final values, the net result is a single INSERT with the latest column values. Intermediate updates are collapsed.</div></div>
+</div>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q15</span><span class="category">Comparison</span>
+  <div class="q-text">A row is inserted, then updated, before an Append-Only stream is consumed. What does it show?</div>
+  <ul class="options">
+    <li data-opt="A">A) One INSERT with latest values (like Standard)</li>
+    <li data-opt="B">B) One INSERT with the ORIGINAL inserted values (update is ignored)</li>
+    <li data-opt="C">C) One INSERT and one UPDATE pair</li>
+    <li data-opt="D">D) Nothing</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Append-only streams only track inserts. The subsequent update is not captured. The stream shows the row as it was when first inserted, not the updated values.</div></div>
+</div>
+
+<div class="q-block" data-answer="C">
+  <span class="q-num">Q16</span><span class="category">Types</span>
+  <div class="q-text">Which stream type would you use for a staging table that receives INSERT-only loads and needs downstream MERGE processing?</div>
+  <ul class="options">
+    <li data-opt="A">A) Insert-only (external tables only)</li>
+    <li data-opt="B">B) Standard (captures all DML including unnecessary delete tracking)</li>
+    <li data-opt="C">C) Append-only (efficient for insert-only workloads)</li>
+    <li data-opt="D">D) Full stream</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">For tables that only receive INSERTs (like staging/landing tables), append-only streams are more efficient because they skip the overhead of tracking deletes and updates that will never occur.</div></div>
+</div>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q17</span><span class="category">Metadata</span>
+  <div class="q-text">What value does METADATA$ACTION contain for the DELETE part of an UPDATE pair?</div>
+  <ul class="options">
+    <li data-opt="A">A) 'UPDATE'</li>
+    <li data-opt="B">B) 'DELETE'</li>
+    <li data-opt="C">C) 'UPDATE_DELETE'</li>
+    <li data-opt="D">D) 'REMOVE'</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">METADATA$ACTION is always either 'INSERT' or 'DELETE'. For updates, you get a DELETE row and an INSERT row. You distinguish updates from real deletes by checking METADATA$ISUPDATE = TRUE.</div></div>
+</div>
+
+<div class="q-block" data-answer="D">
+  <span class="q-num">Q18</span><span class="category">Types</span>
+  <div class="q-text">Which statement about stream types is FALSE?</div>
+  <ul class="options">
+    <li data-opt="A">A) Standard streams show net changes between offset and current state</li>
+    <li data-opt="B">B) Append-only streams only track INSERT operations</li>
+    <li data-opt="C">C) Insert-only streams are the only type supported on external tables</li>
+    <li data-opt="D">D) Standard streams store a full copy of all changed rows for replay</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">FALSE: Standard streams do NOT store copies of data. They store only an offset pointer and leverage Time Travel versioning to compute the net changes at query time.</div></div>
+</div>
+
+<h2>Offset & Staleness (Q19-Q26)</h2>
+
+<div class="q-block" data-answer="C">
+  <span class="q-num">Q19</span><span class="category">Staleness</span>
+  <div class="q-text">How is a stream's staleness period calculated?</div>
+  <ul class="options">
+    <li data-opt="A">A) DATA_RETENTION_TIME_IN_DAYS only</li>
+    <li data-opt="B">B) 14 days from stream creation</li>
+    <li data-opt="C">C) DATA_RETENTION_TIME_IN_DAYS + 14 days</li>
+    <li data-opt="D">D) MAX_DATA_EXTENSION_TIME_IN_DAYS only</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">A stream becomes stale if its offset is older than the source table's DATA_RETENTION_TIME_IN_DAYS + 14 days (the extended data retention period for streams). After this, the historical data needed is gone.</div></div>
+</div>
+
+<div class="q-block" data-answer="D">
+  <span class="q-num">Q20</span><span class="category">Staleness</span>
+  <div class="q-text">What happens when a stream becomes stale?</div>
+  <ul class="options">
+    <li data-opt="A">A) It automatically resets to the latest offset</li>
+    <li data-opt="B">B) It can be recovered using Time Travel</li>
+    <li data-opt="C">C) It continues to work but with reduced accuracy</li>
+    <li data-opt="D">D) It becomes permanently unusable and must be recreated</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">A stale stream CANNOT be recovered. The underlying historical data has been purged. You must DROP and recreate the stream, which resets the offset to the current table version (losing intermediate changes).</div></div>
+</div>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q21</span><span class="category">Staleness</span>
+  <div class="q-text">Table has DATA_RETENTION_TIME_IN_DAYS = 1. Maximum time before a stream on it becomes stale?</div>
+  <ul class="options">
+    <li data-opt="A">A) 1 day</li>
+    <li data-opt="B">B) 15 days (1 + 14)</li>
+    <li data-opt="C">C) 14 days</li>
+    <li data-opt="D">D) 90 days</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Staleness threshold = DATA_RETENTION_TIME_IN_DAYS + 14 days. With retention of 1 day, the stream goes stale after 15 days without consumption. The 14-day extension is specifically for streams.</div></div>
+</div>
+
+<div class="q-block" data-answer="A">
+  <span class="q-num">Q22</span><span class="category">Offset</span>
+  <div class="q-text">Which operation does NOT advance the stream offset?</div>
+  <ul class="options">
+    <li data-opt="A">A) SELECT * FROM my_stream</li>
+    <li data-opt="B">B) INSERT INTO target SELECT * FROM my_stream (committed)</li>
+    <li data-opt="C">C) MERGE INTO target USING my_stream (committed)</li>
+    <li data-opt="D">D) CREATE TABLE AS SELECT * FROM my_stream (committed)</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">A plain SELECT never advances the offset. Only committed DML statements (INSERT INTO...SELECT, MERGE, CTAS) that read from the stream advance it. This is critical for exam questions.</div></div>
+</div>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q23</span><span class="category">Staleness</span>
+  <div class="q-text">How can you prevent a stream from going stale?</div>
+  <ul class="options">
+    <li data-opt="A">A) Run SELECT from the stream regularly</li>
+    <li data-opt="B">B) Consume the stream regularly with committed DML within the staleness window</li>
+    <li data-opt="C">C) Set STALENESS_PREVENTION = TRUE on the stream</li>
+    <li data-opt="D">D) Increase the stream's own retention period</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">The only way to prevent staleness is to consume the stream (advance its offset) before the staleness window expires. Increasing the source table's DATA_RETENTION_TIME_IN_DAYS also extends the window.</div></div>
+</div>
+
+<div class="q-block" data-answer="C">
+  <span class="q-num">Q24</span><span class="category">Offset</span>
+  <div class="q-text">Stream has unconsumed changes. You run: BEGIN; INSERT INTO t2 SELECT * FROM stream; ROLLBACK; What happens?</div>
+  <ul class="options">
+    <li data-opt="A">A) Offset advances, changes are lost</li>
+    <li data-opt="B">B) Stream becomes stale</li>
+    <li data-opt="C">C) Offset does NOT advance; changes remain in the stream</li>
+    <li data-opt="D">D) An error is thrown on the next read</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Since the transaction was rolled back, the offset does not advance. The stream retains all its changes for the next successful consumption. Only COMMITTED transactions advance the offset.</div></div>
+</div>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q25</span><span class="category">Staleness</span>
+  <div class="q-text">How can you check if a stream is stale?</div>
+  <ul class="options">
+    <li data-opt="A">A) Query INFORMATION_SCHEMA.STREAM_STATUS</li>
+    <li data-opt="B">B) Check the STALE_AFTER column in SHOW STREAMS or DESCRIBE STREAM</li>
+    <li data-opt="C">C) Run SYSTEM$STREAM_IS_STALE()</li>
+    <li data-opt="D">D) Try to SELECT from it - stale streams return NULL</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">SHOW STREAMS and DESCRIBE STREAM include a STALE_AFTER column showing the timestamp when the stream will become stale. If that timestamp has passed, the stream is already stale and queries will error.</div></div>
+</div>
+
+<div class="q-block" data-answer="D">
+  <span class="q-num">Q26</span><span class="category">Recovery</span>
+  <div class="q-text">A stream has gone stale. What is the recovery procedure?</div>
+  <ul class="options">
+    <li data-opt="A">A) ALTER STREAM RESET OFFSET</li>
+    <li data-opt="B">B) Use Time Travel to restore the stream to a previous state</li>
+    <li data-opt="C">C) Call SYSTEM$RECOVER_STREAM()</li>
+    <li data-opt="D">D) DROP the stream and CREATE a new one (accepting loss of intermediate changes)</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">There is NO recovery for a stale stream. You must drop and recreate it. The new stream starts from the current table state, meaning any changes between the old offset and now are permanently lost.</div></div>
+</div>
+
+<h2>Streams + Tasks (Q27-Q34)</h2>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q27</span><span class="category">Tasks</span>
+  <div class="q-text">What function is used in a Task's WHEN clause to check if a stream has data?</div>
+  <ul class="options">
+    <li data-opt="A">A) STREAM_HAS_ROWS()</li>
+    <li data-opt="B">B) SYSTEM$STREAM_HAS_DATA('stream_name')</li>
+    <li data-opt="C">C) CHECK_STREAM('stream_name')</li>
+    <li data-opt="D">D) STREAM_STATUS('stream_name')</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">SYSTEM$STREAM_HAS_DATA('stream_name') returns TRUE/FALSE. Used in a Task's WHEN clause to skip execution when there are no changes, saving compute costs.</div></div>
+</div>
+
+<div class="q-block" data-answer="C">
+  <span class="q-num">Q28</span><span class="category">Tasks</span>
+  <div class="q-text">What happens when a Task with WHEN SYSTEM$STREAM_HAS_DATA evaluates to FALSE?</div>
+  <ul class="options">
+    <li data-opt="A">A) The Task runs but processes zero rows</li>
+    <li data-opt="B">B) The Task fails with an error</li>
+    <li data-opt="C">C) The Task is skipped entirely (no compute used)</li>
+    <li data-opt="D">D) The Task suspends itself</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">When the WHEN condition evaluates to FALSE, the Task execution is skipped entirely. No warehouse is started, no compute is consumed. This makes the pattern very cost-efficient.</div></div>
+</div>
+
+<div class="q-block" data-answer="A">
+  <span class="q-num">Q29</span><span class="category">Pattern</span>
+  <div class="q-text">What is the standard pattern for a Task consuming a stream?</div>
+  <ul class="options">
+    <li data-opt="A">A) Task with WHEN clause checking stream, body does MERGE/INSERT from stream into target</li>
+    <li data-opt="B">B) Task runs SELECT from stream and emails the results</li>
+    <li data-opt="C">C) Task runs ALTER STREAM CONSUME</li>
+    <li data-opt="D">D) Task copies stream data to a stage file</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">The standard pattern: CREATE TASK with SCHEDULE, WHEN SYSTEM$STREAM_HAS_DATA('stream'), body = MERGE INTO target USING stream ON keys WHEN MATCHED/NOT MATCHED. The committed MERGE advances the offset.</div></div>
+</div>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q30</span><span class="category">DAG</span>
+  <div class="q-text">In a Task DAG, which task has the SCHEDULE and WHEN clause?</div>
+  <ul class="options">
+    <li data-opt="A">A) All tasks in the DAG</li>
+    <li data-opt="B">B) Only the root task</li>
+    <li data-opt="C">C) Only the leaf (final) tasks</li>
+    <li data-opt="D">D) Any task can have both</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">In a Task DAG, only the root task has the SCHEDULE and WHEN clause. Child tasks run after their predecessor completes. If the root task is skipped (WHEN=FALSE), the entire DAG is skipped.</div></div>
+</div>
+
+<div class="q-block" data-answer="C">
+  <span class="q-num">Q31</span><span class="category">Tasks</span>
+  <div class="q-text">Does SYSTEM$STREAM_HAS_DATA consume the stream?</div>
+  <ul class="options">
+    <li data-opt="A">A) Yes, it advances the offset like a DML</li>
+    <li data-opt="B">B) Yes, but only if it returns TRUE</li>
+    <li data-opt="C">C) No, it only checks whether unconsumed changes exist</li>
+    <li data-opt="D">D) No, but it resets the staleness timer</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">SYSTEM$STREAM_HAS_DATA is a read-only check. It does NOT advance the offset or consume data. It simply returns TRUE if there are unconsumed changes, FALSE otherwise.</div></div>
+</div>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q32</span><span class="category">Automation</span>
+  <div class="q-text">What minimum Task schedule would you set for near-real-time CDC processing?</div>
+  <ul class="options">
+    <li data-opt="A">A) 30 seconds</li>
+    <li data-opt="B">B) 1 minute (minimum allowed)</li>
+    <li data-opt="C">C) 5 minutes</li>
+    <li data-opt="D">D) Tasks cannot run more often than every 10 minutes</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">The minimum Task schedule interval is 1 minute. Combined with WHEN SYSTEM$STREAM_HAS_DATA, this gives near-real-time CDC processing without wasted compute on empty runs.</div></div>
+</div>
+
+<div class="q-block" data-answer="D">
+  <span class="q-num">Q33</span><span class="category">Tasks</span>
+  <div class="q-text">A Task consuming a stream fails mid-execution. What happens to the stream offset?</div>
+  <ul class="options">
+    <li data-opt="A">A) Offset advances to the point of failure</li>
+    <li data-opt="B">B) Offset advances fully, losing the failed portion</li>
+    <li data-opt="C">C) Stream becomes stale</li>
+    <li data-opt="D">D) Offset does NOT advance (transaction not committed); changes remain for retry</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">If the Task fails, the implicit transaction is rolled back. Since the DML was not committed, the stream offset stays unchanged. The next Task run will see the same changes again - providing automatic retry semantics.</div></div>
+</div>
+
+<div class="q-block" data-answer="A">
+  <span class="q-num">Q34</span><span class="category">Serverless</span>
+  <div class="q-text">Can serverless Tasks be used with streams?</div>
+  <ul class="options">
+    <li data-opt="A">A) Yes, serverless Tasks work with streams and the WHEN clause</li>
+    <li data-opt="B">B) No, streams require a user-managed warehouse</li>
+    <li data-opt="C">C) Only with append-only streams</li>
+    <li data-opt="D">D) Only if the Task has no WHEN clause</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Serverless Tasks fully support streams and WHEN SYSTEM$STREAM_HAS_DATA. When the condition is FALSE, no serverless compute is provisioned, making this combination very cost-efficient.</div></div>
+</div>
+
+<h2>RBAC & Operations (Q35-Q42)</h2>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q35</span><span class="category">Privileges</span>
+  <div class="q-text">What privilege is required to create a stream on a table?</div>
+  <ul class="options">
+    <li data-opt="A">A) OWNERSHIP on the table</li>
+    <li data-opt="B">B) CREATE STREAM on the schema + SELECT on the source table</li>
+    <li data-opt="C">C) INSERT on the source table</li>
+    <li data-opt="D">D) ACCOUNTADMIN role</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">You need CREATE STREAM on the schema where the stream will be created, plus SELECT on the source table (since the stream reads change data from it).</div></div>
+</div>
+
+<div class="q-block" data-answer="C">
+  <span class="q-num">Q36</span><span class="category">Multiple Streams</span>
+  <div class="q-text">Can multiple streams be created on the same source table?</div>
+  <ul class="options">
+    <li data-opt="A">A) No, only one stream per table is allowed</li>
+    <li data-opt="B">B) Yes, but they share the same offset</li>
+    <li data-opt="C">C) Yes, each stream maintains its own independent offset</li>
+    <li data-opt="D">D) Yes, but only if they are different types</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Multiple streams can exist on the same table, each with an INDEPENDENT offset. This allows different consumers to process changes at their own pace without interfering with each other.</div></div>
+</div>
+
+<div class="q-block" data-answer="D">
+  <span class="q-num">Q37</span><span class="category">DDL Impact</span>
+  <div class="q-text">What happens to streams when you run CREATE OR REPLACE TABLE on the source table?</div>
+  <ul class="options">
+    <li data-opt="A">A) Streams automatically adjust to the new table</li>
+    <li data-opt="B">B) Streams pause until manually resumed</li>
+    <li data-opt="C">C) Streams reset their offset to the new table's current state</li>
+    <li data-opt="D">D) All streams on the table become invalid/broken and must be recreated</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">CREATE OR REPLACE TABLE drops and recreates the table object. All streams referencing the original table break because the underlying object they point to no longer exists. They must be recreated.</div></div>
+</div>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q38</span><span class="category">Views</span>
+  <div class="q-text">What is required to create a stream on a view?</div>
+  <ul class="options">
+    <li data-opt="A">A) The view must be a materialized view</li>
+    <li data-opt="B">B) CHANGE_TRACKING = TRUE must be set on ALL underlying base tables</li>
+    <li data-opt="C">C) The view must contain only one table reference</li>
+    <li data-opt="D">D) Streams on views are not supported</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Streams on views require CHANGE_TRACKING = TRUE on every base table referenced by the view. The view must also be non-materialized. ALTER TABLE SET CHANGE_TRACKING = TRUE enables this.</div></div>
+</div>
+
+<div class="q-block" data-answer="A">
+  <span class="q-num">Q39</span><span class="category">Change Tracking</span>
+  <div class="q-text">What does ALTER TABLE SET CHANGE_TRACKING = TRUE do?</div>
+  <ul class="options">
+    <li data-opt="A">A) Enables the table to have streams created on it and adds hidden metadata columns for tracking</li>
+    <li data-opt="B">B) Creates an automatic stream on the table</li>
+    <li data-opt="C">C) Enables Time Travel on the table</li>
+    <li data-opt="D">D) Starts logging all DML to an audit table</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">CHANGE_TRACKING = TRUE adds hidden metadata columns to micro-partitions for change tracking. This is required for streams on views and for the CHANGES clause. It has minimal storage overhead.</div></div>
+</div>
+
+<div class="q-block" data-answer="C">
+  <span class="q-num">Q40</span><span class="category">Operations</span>
+  <div class="q-text">How do you check the current position (offset) of a stream?</div>
+  <ul class="options">
+    <li data-opt="A">A) SELECT OFFSET FROM STREAM_INFO('my_stream')</li>
+    <li data-opt="B">B) DESCRIBE STREAM shows the exact row offset number</li>
+    <li data-opt="C">C) DESCRIBE STREAM shows STALE_AFTER timestamp; the exact internal offset is not directly exposed</li>
+    <li data-opt="D">D) SELECT SYSTEM$STREAM_OFFSET('my_stream')</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">The internal offset position is not directly exposed as a number. DESCRIBE STREAM shows the STALE_AFTER timestamp and whether data exists. You can see what changes are pending by querying the stream.</div></div>
+</div>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q41</span><span class="category">Cloning</span>
+  <div class="q-text">What happens when you CLONE a table that has streams on it?</div>
+  <ul class="options">
+    <li data-opt="A">A) Streams are cloned with the same offset</li>
+    <li data-opt="B">B) Streams are NOT cloned; the clone has no streams</li>
+    <li data-opt="C">C) Streams are cloned but reset to current offset</li>
+    <li data-opt="D">D) Cloning fails if streams exist</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Streams are NOT included when cloning a table. You must create new streams on the cloned table if needed. The original streams continue to track the original table unchanged.</div></div>
+</div>
+
+<div class="q-block" data-answer="A">
+  <span class="q-num">Q42</span><span class="category">Privileges</span>
+  <div class="q-text">What privilege does a role need to consume (read) data from an existing stream?</div>
+  <ul class="options">
+    <li data-opt="A">A) SELECT on the stream</li>
+    <li data-opt="B">B) OWNERSHIP on the stream</li>
+    <li data-opt="C">C) SELECT on the source table only</li>
+    <li data-opt="D">D) OPERATE on the stream</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">To read from a stream (SELECT or use in DML), the role needs SELECT privilege on the stream object. The stream owner's privileges are used to access the underlying table data.</div></div>
+</div>
+
+<h2>Advanced (Q43-Q50)</h2>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q43</span><span class="category">Dynamic Tables</span>
+  <div class="q-text">When should you use Streams + Tasks instead of Dynamic Tables?</div>
+  <ul class="options">
+    <li data-opt="A">A) For simple SELECT-only transformations</li>
+    <li data-opt="B">B) When you need MERGE, DELETE, or SCD Type 2 logic that Dynamic Tables cannot express</li>
+    <li data-opt="C">C) When you want Snowflake to manage the refresh automatically</li>
+    <li data-opt="D">D) Always - Dynamic Tables are deprecated</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Dynamic Tables support only SELECT-based declarative transformations. For imperative logic like MERGE (upserts), DELETE with conditions, or SCD Type 2 patterns, you need Streams + Tasks.</div></div>
+</div>
+
+<div class="q-block" data-answer="C">
+  <span class="q-num">Q44</span><span class="category">Dynamic Tables</span>
+  <div class="q-text">Which is TRUE comparing Dynamic Tables and Streams?</div>
+  <ul class="options">
+    <li data-opt="A">A) Both use explicit offset tracking</li>
+    <li data-opt="B">B) Dynamic Tables replace streams in all scenarios</li>
+    <li data-opt="C">C) Dynamic Tables are declarative (SELECT only); Streams enable imperative DML logic</li>
+    <li data-opt="D">D) Streams are declarative; Dynamic Tables are imperative</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Dynamic Tables: you write a SELECT, Snowflake manages incremental refresh. Streams: you write explicit DML (MERGE/INSERT/DELETE) to process changes. Use DTs for simple transforms, Streams+Tasks for complex logic.</div></div>
+</div>
+
+<div class="q-block" data-answer="A">
+  <span class="q-num">Q45</span><span class="category">SCD</span>
+  <div class="q-text">For SCD Type 2 (slowly changing dimension with history), which approach is correct?</div>
+  <ul class="options">
+    <li data-opt="A">A) Stream + Task with MERGE that expires old records and inserts new versions</li>
+    <li data-opt="B">B) Dynamic Table with TARGET_LAG</li>
+    <li data-opt="C">C) Materialized view with AUTO_REFRESH</li>
+    <li data-opt="D">D) A simple INSERT-only stream</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">SCD Type 2 requires: 1) Detecting changes (stream), 2) Expiring old records (UPDATE SET end_date), 3) Inserting new versions. This multi-step imperative logic requires Streams + Tasks with MERGE.</div></div>
+</div>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q46</span><span class="category">CHANGES</span>
+  <div class="q-text">What does the CHANGES clause do?</div>
+  <ul class="options">
+    <li data-opt="A">A) Creates a permanent stream on the table</li>
+    <li data-opt="B">B) Queries change data between two points in time WITHOUT creating a stream object</li>
+    <li data-opt="C">C) Shows the DDL history of a table</li>
+    <li data-opt="D">D) Returns the same data as Time Travel AT</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">The CHANGES clause (SELECT ... FROM table CHANGES(INFORMATION => ...) AT/BEFORE ... END ...) lets you query CDC information without creating a stream. Requires CHANGE_TRACKING = TRUE on the table.</div></div>
+</div>
+
+<div class="q-block" data-answer="D">
+  <span class="q-num">Q47</span><span class="category">CHANGES</span>
+  <div class="q-text">What INFORMATION mode options are available with the CHANGES clause?</div>
+  <ul class="options">
+    <li data-opt="A">A) FULL and PARTIAL</li>
+    <li data-opt="B">B) SUMMARY and DETAIL</li>
+    <li data-opt="C">C) INSERT_ONLY and ALL_CHANGES</li>
+    <li data-opt="D">D) DEFAULT (net changes) and APPEND_ONLY (inserts only)</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">CHANGES clause supports INFORMATION => DEFAULT (shows net changes like a standard stream) or INFORMATION => APPEND_ONLY (shows only inserts like an append-only stream).</div></div>
+</div>
+
+<div class="q-block" data-answer="C">
+  <span class="q-num">Q48</span><span class="category">Production</span>
+  <div class="q-text">Two Tasks consume the SAME stream concurrently. What risk exists?</div>
+  <ul class="options">
+    <li data-opt="A">A) No risk; both will see the same data</li>
+    <li data-opt="B">B) Deadlock on the stream object</li>
+    <li data-opt="C">C) One Task commits first and advances the offset; the other may see empty stream or partial data</li>
+    <li data-opt="D">D) Both will fail with a conflict error</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">If two consumers share one stream, the first to commit advances the offset. The second consumer may then see no data (or different data). Best practice: use separate streams for each consumer.</div></div>
+</div>
+
+<div class="q-block" data-answer="B">
+  <span class="q-num">Q49</span><span class="category">Production</span>
+  <div class="q-text">Stream shows empty (no rows) but you know changes occurred. Most likely cause?</div>
+  <ul class="options">
+    <li data-opt="A">A) The stream is stale</li>
+    <li data-opt="B">B) Another transaction already consumed the stream (advanced the offset)</li>
+    <li data-opt="C">C) The source table was dropped</li>
+    <li data-opt="D">D) SELECT doesn't work on streams</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">If changes occurred but the stream is empty, another consumer likely already consumed it (committed DML advanced the offset past those changes). Use separate streams per consumer to avoid this.</div></div>
+</div>
+
+<div class="q-block" data-answer="A">
+  <span class="q-num">Q50</span><span class="category">Best Practice</span>
+  <div class="q-text">Which is a best practice for production Streams + Tasks pipelines?</div>
+  <ul class="options">
+    <li data-opt="A">A) Use one dedicated stream per consumer, consume within staleness window, use WHEN clause to save compute</li>
+    <li data-opt="B">B) Share a single stream across all consumers to save storage</li>
+    <li data-opt="C">C) Set DATA_RETENTION_TIME_IN_DAYS = 0 to save costs</li>
+    <li data-opt="D">D) Use SELECT queries to periodically check and advance the stream offset</li>
+  </ul>
+  <div class="explanation-box"><div class="result-label"></div><div class="explanation-text">Best practices: 1) One stream per consumer (independent offsets), 2) Consume regularly to avoid staleness, 3) Use WHEN SYSTEM$STREAM_HAS_DATA to skip empty runs, 4) Keep retention adequate for your processing cadence.</div></div>
+</div>
+
+<div class="score-card">
+  <strong>Final Score:</strong> <span class="score-display" id="score-final">0 / 0</span>
+  <br><small>45-50: Exam ready | 35-44: Review weak areas | Below 35: Re-study</small>
+  <br><button class="reset-btn" id="reset-btn-bottom">Reset All</button>
+</div>
+
+<p style="margin-top: 40px; padding-top: 20px; border-top: 1px solid light-dark(#e5e7eb, #374151); color: light-dark(#6b7280, #9ca3af); font-size: 0.85rem;">
+  Streams Interactive Quiz | SnowPro Core Certification | 50 Questions | August 2026
+</p>
+
+<script>
+(function() {
+  var correctCount = 0;
+  var totalAnswered = 0;
+
+  function updateScore() {
+    var scoreText = correctCount + ' / ' + totalAnswered;
+    document.getElementById('score-display').textContent = scoreText;
+    document.getElementById('score-final').textContent = scoreText;
+  }
+
+  var blocks = document.querySelectorAll('.q-block');
+  blocks.forEach(function(block) {
+    var correctAnswer = block.getAttribute('data-answer');
+    var options = block.querySelectorAll('.options li');
+    var explanationBox = block.querySelector('.explanation-box');
+    var resultLabel = block.querySelector('.result-label');
+
+    options.forEach(function(opt) {
+      opt.addEventListener('click', function() {
+        if (block.classList.contains('answered')) return;
+        block.classList.add('answered');
+        totalAnswered++;
+
+        var selected = opt.getAttribute('data-opt');
+        var isCorrect = (selected === correctAnswer);
+
+        if (isCorrect) {
+          opt.classList.add('correct');
+          correctCount++;
+          resultLabel.textContent = 'Correct!';
+          resultLabel.classList.add('correct-label');
+          explanationBox.classList.add('is-correct');
+        } else {
+          opt.classList.add('wrong');
+          resultLabel.textContent = 'Wrong! Correct answer: ' + correctAnswer;
+          resultLabel.classList.add('wrong-label');
+          explanationBox.classList.add('is-wrong');
+          options.forEach(function(o) {
+            if (o.getAttribute('data-opt') === correctAnswer) {
+              o.classList.add('correct', 'highlight-correct');
+            }
+          });
+        }
+
+        options.forEach(function(o) { o.classList.add('disabled'); });
+        explanationBox.classList.add('show');
+        updateScore();
+      });
+    });
+  });
+
+  function resetAll() {
+    correctCount = 0;
+    totalAnswered = 0;
+    blocks.forEach(function(block) {
+      block.classList.remove('answered');
+      var options = block.querySelectorAll('.options li');
+      options.forEach(function(o) { o.classList.remove('correct','wrong','disabled','highlight-correct'); });
+      var eb = block.querySelector('.explanation-box');
+      eb.classList.remove('show','is-correct','is-wrong');
+      var rl = block.querySelector('.result-label');
+      rl.textContent = '';
+      rl.classList.remove('correct-label','wrong-label');
+    });
+    updateScore();
+    window.scrollTo(0,0);
+  }
+
+  document.getElementById('reset-btn').addEventListener('click', resetAll);
+  document.getElementById('reset-btn-bottom').addEventListener('click', resetAll);
+})();
+</script>
+
+</body>
+</html>
