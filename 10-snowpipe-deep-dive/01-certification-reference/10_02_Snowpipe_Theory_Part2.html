@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowpipe Certification - Part 2: Advanced & Production</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-14",
+    "intent": "Snowpipe Part 2 - Streaming, Kafka, RBAC, Production Debug, Optimization, Cost, Comparison with other ingestion methods",
+    "sections": [
+      { "id": "snowpipe-streaming", "title": "Snowpipe Streaming", "dataSources": [], "producerNotes": "Row-level ingestion via SDK" },
+      { "id": "kafka", "title": "Kafka & Streaming Sources", "dataSources": [], "producerNotes": "Kafka connector, Spark, custom" },
+      { "id": "rbac", "title": "RBAC & Privileges", "dataSources": [], "producerNotes": "Who can create, run, modify pipes" },
+      { "id": "production-debug", "title": "Production Debugging", "dataSources": [], "producerNotes": "Common issues and fixes" },
+      { "id": "optimization", "title": "Optimization", "dataSources": [], "producerNotes": "Slow pipeline troubleshooting" },
+      { "id": "cost", "title": "Cost Model", "dataSources": [], "producerNotes": "Billing mechanics" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #0f172a); line-height: 1.6; }
+    h1 { font-size: 2rem; color: light-dark(#0f172a, #f8fafc); margin-bottom: 8px; border-bottom: 3px solid light-dark(#7c3aed, #8b5cf6); padding-bottom: 12px; }
+    h2 { font-size: 1.5rem; color: light-dark(#5b21b6, #a78bfa); margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid light-dark(#ede9fe, #2e1065); }
+    h3 { font-size: 1.15rem; color: light-dark(#4c1d95, #c4b5fd); margin: 24px 0 12px; }
+    h4 { font-size: 1rem; color: light-dark(#374151, #d1d5db); margin: 16px 0 8px; }
+    p { margin: 8px 0; }
+    .subtitle { color: light-dark(#6b7280, #9ca3af); font-size: 0.95rem; margin-bottom: 24px; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; }
+    th, td { border: 1px solid light-dark(#e5e7eb, #374151); padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: light-dark(#f5f3ff, #1e293b); font-weight: 600; color: light-dark(#5b21b6, #a78bfa); }
+    tr:nth-child(even) td { background: light-dark(#f9fafb, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
+    pre { background: light-dark(#1e293b, #0c1322); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; font-size: 0.85rem; line-height: 1.5; }
+    .card { background: light-dark(#faf5ff, #1e293b); border: 1px solid light-dark(#c4b5fd, #334155); border-radius: 8px; padding: 20px; margin: 16px 0; }
+    .card-title { font-weight: 700; color: light-dark(#5b21b6, #a78bfa); margin-bottom: 8px; }
+    .warning { background: light-dark(#fef3c7, #451a03); border-left: 4px solid light-dark(#f59e0b, #fbbf24); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .info { background: light-dark(#ede9fe, #1e1b4b); border-left: 4px solid light-dark(#7c3aed, #a78bfa); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .success { background: light-dark(#d1fae5, #022c22); border-left: 4px solid light-dark(#10b981, #34d399); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .danger { background: light-dark(#fee2e2, #450a0a); border-left: 4px solid light-dark(#ef4444, #f87171); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .toc { background: light-dark(#f8fafc, #1e293b); border: 1px solid light-dark(#e2e8f0, #334155); border-radius: 8px; padding: 20px; margin: 24px 0; }
+    .toc a { color: light-dark(#7c3aed, #a78bfa); text-decoration: none; }
+    .toc ul { list-style: none; padding-left: 0; }
+    .toc li { padding: 4px 0; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+    ul, ol { padding-left: 24px; margin: 8px 0; }
+    li { margin: 4px 0; }
+    .arch-box { background: light-dark(#faf5ff, #1a0533); border: 2px solid light-dark(#a78bfa, #4c1d95); border-radius: 12px; padding: 24px; margin: 20px 0; text-align: center; font-family: monospace; font-size: 0.85rem; line-height: 2; }
+  </style>
+</head>
+<body>
+
+<h1>Snowpipe - Part 2: Advanced & Production</h1>
+<p class="subtitle">SnowPro Core Certification | Streaming, Kafka, RBAC, Debug, Optimization | August 2026</p>
+
+<div class="toc">
+  <strong>Table of Contents</strong>
+  <ul>
+    <li><a href="#snowpipe-streaming">1. Snowpipe Streaming (Row-Level Ingestion)</a></li>
+    <li><a href="#kafka">2. Kafka & Streaming Sources Integration</a></li>
+    <li><a href="#ingestion-compare">3. All Ingestion Methods Compared</a></li>
+    <li><a href="#rbac">4. RBAC & Privileges (Who Can Do What)</a></li>
+    <li><a href="#production-debug">5. Production Debugging Guide</a></li>
+    <li><a href="#optimization">6. Optimizing Slow Pipelines</a></li>
+    <li><a href="#cost">7. Cost Model & Billing</a></li>
+    <li><a href="#error-handling">8. Error Handling Deep Dive</a></li>
+    <li><a href="#patterns">9. Common Architecture Patterns</a></li>
+  </ul>
+</div>
+
+<!-- SECTION 1: SNOWPIPE STREAMING -->
+<h2 id="snowpipe-streaming">1. Snowpipe Streaming (Row-Level Ingestion)</h2>
+
+<div class="card">
+  <div class="card-title">What is Snowpipe Streaming?</div>
+  <p>A <strong>row-level</strong> data ingestion API that writes data directly to Snowflake tables <strong>without requiring files or stages</strong>. Data is available for query within seconds.</p>
+</div>
+
+<table>
+  <thead><tr><th>Aspect</th><th>Snowpipe (File-Based)</th><th>Snowpipe Streaming (Row-Based)</th></tr></thead>
+  <tbody>
+    <tr><td>Input</td><td>Files on a stage</td><td>Rows via SDK (Java/Python)</td></tr>
+    <tr><td>Latency</td><td>~1 minute</td><td><strong>Seconds</strong> (sub-10 seconds)</td></tr>
+    <tr><td>Staging Required</td><td>Yes (files must be on stage)</td><td><strong>No</strong> (direct to table)</td></tr>
+    <tr><td>SDK</td><td>Snowflake Ingest SDK (file paths)</td><td>Snowflake Ingest SDK (insertRows)</td></tr>
+    <tr><td>Compute</td><td>Snowflake serverless</td><td>Snowflake serverless</td></tr>
+    <tr><td>Best For</td><td>File-based pipelines (S3, Blob)</td><td>Real-time IoT, clickstream, logs, CDC</td></tr>
+    <tr><td>Ordering</td><td>No guaranteed file order</td><td>Offset-based ordering within a channel</td></tr>
+    <tr><td>Exactly-Once</td><td>14-day file dedup</td><td>Offset token for exactly-once semantics</td></tr>
+    <tr><td>Channel Concept</td><td>N/A</td><td>Each client opens a "channel" to a table</td></tr>
+  </tbody>
+</table>
+
+<h3>Snowpipe Streaming Architecture</h3>
+<div class="arch-box">
+[Your App / Kafka Connect / IoT Gateway]<br>
+       | (insertRows API call via SDK)<br>
+       v<br>
+[Snowpipe Streaming Service] --channel--> [Table Partition]<br>
+       |<br>
+       v<br>
+[Data available in seconds] + [Optimized into micro-partitions in background]
+</div>
+
+<h3>Key Concepts</h3>
+<ul>
+  <li><strong>Channel:</strong> A logical connection from one client to one table. Each channel has its own offset.</li>
+  <li><strong>Offset Token:</strong> A string you provide with each insert. Used for exactly-once delivery and recovery.</li>
+  <li><strong>insertRows:</strong> The API method that sends rows (as Map objects) directly to Snowflake.</li>
+  <li><strong>No COPY INTO:</strong> Unlike file-based Snowpipe, there's no COPY statement or pipe object.</li>
+</ul>
+
+<h3>Java SDK Example (Conceptual)</h3>
+<pre>// Open a channel
+SnowflakeStreamingIngestChannel channel = client.openChannel(
+    OpenChannelRequest.builder("MY_CHANNEL")
+        .setDBName("MY_DB")
+        .setSchemaName("MY_SCHEMA")
+        .setTableName("MY_TABLE")
+        .build()
+);
+
+// Insert rows
+Map&lt;String, Object&gt; row = new HashMap&lt;&gt;();
+row.put("id", 1001);
+row.put("name", "Ranga");
+row.put("event_time", "2026-08-14T09:30:00Z");
+
+InsertValidationResponse resp = channel.insertRow(row, "offset_token_123");
+// Data available in seconds!</pre>
+
+<!-- SECTION 2: KAFKA -->
+<h2 id="kafka">2. Kafka & Streaming Sources Integration</h2>
+
+<h3>How Snowflake Ingests from Kafka</h3>
+
+<table>
+  <thead><tr><th>Method</th><th>Mechanism</th><th>Latency</th><th>Best For</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Kafka Connector (Snowflake)</strong></td>
+      <td>Snowflake Kafka Connector uses Snowpipe Streaming internally</td>
+      <td>Seconds</td>
+      <td>Production Kafka-to-Snowflake pipelines</td>
+    </tr>
+    <tr>
+      <td><strong>Kafka Connector (Legacy)</strong></td>
+      <td>Writes to internal stage, then triggers Snowpipe (file-based)</td>
+      <td>1-2 minutes</td>
+      <td>Older setups; being deprecated</td>
+    </tr>
+    <tr>
+      <td><strong>Custom App + Streaming SDK</strong></td>
+      <td>Your Kafka consumer calls insertRows API directly</td>
+      <td>Seconds</td>
+      <td>Custom logic, filtering, routing</td>
+    </tr>
+    <tr>
+      <td><strong>Spark Streaming + Snowflake Connector</strong></td>
+      <td>Spark reads Kafka, writes to Snowflake via JDBC/connector</td>
+      <td>Minutes</td>
+      <td>Complex transformations before loading</td>
+    </tr>
+    <tr>
+      <td><strong>Openflow (Snowflake NiFi)</strong></td>
+      <td>Managed CDC/Kafka connector in Snowflake</td>
+      <td>Seconds-Minutes</td>
+      <td>No-code connector management</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Snowflake Kafka Connector Architecture</h3>
+<div class="arch-box">
+[Kafka Topic] --Kafka Connect--> [Snowflake Kafka Connector]<br>
+       |<br>
+       | (uses Snowpipe Streaming internally)<br>
+       v<br>
+[Snowflake Table] (data available in seconds)
+</div>
+
+<h3>Other Streaming Sources</h3>
+<table>
+  <tr><th>Source</th><th>Integration Method</th></tr>
+  <tr><td>Amazon Kinesis</td><td>Lambda function triggers Snowpipe REST API or Streaming SDK</td></tr>
+  <tr><td>Azure Event Hubs</td><td>Azure Functions + Snowpipe REST API or Streaming SDK</td></tr>
+  <tr><td>Google Pub/Sub</td><td>Cloud Function + Snowpipe auto-ingest or Streaming SDK</td></tr>
+  <tr><td>Debezium (CDC)</td><td>Via Kafka topic + Snowflake Kafka Connector</td></tr>
+  <tr><td>Apache Flink</td><td>Snowflake Flink Connector (writes via Streaming SDK)</td></tr>
+  <tr><td>Custom microservices</td><td>Snowflake Ingest SDK (Java/Python) directly</td></tr>
+</table>
+
+<h3>How Snowpipe Handles Batches vs Real-Time</h3>
+<table>
+  <tr><th>Scenario</th><th>Recommended Approach</th><th>Why</th></tr>
+  <tr><td>Files arrive every few minutes</td><td>Snowpipe with auto-ingest</td><td>File-driven; notification triggers load</td></tr>
+  <tr><td>High-velocity events (1000s/sec)</td><td>Snowpipe Streaming</td><td>Row-level; no file overhead; seconds latency</td></tr>
+  <tr><td>Large daily/hourly batches</td><td>Bulk COPY INTO via Task</td><td>More cost-efficient for large volumes</td></tr>
+  <tr><td>Kafka topic with mixed velocity</td><td>Kafka Connector (Streaming mode)</td><td>Handles backpressure; exactly-once via offsets</td></tr>
+  <tr><td>CDC from database</td><td>Openflow or Debezium+Kafka+Connector</td><td>Handles inserts, updates, deletes</td></tr>
+</table>
+
+<!-- SECTION 3: INGESTION COMPARISON -->
+<h2 id="ingestion-compare">3. All Ingestion Methods Compared</h2>
+
+<table>
+  <thead><tr><th>Method</th><th>Latency</th><th>Compute</th><th>Input</th><th>Cost Model</th><th>Best For</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Bulk COPY INTO</strong></td><td>Minutes-Hours</td><td>Your warehouse</td><td>Files on stage</td><td>Warehouse time</td><td>Large scheduled batches</td></tr>
+    <tr><td><strong>Snowpipe (file)</strong></td><td>~1 minute</td><td>Serverless</td><td>Files on stage</td><td>Per-file credits</td><td>Continuous file arrival</td></tr>
+    <tr><td><strong>Snowpipe Streaming</strong></td><td>Seconds</td><td>Serverless</td><td>Rows via SDK</td><td>Per-row compute</td><td>Real-time events/IoT</td></tr>
+    <tr><td><strong>Kafka Connector</strong></td><td>Seconds</td><td>Serverless</td><td>Kafka topics</td><td>Per-row compute</td><td>Kafka-based architectures</td></tr>
+    <tr><td><strong>INSERT INTO</strong></td><td>Immediate</td><td>Your warehouse</td><td>SQL values/select</td><td>Warehouse time</td><td>Small, ad-hoc inserts</td></tr>
+    <tr><td><strong>Dynamic Tables</strong></td><td>Configurable lag</td><td>Serverless/WH</td><td>Existing tables</td><td>Refresh credits</td><td>Declarative transformations</td></tr>
+    <tr><td><strong>Openflow (NiFi)</strong></td><td>Seconds-Minutes</td><td>Managed</td><td>Multiple sources</td><td>Connector pricing</td><td>No-code CDC/ETL</td></tr>
+  </tbody>
+</table>
+
+<!-- SECTION 4: RBAC -->
+<h2 id="rbac">4. RBAC & Privileges (Who Can Do What)</h2>
+
+<h3>Privileges Required for Snowpipe</h3>
+<table>
+  <thead><tr><th>Action</th><th>Required Privilege</th><th>On Object</th><th>Granted By</th></tr></thead>
+  <tbody>
+    <tr><td>Create a pipe</td><td><code>CREATE PIPE</code></td><td>Schema</td><td>Schema owner</td></tr>
+    <tr><td>Own/full control pipe</td><td><code>OWNERSHIP</code></td><td>Pipe</td><td>Current owner</td></tr>
+    <tr><td>Pause/Resume pipe</td><td><code>OPERATE</code></td><td>Pipe</td><td>Pipe owner</td></tr>
+    <tr><td>View pipe status</td><td><code>MONITOR</code></td><td>Pipe</td><td>Pipe owner</td></tr>
+    <tr><td>Read from stage</td><td><code>USAGE</code></td><td>Stage</td><td>Stage owner</td></tr>
+    <tr><td>Insert into table</td><td><code>INSERT</code></td><td>Table</td><td>Table owner</td></tr>
+    <tr><td>Use storage integration</td><td><code>USAGE</code></td><td>Integration</td><td>ACCOUNTADMIN</td></tr>
+  </tbody>
+</table>
+
+<h3>Key RBAC Concept: Owner's Rights</h3>
+<div class="info">
+  <strong>Pipes execute using the OWNER's privileges</strong>, not the caller's. This means:
+  <ul>
+    <li>The pipe owner's role must have INSERT on the target table</li>
+    <li>The pipe owner's role must have USAGE on the stage</li>
+    <li>If ownership is transferred, the new owner must also have these privileges</li>
+    <li>Even if another role triggers REFRESH, the load runs as the owner</li>
+  </ul>
+</div>
+
+<h3>Scenario: DATA_ENGINEER creates pipe, who else can interact?</h3>
+<table>
+  <thead><tr><th>Role</th><th>Can They...</th><th>How to Grant</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>DATA_ENGINEER (owner)</td>
+      <td>Everything: create, alter, refresh, drop, monitor</td>
+      <td>Automatic (OWNERSHIP)</td>
+    </tr>
+    <tr>
+      <td>DATA_ANALYST</td>
+      <td>View pipe status only</td>
+      <td><code>GRANT MONITOR ON PIPE pipe_name TO ROLE DATA_ANALYST;</code></td>
+    </tr>
+    <tr>
+      <td>DATA_OPS</td>
+      <td>Pause/Resume + Monitor</td>
+      <td><code>GRANT OPERATE ON PIPE pipe_name TO ROLE DATA_OPS;</code><br><code>GRANT MONITOR ON PIPE pipe_name TO ROLE DATA_OPS;</code></td>
+    </tr>
+    <tr>
+      <td>SYSADMIN</td>
+      <td>Transfer ownership</td>
+      <td><code>GRANT OWNERSHIP ON PIPE pipe_name TO ROLE ANOTHER_ROLE;</code></td>
+    </tr>
+    <tr>
+      <td>ACCOUNTADMIN</td>
+      <td>Everything (inherited)</td>
+      <td>Automatic via hierarchy</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Complete RBAC Setup for Production Pipe</h3>
+<pre>-- As SECURITYADMIN: Create roles
+CREATE ROLE IF NOT EXISTS PIPE_ADMIN;
+CREATE ROLE IF NOT EXISTS PIPE_OPERATOR;
+CREATE ROLE IF NOT EXISTS PIPE_VIEWER;
+
+-- Grant hierarchy
+GRANT ROLE PIPE_VIEWER TO ROLE PIPE_OPERATOR;
+GRANT ROLE PIPE_OPERATOR TO ROLE PIPE_ADMIN;
+GRANT ROLE PIPE_ADMIN TO ROLE SYSADMIN;
+
+-- As pipe owner: Grant pipe privileges
+GRANT MONITOR ON PIPE my_pipe TO ROLE PIPE_VIEWER;
+GRANT OPERATE ON PIPE my_pipe TO ROLE PIPE_OPERATOR;
+-- PIPE_ADMIN gets OWNERSHIP via transfer or inherits from SYSADMIN
+
+-- Also need: stage and table access for the pipe OWNER
+GRANT USAGE ON STAGE my_stage TO ROLE PIPE_ADMIN;
+GRANT INSERT ON TABLE my_table TO ROLE PIPE_ADMIN;</pre>
+
+<!-- SECTION 5: PRODUCTION DEBUG -->
+<h2 id="production-debug">5. Production Debugging Guide</h2>
+
+<h3>Common Issues & Solutions</h3>
+<table>
+  <thead><tr><th>Problem</th><th>Symptom</th><th>Root Cause</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Files not loading</td>
+      <td>pendingFileCount = 0, no new data</td>
+      <td>S3 event notification not configured or broken</td>
+      <td>Verify S3 bucket events point to correct SQS ARN (from SHOW PIPES)</td>
+    </tr>
+    <tr>
+      <td>Pipe paused unexpectedly</td>
+      <td>executionState = "PAUSED"</td>
+      <td>Someone ran ALTER PIPE SET PAUSED=TRUE, or Snowflake auto-paused</td>
+      <td>Resume: <code>ALTER PIPE ... SET PIPE_EXECUTION_PAUSED=FALSE</code></td>
+    </tr>
+    <tr>
+      <td>Duplicate data</td>
+      <td>Same rows appear multiple times</td>
+      <td>CREATE OR REPLACE was used, purging load metadata</td>
+      <td>Deduplicate with ROW_NUMBER(); prevent with ALTER PIPE instead</td>
+    </tr>
+    <tr>
+      <td>Load failed errors</td>
+      <td>COPY_HISTORY shows "Load failed"</td>
+      <td>Schema mismatch, bad data types, encoding issues</td>
+      <td>Check FIRST_ERROR_MESSAGE; fix file or adjust FILE_FORMAT</td>
+    </tr>
+    <tr>
+      <td>Permission denied</td>
+      <td>"Insufficient privileges" error</td>
+      <td>Pipe owner lost INSERT on table or USAGE on stage</td>
+      <td>Re-grant privileges to the pipe owner role</td>
+    </tr>
+    <tr>
+      <td>Files loaded but table empty</td>
+      <td>COPY_HISTORY shows "Loaded" but 0 rows</td>
+      <td>File has only headers, or PATTERN doesn't match</td>
+      <td>Verify file content; check PATTERN regex</td>
+    </tr>
+    <tr>
+      <td>Stale data (files not detected)</td>
+      <td>Files on stage but never loaded</td>
+      <td>Files arrived before pipe was created (no notification)</td>
+      <td><code>ALTER PIPE REFRESH PREFIX='...' MODIFIED_AFTER='...'</code></td>
+    </tr>
+    <tr>
+      <td>High pending file count</td>
+      <td>pendingFileCount keeps growing</td>
+      <td>Too many files arriving; compute backlog</td>
+      <td>Reduce file frequency; increase file size; contact Snowflake support</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Debug Queries</h3>
+<pre>-- 1. Check pipe status
+SELECT SYSTEM$PIPE_STATUS('db.schema.pipe_name');
+
+-- 2. Check recent load history
+SELECT * FROM TABLE(INFORMATION_SCHEMA.COPY_HISTORY(
+  TABLE_NAME => 'MY_TABLE',
+  START_TIME => DATEADD(HOURS, -24, CURRENT_TIMESTAMP())
+)) ORDER BY LAST_LOAD_TIME DESC;
+
+-- 3. Check for failed loads only
+SELECT FILE_NAME, FIRST_ERROR_MESSAGE, LAST_LOAD_TIME
+FROM TABLE(INFORMATION_SCHEMA.COPY_HISTORY(
+  TABLE_NAME => 'MY_TABLE',
+  START_TIME => DATEADD(DAYS, -7, CURRENT_TIMESTAMP())
+)) WHERE STATUS = 'Load failed';
+
+-- 4. Check pipe definition
+DESCRIBE PIPE my_pipe;
+
+-- 5. Check what's on the stage
+LIST @my_stage;
+
+-- 6. Validate errors from a specific load
+SELECT * FROM TABLE(VALIDATE_PIPE_LOAD(
+  PIPE_NAME => 'db.schema.pipe_name',
+  START_TIME => DATEADD(HOURS, -1, CURRENT_TIMESTAMP())
+));</pre>
+
+<!-- SECTION 6: OPTIMIZATION -->
+<h2 id="optimization">6. Optimizing Slow Pipelines</h2>
+
+<h3>Why Your Pipeline is Slow</h3>
+<table>
+  <thead><tr><th>Cause</th><th>Diagnosis</th><th>Solution</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Files too small (&lt; 100 KB)</td>
+      <td>High file count, low bytes per file in PIPE_USAGE_HISTORY</td>
+      <td>Batch small records into larger files upstream (100-250 MB target)</td>
+    </tr>
+    <tr>
+      <td>Files too large (&gt; 1 GB)</td>
+      <td>Long processing time per file; queue backs up</td>
+      <td>Split files into 100-250 MB chunks before staging</td>
+    </tr>
+    <tr>
+      <td>Too many pipes on same table</td>
+      <td>Lock contention, slower inserts</td>
+      <td>Consolidate to fewer pipes; use path prefixes to partition</td>
+    </tr>
+    <tr>
+      <td>Complex COPY transformations</td>
+      <td>Slower than simple column mapping</td>
+      <td>Load raw first, transform with tasks/streams after</td>
+    </tr>
+    <tr>
+      <td>Notification delays</td>
+      <td>Gap between file arrival and pendingFileCount increase</td>
+      <td>Check cloud notification config; ensure no SQS throttling</td>
+    </tr>
+    <tr>
+      <td>Burst of files</td>
+      <td>pendingFileCount spikes, gradual drain</td>
+      <td>Normal behavior; Snowpipe scales up but not instantaneously</td>
+    </tr>
+    <tr>
+      <td>JSON/Avro parsing overhead</td>
+      <td>Slower loads for semi-structured vs CSV</td>
+      <td>Use STRIP_OUTER_ARRAY, STRIP_NULL_VALUES to reduce parse cost</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Optimization Checklist</h3>
+<div class="success">
+  <ul>
+    <li>File size: 100-250 MB compressed (gzip/snappy)</li>
+    <li>File format: Parquet/Avro for complex data; CSV for simple tabular</li>
+    <li>Compression: Always compress (gzip for CSV, snappy for Parquet)</li>
+    <li>Partitioning: Use date-based prefixes (year=2026/month=08/day=14/)</li>
+    <li>One pipe per table (avoid multiple pipes inserting into same table)</li>
+    <li>Monitor PIPE_USAGE_HISTORY weekly for anomalies</li>
+    <li>Use ERROR_INTEGRATION for immediate alerting</li>
+  </ul>
+</div>
+
+<!-- SECTION 7: COST -->
+<h2 id="cost">7. Cost Model & Billing</h2>
+
+<h3>How Snowpipe is Billed</h3>
+<table>
+  <tr><th>Component</th><th>Cost</th><th>Notes</th></tr>
+  <tr><td>Compute (loading)</td><td>~0.06 credits per 1000 files</td><td>Snowflake-managed; charged per second of serverless compute used</td></tr>
+  <tr><td>Overhead</td><td>~10% overhead vs warehouse</td><td>Snowpipe has slightly higher per-unit cost than running your own warehouse</td></tr>
+  <tr><td>Storage</td><td>Normal Snowflake storage rates</td><td>Data stored in table + stage files (if not cleaned)</td></tr>
+  <tr><td>Notification</td><td>Cloud provider charges</td><td>SQS, Event Grid, Pub/Sub messages (pennies)</td></tr>
+</table>
+
+<h3>When Snowpipe is Cost-Effective vs Warehouse</h3>
+<table>
+  <tr><th>Scenario</th><th>Snowpipe Cost</th><th>Warehouse Cost</th><th>Winner</th></tr>
+  <tr><td>1000 files/day, each 100MB</td><td>Low (0.06 credits + compute time)</td><td>Warehouse running 24/7 or frequent task</td><td><strong>Snowpipe</strong></td></tr>
+  <tr><td>1 large file/day (50 GB)</td><td>Low files but long compute time</td><td>Quick XS warehouse batch (minutes)</td><td><strong>Warehouse</strong></td></tr>
+  <tr><td>100,000 tiny files/day</td><td>High per-file overhead (6 credits just for queueing)</td><td>Batch into fewer files, load at once</td><td><strong>Warehouse</strong> (batch first)</td></tr>
+  <tr><td>Sporadic files (10/day)</td><td>Minimal (scales to zero)</td><td>Warehouse must spin up each time</td><td><strong>Snowpipe</strong></td></tr>
+</table>
+
+<h3>Monitoring Cost</h3>
+<pre>-- Credit usage by pipe (Account Usage - 365 days, 1-2hr lag)
+SELECT
+  PIPE_NAME,
+  SUM(CREDITS_USED) as total_credits,
+  SUM(FILES_INSERTED) as total_files,
+  SUM(BYTES_INSERTED) as total_bytes
+FROM SNOWFLAKE.ACCOUNT_USAGE.PIPE_USAGE_HISTORY
+WHERE START_TIME >= DATEADD(DAYS, -30, CURRENT_TIMESTAMP())
+GROUP BY PIPE_NAME
+ORDER BY total_credits DESC;
+
+-- Real-time credit check (Information Schema - 14 days)
+SELECT *
+FROM TABLE(INFORMATION_SCHEMA.PIPE_USAGE_HISTORY(
+  DATE_RANGE_START => DATEADD(DAYS, -7, CURRENT_TIMESTAMP()),
+  PIPE_NAME => 'my_db.my_schema.my_pipe'
+));</pre>
+
+<!-- SECTION 8: ERROR HANDLING -->
+<h2 id="error-handling">8. Error Handling Deep Dive</h2>
+
+<h3>ON_ERROR Options</h3>
+<table>
+  <thead><tr><th>Option</th><th>Behavior</th><th>Use When</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>SKIP_FILE</code></td>
+      <td>Entire file skipped if ANY row has error</td>
+      <td>Data quality is critical; prefer no partial loads</td>
+    </tr>
+    <tr>
+      <td><code>SKIP_FILE_&lt;n&gt;</code></td>
+      <td>Skip file if error count exceeds n</td>
+      <td>Tolerate a few bad rows per file</td>
+    </tr>
+    <tr>
+      <td><code>SKIP_FILE_&lt;n&gt;%</code></td>
+      <td>Skip file if error percentage exceeds n%</td>
+      <td>Percentage-based tolerance</td>
+    </tr>
+    <tr>
+      <td><code>CONTINUE</code></td>
+      <td>Load valid rows, skip only bad rows</td>
+      <td>Maximize data loaded; accept some data loss</td>
+    </tr>
+    <tr>
+      <td><code>ABORT_STATEMENT</code></td>
+      <td>Abort entire load on first error (default for COPY INTO, NOT for Snowpipe)</td>
+      <td>Rarely used with Snowpipe</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>ERROR_INTEGRATION (Automated Alerting)</h3>
+<pre>-- Create error notification integration
+CREATE NOTIFICATION INTEGRATION pipe_error_notify
+  TYPE = QUEUE
+  ENABLED = TRUE
+  NOTIFICATION_PROVIDER = AWS_SNS
+  DIRECTION = OUTBOUND
+  AWS_SNS_TOPIC_ARN = 'arn:aws:sns:us-east-1:123456:pipe-errors'
+  AWS_SNS_ROLE_ARN = 'arn:aws:iam::123456:role/sns-role';
+
+-- Use in pipe
+CREATE PIPE my_pipe
+  AUTO_INGEST = TRUE
+  ERROR_INTEGRATION = pipe_error_notify
+  AS COPY INTO my_table FROM @my_stage;</pre>
+
+<!-- SECTION 9: PATTERNS -->
+<h2 id="patterns">9. Common Architecture Patterns</h2>
+
+<h3>Pattern 1: Raw + Transform (ELT)</h3>
+<div class="arch-box">
+[S3 Files] --auto-ingest--> [Snowpipe] --> [RAW_TABLE (VARIANT)]<br>
+       |<br>
+       v<br>
+[Stream on RAW_TABLE] --> [Task] --> [CLEAN_TABLE (structured)]<br>
+       |<br>
+       v<br>
+[Dynamic Table] --> [ANALYTICS_TABLE (aggregated)]
+</div>
+
+<h3>Pattern 2: Multi-Source Consolidation</h3>
+<div class="arch-box">
+[S3 Bucket A] --> [Pipe A] --> [TABLE_A]<br>
+[S3 Bucket B] --> [Pipe B] --> [TABLE_B]  --> [Task: MERGE/JOIN] --> [UNIFIED_TABLE]<br>
+[Azure Blob C] --> [Pipe C] --> [TABLE_C]
+</div>
+
+<h3>Pattern 3: Error Recovery</h3>
+<div class="arch-box">
+[Files] --> [Snowpipe (ON_ERROR=SKIP_FILE)]<br>
+       |<br>
+       |--> Success: data in target table<br>
+       |--> Failure: ERROR_INTEGRATION --> [SNS] --> [Lambda] --> [Dead Letter Queue]<br>
+       |                                                            |<br>
+       |                                                            v<br>
+       |                                                     [Fix + Re-stage]<br>
+       |                                                            |<br>
+       +-------- ALTER PIPE REFRESH PREFIX='retry/' <--------------+
+</div>
+
+<h3>Pattern 4: Snowpipe Streaming + Kafka</h3>
+<div class="arch-box">
+[Kafka Producers (Apps, IoT, CDC)]<br>
+       |<br>
+       v<br>
+[Kafka Cluster (Topics)]<br>
+       |<br>
+       v<br>
+[Snowflake Kafka Connector (Snowpipe Streaming mode)]<br>
+       |<br>
+       v<br>
+[Snowflake Tables] (data available in seconds)<br>
+       |<br>
+       v<br>
+[Streams + Tasks or Dynamic Tables for downstream transformations]
+</div>
+
+<div class="warning">
+  <strong>Exam Focus:</strong> Know the difference between file-based Snowpipe (minutes latency, stage required) and Snowpipe Streaming (seconds, no stage, SDK only). The exam tests whether you know which to recommend for different scenarios.
+</div>
+
+<p style="margin-top: 40px; padding-top: 20px; border-top: 1px solid light-dark(#e5e7eb, #374151); color: light-dark(#6b7280, #9ca3af); font-size: 0.85rem;">
+  Snowpipe Certification Reference - Part 2: Advanced | SnowPro Core Exam | Last Updated: August 14, 2026
+</p>
+
+</body>
+</html>

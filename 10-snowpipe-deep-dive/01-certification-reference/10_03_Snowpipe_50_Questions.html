@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowpipe - 50 Exam Practice Questions</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-14",
+    "intent": "50 SnowPro Core exam-level practice questions covering all Snowpipe topics",
+    "sections": [
+      { "id": "questions", "title": "50 Practice Questions", "dataSources": [], "producerNotes": "Covers fundamentals, auto-ingest, streaming, RBAC, cost, troubleshooting" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 1000px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #0f172a); line-height: 1.6; }
+    h1 { font-size: 2rem; color: light-dark(#0f172a, #f8fafc); margin-bottom: 8px; border-bottom: 3px solid light-dark(#059669, #34d399); padding-bottom: 12px; }
+    h2 { font-size: 1.4rem; color: light-dark(#065f46, #6ee7b7); margin: 36px 0 16px; padding-bottom: 8px; border-bottom: 2px solid light-dark(#d1fae5, #064e3b); }
+    .subtitle { color: light-dark(#6b7280, #9ca3af); font-size: 0.95rem; margin-bottom: 24px; }
+    .q-block { border: 1px solid light-dark(#e5e7eb, #374151); border-radius: 8px; padding: 20px; margin: 20px 0; background: light-dark(#f9fafb, #111827); }
+    .q-num { display: inline-block; background: light-dark(#059669, #065f46); color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; margin-bottom: 10px; }
+    .q-text { font-weight: 600; margin-bottom: 12px; color: light-dark(#1f2937, #f3f4f6); }
+    .options { list-style: none; padding: 0; margin: 0; }
+    .options li { padding: 6px 12px; margin: 4px 0; border-radius: 4px; background: light-dark(#ffffff, #1e293b); border: 1px solid light-dark(#e5e7eb, #374151); }
+    .answer-toggle { margin-top: 12px; }
+    .answer-btn { background: light-dark(#059669, #065f46); color: #fff; border: none; padding: 6px 16px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+    .answer-btn:hover { opacity: 0.9; }
+    .answer-content { display: none; margin-top: 12px; padding: 12px; background: light-dark(#ecfdf5, #022c22); border-left: 4px solid light-dark(#10b981, #34d399); border-radius: 0 6px 6px 0; }
+    .answer-content.show { display: block; }
+    .correct { font-weight: 700; color: light-dark(#059669, #34d399); }
+    .explanation { margin-top: 8px; font-size: 0.9rem; color: light-dark(#374151, #d1d5db); }
+    .category { display: inline-block; background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 8px; }
+    .score-card { background: light-dark(#f0fdf4, #022c22); border: 2px solid light-dark(#86efac, #166534); border-radius: 12px; padding: 20px; margin: 24px 0; text-align: center; }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+
+<h1>Snowpipe - 50 Exam Practice Questions</h1>
+<p class="subtitle">SnowPro Core Certification | Difficulty: Exam-Level | Topics: All Snowpipe Concepts</p>
+
+<div class="score-card">
+  <strong>Scoring Guide:</strong> 45-50 correct = Ready for exam | 35-44 = Review weak areas | Below 35 = Re-study Part 1 & 2
+</div>
+
+<h2>Fundamentals (Q1-Q10)</h2>
+
+<div class="q-block">
+  <span class="q-num">Q1</span><span class="category">Basics</span>
+  <div class="q-text">What compute resource does Snowpipe use to load data?</div>
+  <ul class="options">
+    <li>A) The virtual warehouse specified in the pipe definition</li>
+    <li>B) The user's default warehouse</li>
+    <li>C) Snowflake-supplied compute (serverless)</li>
+    <li>D) The warehouse associated with the target table</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: C</span><div class="explanation">Snowpipe uses Snowflake-managed serverless compute. It does NOT use any user warehouse. This is a key billing and architecture difference from bulk COPY INTO.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q2</span><span class="category">Metadata</span>
+  <div class="q-text">How long does Snowpipe retain file load metadata to prevent duplicate loading?</div>
+  <ul class="options">
+    <li>A) 7 days</li>
+    <li>B) 14 days</li>
+    <li>C) 30 days</li>
+    <li>D) 64 days</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">Snowpipe retains load metadata for 14 days. After 14 days, if the same file is still on the stage and a new notification arrives, it WILL be reloaded (causing duplicates).</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q3</span><span class="category">CREATE OR REPLACE</span>
+  <div class="q-text">What happens when you run CREATE OR REPLACE PIPE on an existing pipe?</div>
+  <ul class="options">
+    <li>A) The pipe is paused and the definition is updated</li>
+    <li>B) The pipe is updated in-place with no data impact</li>
+    <li>C) The load history (metadata) is purged, risking duplicate loads</li>
+    <li>D) An error is thrown because pipes cannot be replaced</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: C</span><div class="explanation">CREATE OR REPLACE drops and recreates the pipe, purging all load metadata. Previously loaded files will be loaded again if still on the stage, causing duplicates. Always prefer ALTER PIPE when possible.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q4</span><span class="category">Latency</span>
+  <div class="q-text">What is the typical latency for data to be queryable after a file arrives in the stage with auto-ingest enabled?</div>
+  <ul class="options">
+    <li>A) Milliseconds</li>
+    <li>B) About 1 minute</li>
+    <li>C) 5-10 minutes</li>
+    <li>D) Depends on warehouse size</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">Snowpipe typically loads data within about 1 minute of the file notification. It does not depend on warehouse size since Snowpipe uses its own serverless compute.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q5</span><span class="category">Billing</span>
+  <div class="q-text">How is Snowpipe billed?</div>
+  <ul class="options">
+    <li>A) Per hour of active pipe time</li>
+    <li>B) Per file loaded (compute time for each file)</li>
+    <li>C) Per warehouse credit-second while loading</li>
+    <li>D) Flat monthly fee per pipe</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">Snowpipe billing is based on the serverless compute time used to load each file. It's approximately 0.06 credits per 1000 files, but actual cost depends on file size and complexity.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q6</span><span class="category">Auto-Ingest</span>
+  <div class="q-text">Which stage type supports AUTO_INGEST for Snowpipe?</div>
+  <ul class="options">
+    <li>A) User stage (@~)</li>
+    <li>B) Table stage (@%table)</li>
+    <li>C) Named internal stage</li>
+    <li>D) Named external stage</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: D</span><div class="explanation">AUTO_INGEST only works with external stages because it requires cloud event notifications (S3 events, Azure Event Grid, GCS Pub/Sub). Internal stages have no notification mechanism.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q7</span><span class="category">PATTERN</span>
+  <div class="q-text">How does PATTERN matching in Snowpipe differ from bulk COPY INTO?</div>
+  <ul class="options">
+    <li>A) Snowpipe doesn't support PATTERN</li>
+    <li>B) Snowpipe trims the stage URL before applying the regex; bulk COPY applies to the full path</li>
+    <li>C) Both behave identically</li>
+    <li>D) Bulk COPY trims the URL; Snowpipe applies to the full path</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">In Snowpipe, the stage's URL (including prefix) is trimmed from the file path BEFORE the regex pattern is applied. In bulk COPY INTO, the pattern is matched against the full path. This difference can cause patterns that work in COPY to fail in Snowpipe.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q8</span><span class="category">Transaction</span>
+  <div class="q-text">How does Snowpipe handle transactions when loading multiple files?</div>
+  <ul class="options">
+    <li>A) All files in one transaction (atomic)</li>
+    <li>B) Each file is a separate micro-transaction</li>
+    <li>C) Files are grouped into batches of 10</li>
+    <li>D) Transaction depends on ON_ERROR setting</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">Each file loaded by Snowpipe is its own micro-transaction. If one file fails, others are not affected. This differs from bulk COPY INTO where all files can be in a single transaction.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q9</span><span class="category">Basics</span>
+  <div class="q-text">What does a Snowpipe object contain?</div>
+  <ul class="options">
+    <li>A) A COPY INTO statement that defines how to load data</li>
+    <li>B) A warehouse reference and schedule</li>
+    <li>C) A stream definition and merge logic</li>
+    <li>D) A SELECT statement for data transformation</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: A</span><div class="explanation">A pipe object encapsulates a COPY INTO statement that defines the source stage, target table, file format, and error handling. It does not contain a warehouse reference or schedule.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q10</span><span class="category">Operations</span>
+  <div class="q-text">What is the purpose of ALTER PIPE REFRESH?</div>
+  <ul class="options">
+    <li>A) Restart the pipe after an error</li>
+    <li>B) Force Snowpipe to scan the stage and queue files for loading</li>
+    <li>C) Clear the pipe's load history</li>
+    <li>D) Update the pipe's COPY INTO definition</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">ALTER PIPE REFRESH instructs Snowpipe to scan the stage for files and queue them for loading. It's used for backfill (files that arrived before the pipe existed) or when auto-ingest notifications were missed.</div></div>
+</div>
+
+<h2>Auto-Ingest & Cloud Setup (Q11-Q20)</h2>
+
+<div class="q-block">
+  <span class="q-num">Q11</span><span class="category">AWS</span>
+  <div class="q-text">For AWS auto-ingest, what notification mechanism does Snowflake use?</div>
+  <ul class="options">
+    <li>A) S3 Event Notification → SNS topic</li>
+    <li>B) S3 Event Notification → SQS queue (Snowflake-managed)</li>
+    <li>C) CloudWatch Events → Lambda</li>
+    <li>D) S3 Event Notification → Kinesis stream</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">Snowflake uses an SQS queue that it creates and manages. You configure S3 bucket events to send notifications TO this Snowflake-managed SQS queue. You find the SQS ARN in the notification_channel column of SHOW PIPES.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q12</span><span class="category">AWS</span>
+  <div class="q-text">Where do you find the SQS queue ARN for configuring S3 event notifications?</div>
+  <ul class="options">
+    <li>A) AWS SQS console</li>
+    <li>B) SHOW PIPES output (notification_channel column)</li>
+    <li>C) DESCRIBE INTEGRATION output</li>
+    <li>D) Snowflake account settings</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">After creating a pipe with AUTO_INGEST=TRUE, run SHOW PIPES and look at the notification_channel column. It contains the Snowflake-managed SQS ARN that you configure as the destination in S3 bucket event notifications.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q13</span><span class="category">Azure</span>
+  <div class="q-text">For Azure auto-ingest, what notification mechanism is used?</div>
+  <ul class="options">
+    <li>A) Azure Functions → HTTP trigger</li>
+    <li>B) Event Grid → Storage Queue</li>
+    <li>C) Service Bus → Topic subscription</li>
+    <li>D) Azure Monitor → Alert rule</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">Azure auto-ingest uses Event Grid subscriptions that route blob storage events to a Storage Queue that Snowflake polls. This requires creating a notification integration in Snowflake.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q14</span><span class="category">GCS</span>
+  <div class="q-text">For GCS auto-ingest, what notification mechanism is used?</div>
+  <ul class="options">
+    <li>A) GCS → Pub/Sub subscription</li>
+    <li>B) Cloud Functions → HTTP callback</li>
+    <li>C) Eventarc → Cloud Run</li>
+    <li>D) GCS → Cloud Scheduler</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: A</span><div class="explanation">GCS auto-ingest uses GCS notifications to a Pub/Sub topic, and Snowflake subscribes to that topic via a notification integration.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q15</span><span class="category">Integration</span>
+  <div class="q-text">What Snowflake object is required for auto-ingest on Azure and GCS (but NOT AWS)?</div>
+  <ul class="options">
+    <li>A) Storage Integration</li>
+    <li>B) Notification Integration</li>
+    <li>C) Security Integration</li>
+    <li>D) API Integration</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">Azure and GCS require a notification integration to connect to Event Grid or Pub/Sub. AWS uses a Snowflake-managed SQS queue directly and doesn't require a separate notification integration for auto-ingest.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q16</span><span class="category">Setup</span>
+  <div class="q-text">What is the correct order to set up auto-ingest Snowpipe on AWS?</div>
+  <ul class="options">
+    <li>A) Create pipe → Create stage → Configure S3 events</li>
+    <li>B) Create storage integration → Create stage → Create pipe → Configure S3 events</li>
+    <li>C) Configure S3 events → Create stage → Create pipe</li>
+    <li>D) Create pipe → Configure S3 events → Create stage</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">The correct order is: 1) Create storage integration (IAM trust), 2) Create external stage using integration, 3) Create pipe with AUTO_INGEST=TRUE, 4) Get SQS ARN from SHOW PIPES, 5) Configure S3 bucket events to that SQS.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q17</span><span class="category">Internal</span>
+  <div class="q-text">How can you trigger Snowpipe to load files from an internal stage?</div>
+  <ul class="options">
+    <li>A) AUTO_INGEST = TRUE</li>
+    <li>B) Snowpipe REST API (insertFiles) or ALTER PIPE REFRESH</li>
+    <li>C) It happens automatically when files are PUT to the stage</li>
+    <li>D) EXECUTE PIPE command</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">Internal stages don't support AUTO_INGEST (no cloud notification system). You must trigger Snowpipe manually via the REST API (insertFiles endpoint) or by running ALTER PIPE REFRESH.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q18</span><span class="category">Status</span>
+  <div class="q-text">What does SYSTEM$PIPE_STATUS return when called on a paused pipe?</div>
+  <ul class="options">
+    <li>A) An error because the pipe is inactive</li>
+    <li>B) JSON with executionState = "PAUSED"</li>
+    <li>C) NULL</li>
+    <li>D) The status of the last successful load</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">SYSTEM$PIPE_STATUS returns JSON including executionState ("RUNNING", "PAUSED", or "STOPPED_FEATURE_DISABLED"), pendingFileCount, lastIngestedTimestamp, and lastIngestedFilePath.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q19</span><span class="category">Notifications</span>
+  <div class="q-text">Who creates and manages the SQS queue used for Snowpipe auto-ingest on AWS?</div>
+  <ul class="options">
+    <li>A) The customer creates it in their AWS account</li>
+    <li>B) Snowflake creates and manages it automatically</li>
+    <li>C) Both customer and Snowflake co-manage it</li>
+    <li>D) It's created by the storage integration</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">The SQS queue is created and managed entirely by Snowflake. The customer only needs to configure their S3 bucket to send event notifications to this Snowflake-managed SQS queue.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q20</span><span class="category">ERROR_INTEGRATION</span>
+  <div class="q-text">What is the purpose of ERROR_INTEGRATION in a pipe definition?</div>
+  <ul class="options">
+    <li>A) Retries failed file loads automatically</li>
+    <li>B) Sends notifications when files fail to load</li>
+    <li>C) Routes error records to a dead-letter table</li>
+    <li>D) Transforms error messages before logging</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">ERROR_INTEGRATION sends push notifications (via SNS, Event Grid, or Pub/Sub) when files fail to load. It does not retry or route data — it only alerts.</div></div>
+</div>
+
+<h2>Snowpipe Streaming & Kafka (Q21-Q30)</h2>
+
+<div class="q-block">
+  <span class="q-num">Q21</span><span class="category">Streaming</span>
+  <div class="q-text">What is the key difference between Snowpipe and Snowpipe Streaming?</div>
+  <ul class="options">
+    <li>A) Snowpipe Streaming uses a warehouse; Snowpipe does not</li>
+    <li>B) Snowpipe is file-based; Snowpipe Streaming is row-based (no files/stages needed)</li>
+    <li>C) Snowpipe Streaming requires Kafka; Snowpipe does not</li>
+    <li>D) They are the same service with different names</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">Snowpipe (classic) loads FILES from stages. Snowpipe Streaming inserts ROWS directly via SDK (Java/Python) without needing files or stages. Streaming has seconds latency vs ~1 minute for file-based.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q22</span><span class="category">Streaming</span>
+  <div class="q-text">What is the typical data availability latency for Snowpipe Streaming?</div>
+  <ul class="options">
+    <li>A) ~1 minute</li>
+    <li>B) ~5 minutes</li>
+    <li>C) Seconds (sub-10 seconds)</li>
+    <li>D) Milliseconds</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: C</span><div class="explanation">Snowpipe Streaming provides data availability within seconds (typically under 10 seconds), compared to ~1 minute for file-based Snowpipe.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q23</span><span class="category">Streaming</span>
+  <div class="q-text">Does Snowpipe Streaming require a Snowflake stage?</div>
+  <ul class="options">
+    <li>A) Yes, an internal stage is required</li>
+    <li>B) Yes, an external stage is required</li>
+    <li>C) No, data is sent directly to the table via SDK</li>
+    <li>D) Only for the initial setup</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: C</span><div class="explanation">Snowpipe Streaming bypasses the file/stage paradigm entirely. Data is written directly to Snowflake tables via the Ingest SDK's insertRows API call.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q24</span><span class="category">Kafka</span>
+  <div class="q-text">What does the Snowflake Kafka Connector use internally for low-latency ingestion?</div>
+  <ul class="options">
+    <li>A) Bulk COPY INTO with a warehouse</li>
+    <li>B) File-based Snowpipe (writes to stage first)</li>
+    <li>C) Snowpipe Streaming (row-level direct insert)</li>
+    <li>D) Direct SQL INSERT statements</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: C</span><div class="explanation">The modern Snowflake Kafka Connector uses Snowpipe Streaming internally, providing seconds-level latency from Kafka to Snowflake tables. The legacy version used file-based Snowpipe (writing to an internal stage first).</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q25</span><span class="category">Streaming</span>
+  <div class="q-text">What is a "channel" in Snowpipe Streaming?</div>
+  <ul class="options">
+    <li>A) A notification pathway like SQS</li>
+    <li>B) A logical connection from one client to one table with its own offset</li>
+    <li>C) A partition in the target table</li>
+    <li>D) A Kafka consumer group</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">A channel is a logical connection from one client/partition to one table. Each channel maintains its own offset token for exactly-once delivery and recovery.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q26</span><span class="category">Comparison</span>
+  <div class="q-text">A company needs to load IoT sensor data at 50,000 events per second with sub-10 second latency. Which method is best?</div>
+  <ul class="options">
+    <li>A) Snowpipe with auto-ingest</li>
+    <li>B) Bulk COPY INTO every 30 seconds via Task</li>
+    <li>C) Snowpipe Streaming via the Ingest SDK</li>
+    <li>D) INSERT INTO via stored procedure</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: C</span><div class="explanation">Snowpipe Streaming is designed for high-velocity, low-latency scenarios. It handles 50K+ events/sec with seconds latency and no file staging overhead. File-based Snowpipe would have ~1 minute latency and require writing files first.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q27</span><span class="category">Comparison</span>
+  <div class="q-text">Files of 200MB each arrive every 5 minutes in S3. What is the most cost-effective loading approach?</div>
+  <ul class="options">
+    <li>A) Snowpipe Streaming</li>
+    <li>B) Snowpipe with auto-ingest</li>
+    <li>C) Bulk COPY INTO via hourly Task</li>
+    <li>D) Dynamic Tables</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">200MB files every 5 minutes is the sweet spot for file-based Snowpipe auto-ingest (optimal file size, continuous arrival, event-driven). Streaming is unnecessary since data is already in files. Hourly Task would add latency.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q28</span><span class="category">Comparison</span>
+  <div class="q-text">A 50GB data export arrives once per day at midnight. What loading method is most cost-effective?</div>
+  <ul class="options">
+    <li>A) Snowpipe with auto-ingest</li>
+    <li>B) Snowpipe Streaming</li>
+    <li>C) Bulk COPY INTO triggered by a Task</li>
+    <li>D) Multiple Snowpipes in parallel</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: C</span><div class="explanation">For large, infrequent batch loads, bulk COPY INTO with a dedicated warehouse is more cost-effective than Snowpipe. Snowpipe has ~10% overhead for serverless compute. A task can trigger the load at the right time.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q29</span><span class="category">Kafka</span>
+  <div class="q-text">What is the recommended approach to stream data from Kafka to Snowflake?</div>
+  <ul class="options">
+    <li>A) Write Kafka messages to S3 files, then use Snowpipe auto-ingest</li>
+    <li>B) Use the Snowflake Kafka Connector with Kafka Connect</li>
+    <li>C) Use Spark Structured Streaming to read Kafka and write to Snowflake</li>
+    <li>D) Custom consumer that runs INSERT INTO statements</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">The Snowflake Kafka Connector (via Kafka Connect) is the recommended approach. It's purpose-built, uses Snowpipe Streaming internally for low latency, handles exactly-once semantics, and requires minimal setup.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q30</span><span class="category">Streaming</span>
+  <div class="q-text">How does Snowpipe Streaming achieve exactly-once delivery?</div>
+  <ul class="options">
+    <li>A) 14-day file metadata deduplication</li>
+    <li>B) Offset tokens provided by the client with each insert</li>
+    <li>C) Transaction IDs from the source system</li>
+    <li>D) Exactly-once is not supported</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">Snowpipe Streaming uses client-provided offset tokens. On recovery, the client can check the last committed offset and resume from there, ensuring no data is duplicated or lost.</div></div>
+</div>
+
+<h2>RBAC & Privileges (Q31-Q37)</h2>
+
+<div class="q-block">
+  <span class="q-num">Q31</span><span class="category">Privileges</span>
+  <div class="q-text">What privilege is needed to create a pipe in a schema?</div>
+  <ul class="options">
+    <li>A) CREATE PIPE on the database</li>
+    <li>B) CREATE PIPE on the schema</li>
+    <li>C) OWNERSHIP on the schema</li>
+    <li>D) INSERT on any table in the schema</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">CREATE PIPE privilege on the schema is required to create a pipe. The role also needs USAGE on the stage and INSERT on the target table (for the pipe to actually function).</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q32</span><span class="category">Owner's Rights</span>
+  <div class="q-text">Whose privileges are used when Snowpipe loads data?</div>
+  <ul class="options">
+    <li>A) The user who ran ALTER PIPE REFRESH</li>
+    <li>B) The role that owns the pipe (owner's rights)</li>
+    <li>C) ACCOUNTADMIN always</li>
+    <li>D) The role that created the stage</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">Pipes execute using the pipe owner's privileges (owner's rights model). The owner role must have USAGE on the stage and INSERT on the target table. If ownership is transferred, the new owner needs these privileges.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q33</span><span class="category">OPERATE</span>
+  <div class="q-text">What can a role with OPERATE privilege on a pipe do?</div>
+  <ul class="options">
+    <li>A) Drop the pipe</li>
+    <li>B) Pause and resume the pipe</li>
+    <li>C) Change the COPY INTO definition</li>
+    <li>D) Transfer ownership</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">OPERATE privilege allows pausing and resuming the pipe (ALTER PIPE SET PIPE_EXECUTION_PAUSED). It does not allow modifying the pipe definition or dropping it — those require OWNERSHIP.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q34</span><span class="category">MONITOR</span>
+  <div class="q-text">What can a role with only MONITOR privilege on a pipe do?</div>
+  <ul class="options">
+    <li>A) Pause and resume the pipe</li>
+    <li>B) View pipe status (SYSTEM$PIPE_STATUS)</li>
+    <li>C) Run ALTER PIPE REFRESH</li>
+    <li>D) View COPY_HISTORY for the table</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">MONITOR allows viewing the pipe's status via SYSTEM$PIPE_STATUS and SHOW PIPES. It does not allow any operational actions like pausing, refreshing, or modifying.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q35</span><span class="category">Transfer</span>
+  <div class="q-text">After pipe ownership is transferred to a new role, what must be verified?</div>
+  <ul class="options">
+    <li>A) The original owner still has USAGE on the stage</li>
+    <li>B) The new owner role has INSERT on the table and USAGE on the stage</li>
+    <li>C) The pipe is recreated with CREATE OR REPLACE</li>
+    <li>D) ACCOUNTADMIN approves the transfer</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">Since pipes run with owner's rights, the new owner role must have all necessary privileges: USAGE on the stage, INSERT on the target table, and USAGE on the file format. Without these, loads will fail with permission errors.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q36</span><span class="category">Integration</span>
+  <div class="q-text">Who can grant USAGE on a storage integration?</div>
+  <ul class="options">
+    <li>A) Any role with CREATE INTEGRATION privilege</li>
+    <li>B) ACCOUNTADMIN only (since integrations are account-level objects)</li>
+    <li>C) SYSADMIN</li>
+    <li>D) The schema owner</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">Storage integrations are account-level objects. Only ACCOUNTADMIN (or a role with OWNERSHIP on the integration) can grant USAGE to other roles.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q37</span><span class="category">RBAC</span>
+  <div class="q-text">A pipe fails with "Insufficient privileges to operate on table." What is the most likely cause?</div>
+  <ul class="options">
+    <li>A) The user triggering REFRESH doesn't have INSERT on the table</li>
+    <li>B) The pipe owner's role doesn't have INSERT on the target table</li>
+    <li>C) ACCOUNTADMIN needs to grant EXECUTE PIPE privilege</li>
+    <li>D) The warehouse is suspended</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">Since pipes use owner's rights, the pipe owner's role must have INSERT on the target table. The caller who triggers REFRESH only needs OWNERSHIP or OPERATE on the pipe itself — the actual load runs as the owner.</div></div>
+</div>
+
+<h2>Production & Troubleshooting (Q38-Q44)</h2>
+
+<div class="q-block">
+  <span class="q-num">Q38</span><span class="category">File Size</span>
+  <div class="q-text">What is the recommended file size for optimal Snowpipe performance?</div>
+  <ul class="options">
+    <li>A) 1-10 KB</li>
+    <li>B) 10-50 MB</li>
+    <li>C) 100-250 MB compressed</li>
+    <li>D) 1-5 GB</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: C</span><div class="explanation">Snowflake recommends 100-250 MB compressed files for Snowpipe. Too small = excessive per-file overhead. Too large = slow processing and queue backlog.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q39</span><span class="category">Debug</span>
+  <div class="q-text">Files are arriving in S3 but the pipe shows pendingFileCount = 0 and no data is loading. What should you check first?</div>
+  <ul class="options">
+    <li>A) The warehouse is suspended</li>
+    <li>B) S3 event notification is correctly configured to send to the pipe's SQS ARN</li>
+    <li>C) The table is full</li>
+    <li>D) The file format is wrong</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">If pendingFileCount is 0 and no data is loading, the pipe is not receiving notifications. The most common cause is S3 event notifications not properly configured to send to the Snowflake-managed SQS queue ARN.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q40</span><span class="category">Debug</span>
+  <div class="q-text">COPY_HISTORY shows STATUS='Load failed' with error "Numeric value 'abc' is not recognized." What happened?</div>
+  <ul class="options">
+    <li>A) The stage is misconfigured</li>
+    <li>B) A file contains data that doesn't match the target table's column types</li>
+    <li>C) The pipe is paused</li>
+    <li>D) The file is too large</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">This error means a column expected a numeric value but received text ('abc'). The file data doesn't match the target table schema. Fix the file or adjust the COPY INTO (add CAST or change ON_ERROR to CONTINUE).</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q41</span><span class="category">Debug</span>
+  <div class="q-text">How do you check the load history for a specific pipe over the last 7 days?</div>
+  <ul class="options">
+    <li>A) SELECT * FROM PIPE_HISTORY WHERE pipe_name = '...'</li>
+    <li>B) SHOW PIPE HISTORY for pipe_name</li>
+    <li>C) Query COPY_HISTORY() Information Schema function with the target TABLE_NAME</li>
+    <li>D) Query SYSTEM$PIPE_HISTORY()</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: C</span><div class="explanation">Use TABLE(INFORMATION_SCHEMA.COPY_HISTORY(TABLE_NAME=>'table', START_TIME=>...)) which returns load details including the PIPE_NAME column. Note: this function takes the TABLE name, not the pipe name.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q42</span><span class="category">Cost</span>
+  <div class="q-text">A company loads 100,000 tiny files (1KB each) per day via Snowpipe. What is the likely issue?</div>
+  <ul class="options">
+    <li>A) Files are too large</li>
+    <li>B) High per-file overhead makes this expensive; they should batch into fewer, larger files</li>
+    <li>C) Snowpipe cannot handle this volume</li>
+    <li>D) They need multiple pipes for this</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">With 100K tiny files, the per-file overhead is disproportionately expensive. The fix is to batch small records into fewer, larger files (100-250MB) upstream before staging. The total data may be tiny but the per-file billing adds up.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q43</span><span class="category">Backfill</span>
+  <div class="q-text">Files were uploaded to S3 BEFORE the pipe was created. How do you load them?</div>
+  <ul class="options">
+    <li>A) They will be picked up automatically by auto-ingest</li>
+    <li>B) Use ALTER PIPE REFRESH to scan the stage for existing files</li>
+    <li>C) Drop and recreate the pipe</li>
+    <li>D) Use SYSTEM$PIPE_RELOAD()</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">ALTER PIPE REFRESH scans the stage for files and queues them for loading. This is specifically designed for backfill — loading files that arrived before the pipe existed or during periods when notifications were missed.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q44</span><span class="category">ON_ERROR</span>
+  <div class="q-text">With ON_ERROR = 'CONTINUE', what happens when a file has 100 rows but 5 have errors?</div>
+  <ul class="options">
+    <li>A) All 100 rows are skipped</li>
+    <li>B) 95 valid rows are loaded; 5 bad rows are skipped</li>
+    <li>C) The file is marked as partially loaded and retried</li>
+    <li>D) The pipe pauses automatically</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">ON_ERROR = CONTINUE loads all valid rows and skips only the rows with errors. The COPY_HISTORY will show the file as "Partially loaded" with ROW_COUNT=95 and ERROR_COUNT=5.</div></div>
+</div>
+
+<h2>Advanced Concepts (Q45-Q50)</h2>
+
+<div class="q-block">
+  <span class="q-num">Q45</span><span class="category">Monitoring</span>
+  <div class="q-text">Which view provides 365 days of Snowpipe credit consumption history?</div>
+  <ul class="options">
+    <li>A) INFORMATION_SCHEMA.PIPE_USAGE_HISTORY</li>
+    <li>B) SNOWFLAKE.ACCOUNT_USAGE.PIPE_USAGE_HISTORY</li>
+    <li>C) SNOWFLAKE.ACCOUNT_USAGE.COPY_HISTORY</li>
+    <li>D) INFORMATION_SCHEMA.COPY_HISTORY</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">SNOWFLAKE.ACCOUNT_USAGE.PIPE_USAGE_HISTORY provides 365 days of credit usage data (with 1-2 hour latency). INFORMATION_SCHEMA.PIPE_USAGE_HISTORY provides 14 days with real-time data.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q46</span><span class="category">Transformations</span>
+  <div class="q-text">Which transformation is supported in a Snowpipe COPY INTO statement?</div>
+  <ul class="options">
+    <li>A) JOIN with another table</li>
+    <li>B) GROUP BY with aggregation</li>
+    <li>C) CAST and column reordering using $1, $2 notation</li>
+    <li>D) Calling a UDF</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: C</span><div class="explanation">Snowpipe supports limited transformations: CAST, column reordering ($1, $2), SUBSTR, TRIM, METADATA$ columns, and column omission. JOINs, aggregations, UDFs, and subqueries are NOT supported.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q47</span><span class="category">Metadata</span>
+  <div class="q-text">What METADATA columns can be referenced in a Snowpipe COPY INTO?</div>
+  <ul class="options">
+    <li>A) METADATA$FILENAME and METADATA$FILE_ROW_NUMBER</li>
+    <li>B) METADATA$TABLE_NAME and METADATA$SCHEMA_NAME</li>
+    <li>C) METADATA$PIPE_NAME and METADATA$LOAD_TIME</li>
+    <li>D) METADATA$SOURCE and METADATA$DESTINATION</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: A</span><div class="explanation">METADATA$FILENAME (source file name), METADATA$FILE_ROW_NUMBER (row position in file), METADATA$FILE_CONTENT_KEY, METADATA$FILE_LAST_MODIFIED, and METADATA$START_SCAN_TIME are available in COPY INTO statements.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q48</span><span class="category">Architecture</span>
+  <div class="q-text">Can multiple Snowpipes load into the same target table simultaneously?</div>
+  <ul class="options">
+    <li>A) No, only one pipe per table is allowed</li>
+    <li>B) Yes, but it's not recommended due to lock contention</li>
+    <li>C) Yes, with no performance impact</li>
+    <li>D) Only if they read from the same stage</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">Multiple pipes CAN target the same table, but it's not recommended. It can cause micro-partition contention and slightly degrade performance. Best practice is one pipe per table, using path prefixes to partition if needed.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q49</span><span class="category">Operations</span>
+  <div class="q-text">What is the safe way to modify a pipe's COPY INTO definition?</div>
+  <ul class="options">
+    <li>A) ALTER PIPE SET DEFINITION = '...'</li>
+    <li>B) CREATE OR REPLACE PIPE (accepting metadata loss risk)</li>
+    <li>C) Pause → note last load time → Drop → Create new pipe → Refresh with MODIFIED_AFTER</li>
+    <li>D) You cannot change a pipe's definition</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: C</span><div class="explanation">The COPY INTO statement cannot be altered — you must drop and recreate. The safe approach is: 1) Pause pipe, 2) Wait for pending=0, 3) Note last load timestamp, 4) Drop pipe, 5) Create new pipe, 6) ALTER PIPE REFRESH with MODIFIED_AFTER to load only the gap.</div></div>
+</div>
+
+<div class="q-block">
+  <span class="q-num">Q50</span><span class="category">Comparison</span>
+  <div class="q-text">Which statement is TRUE about Snowpipe vs Dynamic Tables?</div>
+  <ul class="options">
+    <li>A) Both are used for data ingestion from external sources</li>
+    <li>B) Snowpipe loads raw data from files; Dynamic Tables transform existing Snowflake data</li>
+    <li>C) Dynamic Tables replace Snowpipe for all use cases</li>
+    <li>D) Snowpipe can do transformations that Dynamic Tables cannot</li>
+  </ul>
+  <div class="answer-toggle"><button class="answer-btn" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show Answer</button></div>
+  <div class="answer-content"><span class="correct">Answer: B</span><div class="explanation">Snowpipe is for INGESTION — getting data from external files into Snowflake. Dynamic Tables are for TRANSFORMATION — declaratively transforming data already in Snowflake. They serve different purposes and often work together: Snowpipe loads raw data, then Dynamic Tables transform it.</div></div>
+</div>
+
+<div class="score-card">
+  <strong>How did you score?</strong><br>
+  45-50: Excellent — ready for the exam!<br>
+  35-44: Good — review the topics you got wrong<br>
+  25-34: Needs work — re-read Part 1 and Part 2<br>
+  Below 25: Start over with the fundamentals
+</div>
+
+<p style="margin-top: 40px; padding-top: 20px; border-top: 1px solid light-dark(#e5e7eb, #374151); color: light-dark(#6b7280, #9ca3af); font-size: 0.85rem;">
+  Snowpipe Exam Practice Questions | SnowPro Core Certification | 50 Questions | August 14, 2026
+</p>
+
+<script>
+document.querySelectorAll('.answer-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var content = this.parentElement.nextElementSibling;
+    content.classList.toggle('show');
+    this.textContent = content.classList.contains('show') ? 'Hide Answer' : 'Show Answer';
+  });
+});
+</script>
+
+</body>
+</html>

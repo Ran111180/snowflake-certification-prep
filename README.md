@@ -26,7 +26,13 @@ Complete hands-on study material for the **Snowflake SnowPro Core Certification*
 │   └── 02-udfs-tasks-streams/    # UDFs, stored procs, Streams, Tasks, Dynamic Tables
 ├── 06-data-protection-sharing/   # Time Travel, Fail-safe, cloning, data sharing
 ├── 07-cortex-ai/                 # AI_COMPLETE, sentiment, translate, embeddings
-└── 08-ecosystem-advanced/        # Iceberg, Native Apps, SPCS, Clean Rooms
+├── 08-ecosystem-advanced/        # Iceberg, Native Apps, SPCS, Clean Rooms
+├── 09-tasks-deep-dive/            # Tasks: CRON, DAGs, Streams+Tasks, Serverless, Email
+│   ├── 01-certification-reference/ # Part 1 & Part 2 HTML, queries.sql
+│   └── 02-hands-on-practice/       # Full lab with RBAC, stored proc, email notifications
+└── 10-snowpipe-deep-dive/         # Snowpipe: Auto-Ingest, Streaming, Kafka, RBAC, Debug
+    ├── 01-certification-reference/ # Part 1 (Fundamentals), Part 2 (Advanced), 50 Questions
+    └── 02-hands-on-practice/       # Hands-on lab with internal stage, error handling, dedup
 ```
 
 Each folder contains:

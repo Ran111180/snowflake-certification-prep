@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowpipe Certification - Part 1: Fundamentals</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-14",
+    "intent": "Comprehensive Snowpipe Part 1 certification reference covering fundamentals, syntax, stages, auto-ingest, REST API, file formats, and features",
+    "sections": [
+      { "id": "what-is-snowpipe", "title": "What is Snowpipe", "dataSources": [], "producerNotes": "Core concepts and architecture" },
+      { "id": "syntax", "title": "Syntax Reference", "dataSources": [], "producerNotes": "CREATE PIPE, ALTER PIPE, DESCRIBE, DROP" },
+      { "id": "stages", "title": "Internal vs External Stages", "dataSources": [], "producerNotes": "Comparison and when to use" },
+      { "id": "auto-ingest", "title": "Auto-Ingest Setup", "dataSources": [], "producerNotes": "AWS SQS, Azure Event Grid, GCS Pub/Sub" },
+      { "id": "rest-api", "title": "REST API Loading", "dataSources": [], "producerNotes": "Programmatic loading via SDK" },
+      { "id": "features", "title": "Features Summary", "dataSources": [], "producerNotes": "All capabilities" },
+      { "id": "limitations", "title": "Limitations", "dataSources": [], "producerNotes": "What Snowpipe cannot do" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #0f172a); line-height: 1.6; }
+    h1 { font-size: 2rem; color: light-dark(#0f172a, #f8fafc); margin-bottom: 8px; border-bottom: 3px solid light-dark(#2563eb, #3b82f6); padding-bottom: 12px; }
+    h2 { font-size: 1.5rem; color: light-dark(#1e40af, #60a5fa); margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid light-dark(#dbeafe, #1e3a5f); }
+    h3 { font-size: 1.15rem; color: light-dark(#1e3a8a, #93c5fd); margin: 24px 0 12px; }
+    h4 { font-size: 1rem; color: light-dark(#374151, #d1d5db); margin: 16px 0 8px; }
+    p { margin: 8px 0; }
+    .subtitle { color: light-dark(#6b7280, #9ca3af); font-size: 0.95rem; margin-bottom: 24px; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; }
+    th, td { border: 1px solid light-dark(#e5e7eb, #374151); padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: light-dark(#eff6ff, #1e293b); font-weight: 600; color: light-dark(#1e40af, #93c5fd); }
+    tr:nth-child(even) td { background: light-dark(#f9fafb, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
+    pre { background: light-dark(#1e293b, #0c1322); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; font-size: 0.85rem; line-height: 1.5; }
+    .card { background: light-dark(#f0f9ff, #1e293b); border: 1px solid light-dark(#bfdbfe, #334155); border-radius: 8px; padding: 20px; margin: 16px 0; }
+    .card-title { font-weight: 700; color: light-dark(#1e40af, #60a5fa); margin-bottom: 8px; }
+    .warning { background: light-dark(#fef3c7, #451a03); border-left: 4px solid light-dark(#f59e0b, #fbbf24); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .info { background: light-dark(#dbeafe, #172554); border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .success { background: light-dark(#d1fae5, #022c22); border-left: 4px solid light-dark(#10b981, #34d399); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .danger { background: light-dark(#fee2e2, #450a0a); border-left: 4px solid light-dark(#ef4444, #f87171); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+    .badge-exam { background: light-dark(#fee2e2, #7f1d1d); color: light-dark(#991b1b, #fca5a5); }
+    .badge-key { background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); }
+    .toc { background: light-dark(#f8fafc, #1e293b); border: 1px solid light-dark(#e2e8f0, #334155); border-radius: 8px; padding: 20px; margin: 24px 0; }
+    .toc a { color: light-dark(#2563eb, #60a5fa); text-decoration: none; }
+    .toc ul { list-style: none; padding-left: 0; }
+    .toc li { padding: 4px 0; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+    .arch-box { background: light-dark(#f0fdf4, #052e16); border: 2px solid light-dark(#86efac, #166534); border-radius: 12px; padding: 24px; margin: 20px 0; text-align: center; font-family: monospace; font-size: 0.85rem; line-height: 2; }
+    ul, ol { padding-left: 24px; margin: 8px 0; }
+    li { margin: 4px 0; }
+  </style>
+</head>
+<body>
+
+<h1>Snowpipe - Part 1: Fundamentals</h1>
+<p class="subtitle">SnowPro Core Certification | Data Loading & Unloading Domain (10-15%) | August 2026</p>
+
+<div class="toc">
+  <strong>Table of Contents</strong>
+  <ul>
+    <li><a href="#what-is-snowpipe">1. What is Snowpipe?</a></li>
+    <li><a href="#architecture">2. Architecture & How It Works</a></li>
+    <li><a href="#syntax">3. Complete Syntax Reference</a></li>
+    <li><a href="#stages">4. Internal vs External Stages</a></li>
+    <li><a href="#auto-ingest">5. Auto-Ingest (Event-Driven Loading)</a></li>
+    <li><a href="#rest-api">6. REST API Loading (Programmatic)</a></li>
+    <li><a href="#file-formats">7. File Formats & Transformations</a></li>
+    <li><a href="#load-history">8. Load History & Monitoring</a></li>
+    <li><a href="#features">9. Features Summary (15 Key Features)</a></li>
+    <li><a href="#limitations">10. Limitations (15 Key Limitations)</a></li>
+    <li><a href="#best-practices">11. Best Practices</a></li>
+  </ul>
+</div>
+
+<!-- SECTION 1 -->
+<h2 id="what-is-snowpipe">1. What is Snowpipe?</h2>
+
+<div class="card">
+  <div class="card-title">Definition</div>
+  <p><strong>Snowpipe</strong> is Snowflake's continuous, serverless data ingestion service that loads data from files in stages into tables within minutes of the file's arrival.</p>
+</div>
+
+<table>
+  <tr><th>Aspect</th><th>Detail</th></tr>
+  <tr><td>Compute</td><td><strong>Snowflake-managed</strong> (serverless) - does NOT use your warehouse</td></tr>
+  <tr><td>Latency</td><td>~1 minute from notification to data available</td></tr>
+  <tr><td>Billing</td><td>Per-file basis (~0.06 credits per 1000 files queued)</td></tr>
+  <tr><td>Trigger Methods</td><td>1) Cloud event notifications (auto-ingest) 2) REST API calls</td></tr>
+  <tr><td>File Sources</td><td>Internal stages, External stages (S3, Azure Blob, GCS)</td></tr>
+  <tr><td>Load Unit</td><td>Micro-batches (individual files or small groups)</td></tr>
+  <tr><td>Deduplication</td><td>14-day load metadata prevents re-loading same file</td></tr>
+</table>
+
+<h3>Snowpipe vs Bulk COPY INTO</h3>
+<table>
+  <thead><tr><th>Feature</th><th>Snowpipe</th><th>Bulk COPY INTO</th></tr></thead>
+  <tbody>
+    <tr><td>Compute</td><td>Snowflake-managed (serverless)</td><td>Your virtual warehouse</td></tr>
+    <tr><td>Trigger</td><td>Event notification / REST API</td><td>Manual / scheduled via Task</td></tr>
+    <tr><td>Latency</td><td>~1 minute</td><td>Depends on schedule</td></tr>
+    <tr><td>Cost Model</td><td>Per-file (credits for compute time)</td><td>Warehouse credits (time-based)</td></tr>
+    <tr><td>Best For</td><td>Continuous streaming files, small frequent loads</td><td>Large batch loads, scheduled ETL</td></tr>
+    <tr><td>File Size Sweet Spot</td><td>100-250 MB compressed</td><td>Any size (larger = more efficient)</td></tr>
+    <tr><td>Load History Retention</td><td>14 days</td><td>64 days (LOAD_HISTORY in Account Usage)</td></tr>
+    <tr><td>Transformations</td><td>Limited (column reorder, CAST, omit)</td><td>Full SELECT with expressions</td></tr>
+    <tr><td>PATTERN Behavior</td><td>Stage URL trimmed BEFORE regex applied</td><td>Regex applied to FULL path</td></tr>
+    <tr><td>Transaction</td><td>Each file = separate transaction</td><td>All files = single transaction</td></tr>
+  </tbody>
+</table>
+
+<!-- SECTION 2 -->
+<h2 id="architecture">2. Architecture & How It Works</h2>
+
+<div class="arch-box">
+<strong>Auto-Ingest Flow (External Stage):</strong><br><br>
+[Cloud Storage] --new file--> [Event Notification] --message--> [Snowflake SQS/Queue]<br>
+       |<br>
+       v<br>
+[Snowpipe Service] --reads file--> [Stage] --COPY INTO--> [Target Table]<br>
+       |<br>
+       v<br>
+[Load Metadata Updated] (file marked as "loaded" for 14 days)
+</div>
+
+<div class="arch-box">
+<strong>REST API Flow (Internal or External Stage):</strong><br><br>
+[Your Application/Script] --insertFiles API call--> [Snowpipe REST Endpoint]<br>
+       |<br>
+       v<br>
+[Snowpipe Service] --reads file--> [Stage] --COPY INTO--> [Target Table]<br>
+       |<br>
+       v<br>
+[Load Metadata Updated]
+</div>
+
+<h3>Key Architecture Points</h3>
+<ul>
+  <li>Snowpipe uses a <strong>file queue</strong> - files are processed in order they arrive</li>
+  <li>Each file is loaded in its <strong>own micro-transaction</strong></li>
+  <li>Snowflake provisions compute <strong>on-demand</strong> - no idle warehouse</li>
+  <li>Multiple pipes can read from the same stage</li>
+  <li>A pipe is <strong>bound to one COPY INTO statement</strong></li>
+</ul>
+
+<!-- SECTION 3 -->
+<h2 id="syntax">3. Complete Syntax Reference</h2>
+
+<h3>CREATE PIPE</h3>
+<pre>CREATE [ OR REPLACE ] PIPE [ IF NOT EXISTS ] &lt;pipe_name&gt;
+  [ AUTO_INGEST = TRUE | FALSE ]        -- Enable event-driven loading
+  [ ERROR_INTEGRATION = &lt;name&gt; ]        -- Send error notifications
+  [ AWS_SNS_TOPIC = '&lt;arn&gt;' ]           -- For auto-ingest (AWS)
+  [ INTEGRATION = '&lt;name&gt;' ]            -- Notification integration (Azure/GCS)
+  [ COMMENT = '&lt;string&gt;' ]
+  AS &lt;copy_statement&gt;                    -- The COPY INTO that defines the load</pre>
+
+<h4>Example - Internal Stage (no auto-ingest):</h4>
+<pre>CREATE PIPE my_pipe AS
+COPY INTO my_table
+FROM @my_internal_stage
+FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER = 1)
+ON_ERROR = 'SKIP_FILE';</pre>
+
+<h4>Example - External Stage with Auto-Ingest (AWS):</h4>
+<pre>CREATE PIPE my_pipe
+  AUTO_INGEST = TRUE
+  AS
+  COPY INTO my_table
+  FROM @my_s3_stage/path/
+  FILE_FORMAT = my_csv_format
+  ON_ERROR = 'CONTINUE';</pre>
+
+<h4>Example - With ERROR_INTEGRATION:</h4>
+<pre>CREATE PIPE my_pipe
+  AUTO_INGEST = TRUE
+  ERROR_INTEGRATION = my_error_notification
+  AS
+  COPY INTO my_table FROM @my_stage;</pre>
+
+<h3>ALTER PIPE</h3>
+<pre>-- Pause/Resume
+ALTER PIPE &lt;pipe_name&gt; SET PIPE_EXECUTION_PAUSED = TRUE | FALSE;
+
+-- Refresh (scan stage for new files)
+ALTER PIPE &lt;pipe_name&gt; REFRESH
+  [ PREFIX = '&lt;path_prefix&gt;' ]
+  [ MODIFIED_AFTER = '&lt;timestamp&gt;' ];
+
+-- Change properties
+ALTER PIPE &lt;pipe_name&gt; SET
+  PIPE_EXECUTION_PAUSED = TRUE
+  COMMENT = 'Updated comment'
+  ERROR_INTEGRATION = &lt;name&gt;;</pre>
+
+<h3>DESCRIBE PIPE</h3>
+<pre>DESCRIBE PIPE &lt;pipe_name&gt;;
+-- Returns: created_on, name, database_name, schema_name, definition, owner,
+--          notification_channel, comment, integration, pattern</pre>
+
+<h3>SHOW PIPES</h3>
+<pre>SHOW PIPES [ LIKE '&lt;pattern&gt;' ] [ IN SCHEMA &lt;schema&gt; ];</pre>
+
+<h3>DROP PIPE</h3>
+<pre>DROP PIPE [ IF EXISTS ] &lt;pipe_name&gt;;</pre>
+
+<h3>SYSTEM$PIPE_STATUS</h3>
+<pre>SELECT SYSTEM$PIPE_STATUS('&lt;fully_qualified_pipe_name&gt;');
+-- Returns JSON:
+-- {
+--   "executionState": "RUNNING" | "PAUSED" | "STOPPED_FEATURE_DISABLED",
+--   "pendingFileCount": 0,
+--   "lastIngestedTimestamp": "2026-08-14T09:10:12.326Z",
+--   "lastIngestedFilePath": "path/to/file.csv",
+--   "notificationChannelName": "arn:aws:sqs:...",
+--   "numOutstandingMessagesOnChannel": 0
+-- }</pre>
+
+<div class="warning">
+  <strong>Exam Trap - CREATE OR REPLACE:</strong> Running <code>CREATE OR REPLACE PIPE</code> on an existing pipe <strong>purges all load metadata</strong>. Files previously loaded WILL be loaded again, causing duplicates. Use <code>ALTER PIPE</code> instead when possible.
+</div>
+
+<!-- SECTION 4 -->
+<h2 id="stages">4. Internal vs External Stages</h2>
+
+<table>
+  <thead><tr><th>Feature</th><th>Internal Stage</th><th>External Stage</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Storage Location</strong></td><td>Snowflake-managed storage</td><td>Your S3 / Azure Blob / GCS bucket</td></tr>
+    <tr><td><strong>Auto-Ingest</strong></td><td>NOT supported</td><td>Fully supported</td></tr>
+    <tr><td><strong>Trigger Method</strong></td><td>REST API or ALTER PIPE REFRESH only</td><td>Event notification (automatic)</td></tr>
+    <tr><td><strong>Storage Cost</strong></td><td>Billed to Snowflake account</td><td>Billed to cloud provider</td></tr>
+    <tr><td><strong>Setup Complexity</strong></td><td>Simple (CREATE STAGE)</td><td>Need Storage Integration + IAM roles</td></tr>
+    <tr><td><strong>File Upload</strong></td><td>PUT command (SnowSQL) or Snowsight</td><td>Upload to cloud bucket directly</td></tr>
+    <tr><td><strong>Production Use</strong></td><td>Testing, small/one-time loads</td><td>Continuous production pipelines</td></tr>
+    <tr><td><strong>Encryption</strong></td><td>Snowflake-managed encryption</td><td>Your cloud KMS or Snowflake CSE</td></tr>
+  </tbody>
+</table>
+
+<h3>Stage Types</h3>
+<table>
+  <tr><th>Type</th><th>Syntax</th><th>Scope</th></tr>
+  <tr><td>User Stage</td><td><code>@~</code></td><td>Private to each user</td></tr>
+  <tr><td>Table Stage</td><td><code>@%table_name</code></td><td>Associated with a specific table</td></tr>
+  <tr><td>Named Internal Stage</td><td><code>@stage_name</code></td><td>Can be shared across users/tables</td></tr>
+  <tr><td>Named External Stage</td><td><code>@ext_stage_name</code></td><td>Points to cloud storage</td></tr>
+</table>
+
+<div class="info">
+  <strong>Exam Note:</strong> Snowpipe can read from any stage type, but <strong>AUTO_INGEST only works with external stages</strong> because cloud event notifications require an external storage system (S3, Blob, GCS).
+</div>
+
+<!-- SECTION 5 -->
+<h2 id="auto-ingest">5. Auto-Ingest (Event-Driven Loading)</h2>
+
+<p>Auto-ingest enables Snowpipe to automatically detect and load new files as soon as they arrive in cloud storage.</p>
+
+<h3>Cloud-Specific Setup</h3>
+<table>
+  <thead><tr><th>Cloud</th><th>Notification Mechanism</th><th>Setup Steps</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>AWS</strong></td>
+      <td>S3 Event Notification &rarr; SQS Queue (Snowflake-managed)</td>
+      <td>1. Create external stage<br>2. Create pipe with AUTO_INGEST=TRUE<br>3. Note the <code>notification_channel</code> (SQS ARN)<br>4. Configure S3 bucket to send events to that SQS</td>
+    </tr>
+    <tr>
+      <td><strong>Azure</strong></td>
+      <td>Event Grid &rarr; Storage Queue</td>
+      <td>1. Create notification integration<br>2. Create external stage<br>3. Create pipe with AUTO_INGEST=TRUE + INTEGRATION<br>4. Configure Event Grid subscription</td>
+    </tr>
+    <tr>
+      <td><strong>GCP</strong></td>
+      <td>Pub/Sub Subscription</td>
+      <td>1. Create notification integration<br>2. Create external stage<br>3. Create pipe with AUTO_INGEST=TRUE + INTEGRATION<br>4. Configure GCS notification to Pub/Sub topic</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>AWS Auto-Ingest - Full Example</h3>
+<pre>-- Step 1: Create storage integration
+CREATE STORAGE INTEGRATION s3_integration
+  TYPE = EXTERNAL_STAGE
+  STORAGE_PROVIDER = 'S3'
+  ENABLED = TRUE
+  STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::123456789012:role/snowflake-role'
+  STORAGE_ALLOWED_LOCATIONS = ('s3://my-bucket/data/');
+
+-- Step 2: Create external stage
+CREATE STAGE my_s3_stage
+  STORAGE_INTEGRATION = s3_integration
+  URL = 's3://my-bucket/data/'
+  FILE_FORMAT = (TYPE = 'JSON');
+
+-- Step 3: Create pipe with auto-ingest
+CREATE PIPE my_auto_pipe
+  AUTO_INGEST = TRUE
+  AS
+  COPY INTO my_json_table
+  FROM @my_s3_stage
+  FILE_FORMAT = (TYPE = 'JSON');
+
+-- Step 4: Get the SQS ARN to configure in AWS
+SHOW PIPES LIKE 'MY_AUTO_PIPE';
+-- Look at 'notification_channel' column = the SQS queue ARN
+-- Configure S3 bucket events to send to this SQS</pre>
+
+<div class="warning">
+  <strong>Key Point:</strong> The SQS queue is <strong>Snowflake-managed</strong>. You do NOT create it yourself. Snowflake creates and manages it. You only configure S3 to send events TO it.
+</div>
+
+<!-- SECTION 6 -->
+<h2 id="rest-api">6. REST API Loading (Programmatic)</h2>
+
+<p>When auto-ingest isn't suitable (internal stages, custom workflows), use the Snowpipe REST API.</p>
+
+<h3>REST API Endpoints</h3>
+<table>
+  <tr><th>Endpoint</th><th>Method</th><th>Purpose</th></tr>
+  <tr><td><code>insertFiles</code></td><td>POST</td><td>Submit file paths for loading</td></tr>
+  <tr><td><code>insertReport</code></td><td>POST</td><td>Check status of submitted files</td></tr>
+  <tr><td><code>loadHistoryScan</code></td><td>POST</td><td>Get load history for a pipe</td></tr>
+</table>
+
+<h3>SDK Support</h3>
+<table>
+  <tr><th>Language</th><th>SDK</th></tr>
+  <tr><td>Java</td><td>Snowflake Ingest SDK (snowflake-ingest-sdk)</td></tr>
+  <tr><td>Python</td><td>snowflake-ingest library</td></tr>
+</table>
+
+<h3>Python Example (Conceptual)</h3>
+<pre>from snowflake.ingest import SimpleIngestManager, StagedFile
+
+# Create ingest manager
+ingest_manager = SimpleIngestManager(
+    account='myaccount',
+    host='myaccount.snowflakecomputing.com',
+    user='myuser',
+    pipe='mydb.myschema.mypipe',
+    private_key=private_key
+)
+
+# Submit files for ingestion
+staged_files = [StagedFile('path/to/file1.csv', None)]
+resp = ingest_manager.ingest_files(staged_files)
+
+# Check status
+history_resp = ingest_manager.get_history()</pre>
+
+<h3>ALTER PIPE REFRESH (Manual Trigger)</h3>
+<pre>-- Trigger pipe to scan stage (alternative to REST API)
+ALTER PIPE my_pipe REFRESH;
+
+-- Refresh only specific prefix
+ALTER PIPE my_pipe REFRESH PREFIX = 'year=2026/month=08/';
+
+-- Refresh only files modified after a timestamp
+ALTER PIPE my_pipe REFRESH
+  PREFIX = 'data/'
+  MODIFIED_AFTER = '2026-08-14T00:00:00Z';</pre>
+
+<div class="info">
+  <strong>ALTER PIPE REFRESH</strong> is meant for <strong>backfill scenarios</strong> (loading files that arrived before the pipe was created or during downtime). For ongoing loading, use auto-ingest or REST API.
+</div>
+
+<!-- SECTION 7 -->
+<h2 id="file-formats">7. File Formats & Transformations</h2>
+
+<h3>Supported File Formats</h3>
+<table>
+  <tr><th>Format</th><th>Extensions</th><th>Notes</th></tr>
+  <tr><td>CSV/TSV</td><td>.csv, .tsv, .txt</td><td>Most common; configurable delimiters</td></tr>
+  <tr><td>JSON</td><td>.json, .jsonl</td><td>Semi-structured; loads into VARIANT</td></tr>
+  <tr><td>Avro</td><td>.avro</td><td>Schema embedded in file</td></tr>
+  <tr><td>Parquet</td><td>.parquet</td><td>Columnar; efficient for analytics</td></tr>
+  <tr><td>ORC</td><td>.orc</td><td>Optimized Row Columnar</td></tr>
+  <tr><td>XML</td><td>.xml</td><td>Semi-structured</td></tr>
+</table>
+
+<h3>Transformations Supported in Snowpipe</h3>
+<p>Snowpipe supports <strong>limited transformations</strong> in the COPY INTO statement:</p>
+<table>
+  <tr><th>Allowed</th><th>Not Allowed</th></tr>
+  <tr><td>Column reordering</td><td>JOINs</td></tr>
+  <tr><td>Column omission (skip columns)</td><td>Aggregations (GROUP BY)</td></tr>
+  <tr><td>CAST / type conversion</td><td>Subqueries</td></tr>
+  <tr><td>SUBSTR, TRIM on columns</td><td>Window functions</td></tr>
+  <tr><td>$1, $2 positional references</td><td>UDFs</td></tr>
+  <tr><td>Metadata columns (METADATA$FILENAME)</td><td>FLATTEN</td></tr>
+  <tr><td>Simple expressions</td><td>Complex CTEs</td></tr>
+</table>
+
+<h4>Example - Loading with Transformations:</h4>
+<pre>CREATE PIPE transformed_pipe AS
+COPY INTO orders (order_id, customer, amount, load_file, load_time)
+FROM (
+  SELECT
+    $1::INT,                          -- Column 1 cast to INT
+    UPPER($2),                        -- Column 2 uppercase
+    $4::DECIMAL(10,2),                -- Column 4 cast (skip col 3)
+    METADATA$FILENAME,                -- Source filename
+    METADATA$FILE_ROW_NUMBER          -- Row number in file
+  FROM @my_stage
+)
+FILE_FORMAT = (TYPE='CSV' SKIP_HEADER=1);</pre>
+
+<!-- SECTION 8 -->
+<h2 id="load-history">8. Load History & Monitoring</h2>
+
+<table>
+  <thead><tr><th>Method</th><th>Retention</th><th>Latency</th><th>Use Case</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>COPY_HISTORY()</code><br>(Information Schema)</td>
+      <td>14 days</td>
+      <td>Real-time</td>
+      <td>Check specific table's recent loads</td>
+    </tr>
+    <tr>
+      <td><code>PIPE_USAGE_HISTORY</code><br>(Account Usage)</td>
+      <td>365 days</td>
+      <td>1-2 hours lag</td>
+      <td>Credit consumption analysis</td>
+    </tr>
+    <tr>
+      <td><code>LOAD_HISTORY</code><br>(Account Usage)</td>
+      <td>365 days</td>
+      <td>1-2 hours lag</td>
+      <td>Long-term load audit</td>
+    </tr>
+    <tr>
+      <td><code>SYSTEM$PIPE_STATUS()</code></td>
+      <td>Current state only</td>
+      <td>Real-time</td>
+      <td>Check if pipe is running, pending files</td>
+    </tr>
+    <tr>
+      <td><code>VALIDATE_PIPE_LOAD()</code></td>
+      <td>14 days</td>
+      <td>Real-time</td>
+      <td>Validate errors from a specific load</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>COPY_HISTORY - Key Columns</h3>
+<pre>SELECT
+  FILE_NAME,          -- Which file was loaded
+  STAGE_LOCATION,     -- From which stage
+  STATUS,             -- 'Loaded' | 'Load failed' | 'Partially loaded'
+  ROW_COUNT,          -- Rows successfully loaded
+  ROW_PARSED,         -- Rows attempted to parse
+  ERROR_COUNT,        -- Number of errors
+  ERROR_LIMIT,        -- Error threshold
+  FIRST_ERROR_MESSAGE,-- First error description
+  FIRST_ERROR_LINE_NUM,
+  FIRST_ERROR_CHARACTER_POS,
+  FIRST_ERROR_COL_NAME,
+  PIPE_CATALOG_NAME,
+  PIPE_SCHEMA_NAME,
+  PIPE_NAME,
+  LAST_LOAD_TIME      -- When it was loaded
+FROM TABLE(INFORMATION_SCHEMA.COPY_HISTORY(
+  TABLE_NAME => 'MY_TABLE',
+  START_TIME => DATEADD(HOURS, -24, CURRENT_TIMESTAMP())
+));</pre>
+
+<!-- SECTION 9 -->
+<h2 id="features">9. Features Summary (15 Key Features)</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Feature</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Serverless Compute</td><td>No warehouse needed; Snowflake provisions and manages compute automatically</td></tr>
+    <tr><td>2</td><td>Event-Driven (Auto-Ingest)</td><td>Automatically loads files when they arrive in cloud storage via notifications</td></tr>
+    <tr><td>3</td><td>REST API Trigger</td><td>Programmatic control for custom workflows and internal stages</td></tr>
+    <tr><td>4</td><td>14-Day Deduplication</td><td>Load metadata prevents re-loading the same file within 14 days</td></tr>
+    <tr><td>5</td><td>Low Latency</td><td>Data available within ~1 minute of file arrival</td></tr>
+    <tr><td>6</td><td>Error Handling</td><td>ON_ERROR options: SKIP_FILE, CONTINUE, ABORT_STATEMENT</td></tr>
+    <tr><td>7</td><td>Error Notifications</td><td>ERROR_INTEGRATION sends alerts when loads fail</td></tr>
+    <tr><td>8</td><td>Multiple File Formats</td><td>CSV, JSON, Avro, Parquet, ORC, XML</td></tr>
+    <tr><td>9</td><td>Limited Transformations</td><td>Column reorder, CAST, METADATA columns, simple expressions</td></tr>
+    <tr><td>10</td><td>PATTERN Matching</td><td>Regex to filter which files to load (stage URL trimmed first)</td></tr>
+    <tr><td>11</td><td>PREFIX Refresh</td><td>ALTER PIPE REFRESH with PREFIX for selective backfill</td></tr>
+    <tr><td>12</td><td>Multi-Cloud</td><td>Works with AWS S3, Azure Blob Storage, Google Cloud Storage</td></tr>
+    <tr><td>13</td><td>Pipe Status Monitoring</td><td>SYSTEM$PIPE_STATUS for real-time operational visibility</td></tr>
+    <tr><td>14</td><td>Copy History Tracking</td><td>Full audit trail of every file load (status, errors, row counts)</td></tr>
+    <tr><td>15</td><td>Pause/Resume</td><td>Operational control without dropping the pipe</td></tr>
+  </tbody>
+</table>
+
+<!-- SECTION 10 -->
+<h2 id="limitations">10. Limitations (15 Key Limitations)</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Limitation</th><th>Impact / Workaround</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>No complex transformations</td><td>No JOINs, aggregations, UDFs, subqueries. Load raw, transform after.</td></tr>
+    <tr><td>2</td><td>14-day metadata window</td><td>After 14 days, same file CAN be reloaded if still on stage</td></tr>
+    <tr><td>3</td><td>CREATE OR REPLACE purges history</td><td>Causes duplicates. Use ALTER PIPE instead.</td></tr>
+    <tr><td>4</td><td>Internal stages: No auto-ingest</td><td>Must use REST API or ALTER PIPE REFRESH manually</td></tr>
+    <tr><td>5</td><td>One COPY INTO per pipe</td><td>Need separate pipe for each target table</td></tr>
+    <tr><td>6</td><td>No TRUNCATECOLUMNS by default</td><td>Strings too long will fail; set TRUNCATECOLUMNS=TRUE if needed</td></tr>
+    <tr><td>7</td><td>Cannot modify COPY statement</td><td>Must drop and recreate pipe (losing metadata)</td></tr>
+    <tr><td>8</td><td>No VALIDATION_MODE</td><td>Cannot dry-run; must actually load to find errors</td></tr>
+    <tr><td>9</td><td>File ordering not guaranteed</td><td>Files may load out of order if multiple arrive simultaneously</td></tr>
+    <tr><td>10</td><td>Small files are expensive</td><td>Per-file overhead; batch tiny records into larger files</td></tr>
+    <tr><td>11</td><td>Very large files are slow</td><td>Split files > 250 MB for optimal throughput</td></tr>
+    <tr><td>12</td><td>No INSERT/UPDATE/MERGE</td><td>Snowpipe only does INSERT (append). Use streams+tasks for CDC.</td></tr>
+    <tr><td>13</td><td>PATTERN regex differences</td><td>Stage URL trimmed before regex; differs from bulk COPY behavior</td></tr>
+    <tr><td>14</td><td>Cannot load from multiple stages</td><td>One pipe = one stage. Create multiple pipes if needed.</td></tr>
+    <tr><td>15</td><td>No scheduling</td><td>Snowpipe is event-driven or API-driven, not cron-scheduled</td></tr>
+  </tbody>
+</table>
+
+<!-- SECTION 11 -->
+<h2 id="best-practices">11. Best Practices</h2>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">File Size</div>
+    <ul>
+      <li>Optimal: <strong>100-250 MB compressed</strong></li>
+      <li>Avoid tiny files (&lt; 100 KB) - high per-file overhead</li>
+      <li>Avoid huge files (&gt; 5 GB) - slow, blocks queue</li>
+      <li>If source produces small files, batch them upstream</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-title">Organization</div>
+    <ul>
+      <li>Use meaningful path prefixes (date-partitioned)</li>
+      <li>One pipe per target table</li>
+      <li>Separate staging from production stages</li>
+      <li>Use ERROR_INTEGRATION for alerting</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-title">Monitoring</div>
+    <ul>
+      <li>Check COPY_HISTORY regularly for failures</li>
+      <li>Monitor PIPE_USAGE_HISTORY for cost</li>
+      <li>Set up error notification integration</li>
+      <li>Use SYSTEM$PIPE_STATUS for real-time checks</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-title">Avoid Duplicates</div>
+    <ul>
+      <li>NEVER use CREATE OR REPLACE on active pipes</li>
+      <li>Don't re-stage files with same name within 14 days</li>
+      <li>If you must recreate: pause, note last load, recreate, refresh with MODIFIED_AFTER</li>
+      <li>Consider adding METADATA$FILENAME to target table for audit</li>
+    </ul>
+  </div>
+</div>
+
+<div class="danger">
+  <strong>Top 5 Exam Traps:</strong>
+  <ol>
+    <li><strong>CREATE OR REPLACE</strong> = purges load history = duplicates</li>
+    <li><strong>PATTERN in Snowpipe</strong> = stage URL trimmed FIRST, then regex applied (different from COPY INTO)</li>
+    <li><strong>Auto-ingest NOT available</strong> for internal stages</li>
+    <li><strong>14-day metadata</strong> = after 14 days, file can be reloaded</li>
+    <li><strong>Snowpipe does NOT use your warehouse</strong> = common wrong answer in cost questions</li>
+  </ol>
+</div>
+
+<p style="margin-top: 40px; padding-top: 20px; border-top: 1px solid light-dark(#e5e7eb, #374151); color: light-dark(#6b7280, #9ca3af); font-size: 0.85rem;">
+  Snowpipe Certification Reference - Part 1 | SnowPro Core Exam | Last Updated: August 14, 2026
+</p>
+
+</body>
+</html>
