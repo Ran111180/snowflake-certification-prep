@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Streams - Edge Cases & Recovery (Part 3)</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-14",
+    "intent": "Streams edge cases: source/target table changes, staleness, recovery, transaction rollback, cloning, multiple consumers",
+    "sections": [
+      { "id": "source-changes", "title": "Source Table Changes", "dataSources": [], "producerNotes": "DROP, REPLACE, TRUNCATE, ALTER" },
+      { "id": "target-changes", "title": "Target Table Changes", "dataSources": [], "producerNotes": "Impact on streams" },
+      { "id": "staleness", "title": "Staleness Deep Dive", "dataSources": [], "producerNotes": "Causes, detection, prevention" },
+      { "id": "recreation", "title": "Recreating Streams", "dataSources": [], "producerNotes": "What happens to offset" },
+      { "id": "edge-cases", "title": "Other Edge Cases", "dataSources": [], "producerNotes": "Rollback, cloning, multiple consumers" },
+      { "id": "recovery", "title": "Recovery Playbook", "dataSources": [], "producerNotes": "Step-by-step recovery procedures" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #0f172a); line-height: 1.6; }
+    h1 { font-size: 2rem; color: light-dark(#0f172a, #f8fafc); margin-bottom: 8px; border-bottom: 3px solid light-dark(#dc2626, #f87171); padding-bottom: 12px; }
+    h2 { font-size: 1.5rem; color: light-dark(#991b1b, #fca5a5); margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid light-dark(#fee2e2, #450a0a); }
+    h3 { font-size: 1.15rem; color: light-dark(#7f1d1d, #fecaca); margin: 24px 0 12px; }
+    p { margin: 8px 0; }
+    .subtitle { color: light-dark(#6b7280, #9ca3af); font-size: 0.95rem; margin-bottom: 24px; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; }
+    th, td { border: 1px solid light-dark(#e5e7eb, #374151); padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: light-dark(#fef2f2, #1e293b); font-weight: 600; color: light-dark(#991b1b, #fca5a5); }
+    tr:nth-child(even) td { background: light-dark(#f9fafb, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
+    pre { background: light-dark(#1e293b, #0c1322); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; font-size: 0.85rem; line-height: 1.5; }
+    .card { background: light-dark(#fef2f2, #1e293b); border: 1px solid light-dark(#fca5a5, #334155); border-radius: 8px; padding: 20px; margin: 16px 0; }
+    .card-title { font-weight: 700; color: light-dark(#991b1b, #fca5a5); margin-bottom: 8px; }
+    .warning { background: light-dark(#fef3c7, #451a03); border-left: 4px solid light-dark(#f59e0b, #fbbf24); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .info { background: light-dark(#dbeafe, #172554); border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .success { background: light-dark(#d1fae5, #022c22); border-left: 4px solid light-dark(#10b981, #34d399); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .danger { background: light-dark(#fee2e2, #450a0a); border-left: 4px solid light-dark(#ef4444, #f87171); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .toc { background: light-dark(#f8fafc, #1e293b); border: 1px solid light-dark(#e2e8f0, #334155); border-radius: 8px; padding: 20px; margin: 24px 0; }
+    .toc a { color: light-dark(#dc2626, #f87171); text-decoration: none; }
+    .toc ul { list-style: none; padding-left: 0; }
+    .toc li { padding: 4px 0; }
+    ul, ol { padding-left: 24px; margin: 8px 0; }
+    li { margin: 4px 0; }
+    .status-safe { color: light-dark(#059669, #34d399); font-weight: 600; }
+    .status-danger { color: light-dark(#dc2626, #f87171); font-weight: 600; }
+    .status-warn { color: light-dark(#d97706, #fbbf24); font-weight: 600; }
+    .recovery-box { background: light-dark(#f0fdf4, #022c22); border: 2px solid light-dark(#86efac, #166534); border-radius: 12px; padding: 24px; margin: 20px 0; }
+    .recovery-box h3 { color: light-dark(#065f46, #6ee7b7); margin-top: 0; }
+  </style>
+</head>
+<body>
+
+<h1>Streams - Part 3: Edge Cases & Recovery</h1>
+<p class="subtitle">SnowPro Core Certification | Critical scenarios every DE must know | August 2026</p>
+
+<div class="toc">
+  <strong>Table of Contents</strong>
+  <ul>
+    <li><a href="#source-changes">1. Source Table Changes (What Breaks Streams?)</a></li>
+    <li><a href="#target-changes">2. Target Table Changes (Impact on Streams)</a></li>
+    <li><a href="#staleness">3. Staleness Deep Dive (Causes, Detection, Prevention)</a></li>
+    <li><a href="#recreation">4. Recreating Streams (Offset Reset Behavior)</a></li>
+    <li><a href="#edge-cases">5. Other Edge Cases (Rollback, Clone, Multi-Consumer)</a></li>
+    <li><a href="#recovery">6. Recovery Playbook (Step-by-Step)</a></li>
+    <li><a href="#exam-scenarios">7. Exam Scenario Questions</a></li>
+  </ul>
+</div>
+
+<!-- SECTION 1: SOURCE TABLE CHANGES -->
+<h2 id="source-changes">1. Source Table Changes</h2>
+
+<table>
+  <thead><tr><th>Scenario</th><th>Stream Status</th><th>What Happens</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>DROP TABLE source</code></td>
+      <td><span class="status-danger">BROKEN</span></td>
+      <td>Stream becomes stale/invalid. Querying returns error. Must recreate stream on new table.</td>
+    </tr>
+    <tr>
+      <td><code>CREATE OR REPLACE TABLE source</code></td>
+      <td><span class="status-danger">BROKEN</span></td>
+      <td>Same as DROP — the stream loses its reference to the original table's internal ID. Becomes stale.</td>
+    </tr>
+    <tr>
+      <td><code>TRUNCATE TABLE source</code></td>
+      <td><span class="status-safe">VALID</span></td>
+      <td>Stream captures all deleted rows as DELETE actions (truncate = logical mass delete). Stream remains valid.</td>
+    </tr>
+    <tr>
+      <td><code>ALTER TABLE ADD COLUMN</code></td>
+      <td><span class="status-safe">VALID</span></td>
+      <td>Stream remains valid. New column appears in stream output with NULL for changes before the column was added.</td>
+    </tr>
+    <tr>
+      <td><code>ALTER TABLE DROP COLUMN</code></td>
+      <td><span class="status-safe">VALID</span></td>
+      <td>Stream remains valid. Dropped column disappears from stream output.</td>
+    </tr>
+    <tr>
+      <td><code>ALTER TABLE RENAME COLUMN</code></td>
+      <td><span class="status-safe">VALID</span></td>
+      <td>Stream remains valid. Shows the new column name in output.</td>
+    </tr>
+    <tr>
+      <td><code>ALTER TABLE source RENAME TO new_name</code></td>
+      <td><span class="status-safe">VALID</span></td>
+      <td>Stream still works — it's bound to the table's <strong>internal ID</strong>, not the name.</td>
+    </tr>
+    <tr>
+      <td><code>ALTER TABLE SET DATA_RETENTION_TIME = 0</code></td>
+      <td><span class="status-warn">RISK</span></td>
+      <td>Stream may go stale faster! Staleness window shrinks to 0 + 14 = 14 days minimum.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="danger">
+  <strong>The Two Killers:</strong> <code>DROP TABLE</code> and <code>CREATE OR REPLACE TABLE</code> are the only DDL operations that break streams. All ALTER TABLE operations (add/drop/rename columns, rename table) keep streams valid.
+</div>
+
+<!-- SECTION 2: TARGET TABLE CHANGES -->
+<h2 id="target-changes">2. Target Table Changes</h2>
+
+<div class="info">
+  <strong>Key Concept:</strong> Streams track the <strong>source</strong> table only. They have NO dependency on any target table. Target changes never affect stream validity or offset.
+</div>
+
+<table>
+  <thead><tr><th>Scenario</th><th>Stream Impact</th><th>Pipeline Impact</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>DROP TABLE target</code></td>
+      <td><span class="status-safe">No impact on stream</span></td>
+      <td>Consuming DML will FAIL (target doesn't exist). Stream data remains unconsumed.</td>
+    </tr>
+    <tr>
+      <td><code>TRUNCATE TABLE target</code></td>
+      <td><span class="status-safe">No impact on stream</span></td>
+      <td>Stream offset does NOT reset. You've lost processed data but stream only shows new changes. Need full reload.</td>
+    </tr>
+    <tr>
+      <td><code>ALTER target (add/drop columns)</code></td>
+      <td><span class="status-safe">No impact on stream</span></td>
+      <td>Your consuming DML may fail if column mapping breaks. Fix the DML statement.</td>
+    </tr>
+    <tr>
+      <td><code>CREATE OR REPLACE TABLE target</code></td>
+      <td><span class="status-safe">No impact on stream</span></td>
+      <td>Target is empty again. Stream offset still at same point. Need full reload + continue incremental.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>The TRUNCATE Target Problem</h3>
+<pre>-- Scenario: You truncated the target by mistake
+-- Stream still shows only NEW changes (offset didn't reset)
+-- Your target is empty but stream won't replay old data
+
+-- RECOVERY:
+-- Step 1: Full reload from source
+INSERT INTO target_table SELECT * FROM source_table;
+
+-- Step 2: Stream continues incrementally from current offset
+-- (No action needed — it will capture future changes normally)</pre>
+
+<!-- SECTION 3: STALENESS -->
+<h2 id="staleness">3. Staleness Deep Dive</h2>
+
+<div class="card">
+  <div class="card-title">When Does a Stream Go Stale?</div>
+  <p>A stream becomes stale when Snowflake can no longer reconstruct the change history between the stream's offset and the current table state. This happens when the underlying micro-partition data (Time Travel data) is garbage-collected.</p>
+</div>
+
+<h3>Staleness Formula</h3>
+<pre>Staleness Window = DATA_RETENTION_TIME_IN_DAYS + 14 days
+
+Examples:
+- Standard table (retention = 1 day):  Stale after 1 + 14 = 15 days without consuming
+- Enterprise table (retention = 90 days): Stale after 90 + 14 = 104 days without consuming
+- Transient table (retention = 0 days):  Stale after 0 + 14 = 14 days without consuming</pre>
+
+<h3>Causes of Staleness</h3>
+<table>
+  <thead><tr><th>Cause</th><th>Why It Happens</th><th>Prevention</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Not consuming within retention window</td>
+      <td>Time Travel data is garbage-collected past the offset point</td>
+      <td>Consume via Task with schedule shorter than staleness window</td>
+    </tr>
+    <tr>
+      <td>Source table DROP or REPLACE</td>
+      <td>Table's internal ID changes; stream reference becomes invalid</td>
+      <td>Never use CREATE OR REPLACE on tables with active streams</td>
+    </tr>
+    <tr>
+      <td>Reducing DATA_RETENTION_TIME</td>
+      <td>Retention shortened past the stream's offset point</td>
+      <td>Check streams before reducing retention: <code>SHOW STREAMS</code></td>
+    </tr>
+    <tr>
+      <td>Task failures (not consuming)</td>
+      <td>If task keeps failing, stream data accumulates and may go stale</td>
+      <td>Monitor task failures; set up alerting</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Detecting Staleness</h3>
+<pre>-- Method 1: SHOW STREAMS
+SHOW STREAMS LIKE 'my_stream';
+-- Check columns: stale (TRUE/FALSE), stale_after (timestamp)
+
+-- Method 2: Query INFORMATION_SCHEMA (if available)
+SELECT STREAM_NAME, STALE, STALE_AFTER
+FROM INFORMATION_SCHEMA.STREAMS
+WHERE STREAM_NAME = 'MY_STREAM';
+
+-- Method 3: Try to query it (stale stream throws error)
+SELECT * FROM my_stream;
+-- If stale: Error "The stream has become stale"</pre>
+
+<h3>Prevention Checklist</h3>
+<div class="success">
+  <ul>
+    <li>Set task schedule to at most <strong>half</strong> the staleness window (e.g., if 15 days, consume at least every 7 days)</li>
+    <li>Monitor <code>stale_after</code> timestamp — alert when it's approaching</li>
+    <li>Set appropriate DATA_RETENTION (higher retention = longer before staleness)</li>
+    <li>Never DROP or REPLACE source tables with active streams</li>
+    <li>Monitor task failures — failed consumption = stale risk</li>
+  </ul>
+</div>
+
+<!-- SECTION 4: RECREATION -->
+<h2 id="recreation">4. Recreating Streams (Offset Reset)</h2>
+
+<table>
+  <thead><tr><th>Method</th><th>What Happens to Offset</th><th>Data Impact</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>CREATE OR REPLACE STREAM s ON TABLE t</code></td>
+      <td>Offset resets to <strong>current moment</strong></td>
+      <td>All previous unconsumed changes are <strong>LOST</strong>. Only future changes captured.</td>
+    </tr>
+    <tr>
+      <td><code>CREATE STREAM s ON TABLE t AT(OFFSET => -3600)</code></td>
+      <td>Offset starts from <strong>1 hour ago</strong></td>
+      <td>Captures changes from last hour (within Time Travel). Partial recovery possible.</td>
+    </tr>
+    <tr>
+      <td><code>CREATE STREAM s ON TABLE t AT(TIMESTAMP => '...')</code></td>
+      <td>Offset starts from <strong>specific timestamp</strong></td>
+      <td>Captures changes since that time (must be within Time Travel retention).</td>
+    </tr>
+    <tr>
+      <td><code>CREATE STREAM s ON TABLE t AT(STREAM => 'old_stream')</code></td>
+      <td>Offset starts from <strong>old stream's position</strong></td>
+      <td>Continues where old stream left off (if old stream isn't stale yet).</td>
+    </tr>
+    <tr>
+      <td><code>CREATE STREAM s ON TABLE t SHOW_INITIAL_ROWS = TRUE</code></td>
+      <td>Offset at current moment BUT includes all existing rows as INSERTs</td>
+      <td>Full snapshot + future changes. Useful for first-time full load.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="warning">
+  <strong>AT/BEFORE clauses</strong> only work if the target timestamp/offset is within the table's Time Travel retention. If you're recreating after staleness, the original offset is likely OUTSIDE retention — meaning you cannot recover those changes.
+</div>
+
+<!-- SECTION 5: OTHER EDGE CASES -->
+<h2 id="edge-cases">5. Other Edge Cases</h2>
+
+<table>
+  <thead><tr><th>Scenario</th><th>What Happens</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Transaction ROLLBACK</strong></td>
+      <td><span class="status-safe">SAFE.</span> If consuming DML is rolled back, stream offset does NOT advance. Data remains in stream for next consumption. This is the key safety guarantee.</td>
+    </tr>
+    <tr>
+      <td><strong>Multiple consumers on same stream</strong></td>
+      <td><span class="status-danger">PROBLEM.</span> Only ONE DML transaction can consume at a time. If two tasks read the same stream concurrently, one gets data and the other gets nothing. Use separate streams for separate consumers.</td>
+    </tr>
+    <tr>
+      <td><strong>UNDROP source table</strong></td>
+      <td><span class="status-warn">UNRELIABLE.</span> Stream may recover if done within retention, but behavior is not guaranteed. Don't depend on it.</td>
+    </tr>
+    <tr>
+      <td><strong>CLONE source table</strong></td>
+      <td><span class="status-safe">Stream stays on original.</span> The clone gets its own data; the stream still points to the original table, NOT the clone. Create a new stream on the clone if needed.</td>
+    </tr>
+    <tr>
+      <td><strong>Stream on a VIEW</strong></td>
+      <td><span class="status-warn">Supported but complex.</span> Tracks changes to ALL underlying tables. All underlying tables must have CHANGE_TRACKING=TRUE. JOINs in views can produce unexpected stream output.</td>
+    </tr>
+    <tr>
+      <td><strong>Time Travel on stream itself</strong></td>
+      <td><span class="status-danger">NOT POSSIBLE.</span> You cannot time-travel a stream. Streams always reflect the current unconsumed offset. Use AT/BEFORE at creation time instead.</td>
+    </tr>
+    <tr>
+      <td><strong>Reclustering source table</strong></td>
+      <td><span class="status-warn">May show phantom changes.</span> Automatic clustering rewrites micro-partitions. Standard streams may reflect this as changes. Use append-only streams for heavily reclustered tables.</td>
+    </tr>
+    <tr>
+      <td><strong>Data Sharing (consumer side)</strong></td>
+      <td><span class="status-safe">Supported.</span> Consumer can create a stream on a shared view/table to track changes made by the provider.</td>
+    </tr>
+    <tr>
+      <td><strong>INSERT OVERWRITE on source</strong></td>
+      <td><span class="status-safe">Stream captures changes.</span> Shows DELETE of old rows + INSERT of new rows. Can be a large change set.</td>
+    </tr>
+    <tr>
+      <td><strong>MERGE on source table</strong></td>
+      <td><span class="status-safe">Stream captures all.</span> INSERTs, UPDATEs (as DELETE+INSERT pairs), and DELETEs from the MERGE are all tracked.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Multiple Consumers — Correct Pattern</h3>
+<pre>-- WRONG: Two tasks consuming the same stream (race condition)
+-- Task A and Task B both read from employees_stream
+-- Result: One gets data, other gets nothing. Unpredictable.
+
+-- CORRECT: Separate streams for separate consumers
+CREATE STREAM employees_stream_analytics ON TABLE employees;  -- For analytics
+CREATE STREAM employees_stream_audit ON TABLE employees;      -- For audit
+CREATE STREAM employees_stream_reporting ON TABLE employees;  -- For reporting
+
+-- Each stream has its own independent offset
+-- Task A consumes stream_analytics (doesn't affect others)
+-- Task B consumes stream_audit (doesn't affect others)</pre>
+
+<!-- SECTION 6: RECOVERY -->
+<h2 id="recovery">6. Recovery Playbook</h2>
+
+<div class="recovery-box">
+  <h3>Scenario A: Stream Went Stale</h3>
+  <pre>-- 1. Drop the stale stream
+DROP STREAM my_stream;
+
+-- 2. Full reload target from source (bridge the gap)
+TRUNCATE TABLE target_table;
+INSERT INTO target_table
+SELECT col1, col2, col3 FROM source_table;
+
+-- 3. Recreate stream (starts from NOW)
+CREATE STREAM my_stream ON TABLE source_table;
+
+-- 4. Resume task
+ALTER TASK my_task RESUME;
+
+-- Stream now handles incremental from this point forward
+-- Gap between stale point and full reload = potentially lost changes</pre>
+</div>
+
+<div class="recovery-box">
+  <h3>Scenario B: Source Table Dropped/Replaced</h3>
+  <pre>-- 1. Stream is broken (references old table ID)
+DROP STREAM my_stream;  -- Clean up invalid stream
+
+-- 2. If table was replaced: new table exists, do full reload
+TRUNCATE TABLE target_table;
+INSERT INTO target_table SELECT * FROM source_table;
+
+-- 3. Create new stream on the new table
+CREATE STREAM my_stream ON TABLE source_table;
+
+-- 4. Resume task
+ALTER TASK my_task RESUME;</pre>
+</div>
+
+<div class="recovery-box">
+  <h3>Scenario C: Target Table Truncated by Mistake</h3>
+  <pre>-- Stream is FINE (unaffected by target changes)
+-- But target is empty and stream won't replay old data
+
+-- 1. Full reload from source
+INSERT INTO target_table SELECT * FROM source_table;
+
+-- 2. Done! Stream continues incrementally from its current offset
+-- No stream recreation needed</pre>
+</div>
+
+<div class="recovery-box">
+  <h3>Scenario D: Task Failing (Stream Approaching Staleness)</h3>
+  <pre>-- 1. Check stale_after timestamp
+SHOW STREAMS LIKE 'my_stream';
+-- If stale_after is approaching, act fast!
+
+-- 2. Fix the task error (check TASK_HISTORY for error message)
+SELECT * FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY(
+  TASK_NAME => 'my_task'
+)) WHERE STATE = 'FAILED' ORDER BY SCHEDULED_TIME DESC LIMIT 5;
+
+-- 3. Manually consume the stream to advance offset (buys time)
+INSERT INTO target_table
+SELECT columns FROM my_stream WHERE METADATA$ACTION = 'INSERT';
+
+-- 4. Fix and resume the task
+ALTER TASK my_task RESUME;</pre>
+</div>
+
+<div class="recovery-box">
+  <h3>Scenario E: Need to Recapture Recent Changes (Within Time Travel)</h3>
+  <pre>-- If you need to go back in time (within retention period):
+DROP STREAM my_stream;
+
+-- Recreate with AT clause (go back 1 hour)
+CREATE STREAM my_stream ON TABLE source_table
+  AT(OFFSET => -3600);
+
+-- Or go back to specific timestamp
+CREATE STREAM my_stream ON TABLE source_table
+  AT(TIMESTAMP => '2026-08-14 09:00:00'::TIMESTAMP_LTZ);
+
+-- This only works if the timestamp is within DATA_RETENTION_TIME!</pre>
+</div>
+
+<!-- SECTION 7: EXAM SCENARIOS -->
+<h2 id="exam-scenarios">7. Exam Scenario Questions</h2>
+
+<table>
+  <thead><tr><th>Scenario</th><th>Correct Answer</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>"A developer runs CREATE OR REPLACE TABLE on a table that has 3 streams. What happens?"</td>
+      <td>All 3 streams become invalid/stale. They must all be dropped and recreated.</td>
+    </tr>
+    <tr>
+      <td>"A stream hasn't been consumed for 20 days. Table retention is 1 day. Is the stream stale?"</td>
+      <td>YES. Staleness window = 1 + 14 = 15 days. 20 days > 15 days = stale.</td>
+    </tr>
+    <tr>
+      <td>"A DML transaction reading a stream fails and rolls back. Is data lost?"</td>
+      <td>NO. On rollback, the offset does NOT advance. Data remains in stream for next attempt.</td>
+    </tr>
+    <tr>
+      <td>"Two tasks consume the same stream simultaneously. What happens?"</td>
+      <td>One task gets the data; the other gets nothing. Use separate streams for separate consumers.</td>
+    </tr>
+    <tr>
+      <td>"TRUNCATE is run on the source table. Does the stream break?"</td>
+      <td>NO. Stream shows all rows as DELETE actions. Stream remains valid.</td>
+    </tr>
+    <tr>
+      <td>"A table is renamed. Does the stream break?"</td>
+      <td>NO. Streams are bound to the table's internal ID, not its name.</td>
+    </tr>
+    <tr>
+      <td>"Can you recover a stale stream?"</td>
+      <td>NO. A stale stream cannot be recovered. You must drop it, do a full reload of target, and create a new stream.</td>
+    </tr>
+    <tr>
+      <td>"A column is added to the source table. What does the stream show?"</td>
+      <td>Stream remains valid. New column appears with NULL for changes that occurred before the column existed.</td>
+    </tr>
+    <tr>
+      <td>"How can you create a stream that includes all existing rows?"</td>
+      <td>Use SHOW_INITIAL_ROWS = TRUE. All current rows appear as INSERTs in the stream.</td>
+    </tr>
+    <tr>
+      <td>"A clone of the source table is created. Does the stream track the clone?"</td>
+      <td>NO. The stream stays on the original table. Create a new stream on the clone if needed.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="danger">
+  <strong>Most Dangerous Scenario (Real-World):</strong> Stream staleness from task failures that go unnoticed. The stream silently approaches staleness, and once it crosses the threshold, all intermediate changes are permanently lost. Prevention: monitor <code>stale_after</code>, alert on task failures, consume frequently.
+</div>
+
+<p style="margin-top: 40px; padding-top: 20px; border-top: 1px solid light-dark(#e5e7eb, #374151); color: light-dark(#6b7280, #9ca3af); font-size: 0.85rem;">
+  Streams Edge Cases & Recovery - Part 3 | SnowPro Core Exam | August 14, 2026
+</p>
+
+</body>
+</html>
