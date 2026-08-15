@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>18.02 Clustering Theory Part 2 - SOS, QAS & Query Profile Analysis</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "18.02 Clustering Theory Part 2",
+  "description": "Search Optimization Service, Query Acceleration Service, and Query Profile analysis for partition pruning",
+  "author": "Snowflake Certification Prep",
+  "created": "2025-01-01",
+  "tags": ["SOS", "QAS", "query-acceleration", "search-optimization", "query-profile"],
+  "version": "1.0"
+}
+</script>
+<style>
+  :root {
+    --bg-primary: light-dark(#f0fdf4, #022c22);
+    --bg-secondary: light-dark(#dcfce7, #064e3b);
+    --bg-card: light-dark(#ffffff, #0f3d2e);
+    --text-primary: light-dark(#052e16, #ecfdf5);
+    --text-secondary: light-dark(#166534, #a7f3d0);
+    --accent: light-dark(#059669, #34d399);
+    --accent-dim: light-dark(#10b981, #6ee7b7);
+    --border: light-dark(#a7f3d0, #065f46);
+    --shadow: light-dark(rgba(5,150,105,0.1), rgba(0,0,0,0.3));
+    --code-bg: light-dark(#ecfdf5, #041f17);
+    --highlight: light-dark(#d1fae5, #064e3b);
+    --warning-bg: light-dark(#fef3c7, #451a03);
+    --warning-border: light-dark(#f59e0b, #d97706);
+    --warning-text: light-dark(#92400e, #fde68a);
+    --info-bg: light-dark(#eff6ff, #1e3a5f);
+    --info-border: light-dark(#3b82f6, #60a5fa);
+  }
+  html { color-scheme: light dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.7;
+    padding: 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 2rem;
+    color: var(--accent);
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 0.75rem;
+    margin-bottom: 2rem;
+  }
+  h2 {
+    font-size: 1.5rem;
+    color: var(--accent);
+    margin: 2rem 0 1rem;
+    padding-left: 0.75rem;
+    border-left: 4px solid var(--accent);
+  }
+  h3 {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    margin: 1.5rem 0 0.75rem;
+  }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1.25rem 0;
+    box-shadow: 0 2px 8px var(--shadow);
+  }
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.4;
+  }
+  code {
+    background: var(--code-bg);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-family: 'Courier New', monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 1rem 0;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+  th {
+    background: var(--bg-secondary);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  tr:nth-child(even) { background: var(--highlight); }
+  .key-point {
+    background: var(--highlight);
+    border-left: 4px solid var(--accent);
+    padding: 1rem 1.25rem;
+    margin: 1rem 0;
+    border-radius: 0 8px 8px 0;
+  }
+  .warning-box {
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin: 1rem 0;
+    color: var(--warning-text);
+  }
+  .info-box {
+    background: var(--info-bg);
+    border: 1px solid var(--info-border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin: 1rem 0;
+  }
+  ul, ol { padding-left: 1.5rem; margin: 0.75rem 0; }
+  li { margin: 0.4rem 0; }
+  .comparison-table th { text-align: center; }
+  .comparison-table td:first-child { font-weight: 600; }
+  .badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 0.5rem;
+  }
+  .toc {
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<h1>18.02 Clustering Theory Part 2: SOS, QAS &amp; Query Profile Analysis</h1>
+
+<div class="toc">
+  <h3>Table of Contents</h3>
+  <ol>
+    <li><a href="#sos">Search Optimization Service (SOS)</a></li>
+    <li><a href="#qas">Query Acceleration Service (QAS)</a></li>
+    <li><a href="#query-profile">Query Profile Analysis</a></li>
+    <li><a href="#comparison">Clustering vs SOS vs QAS Comparison</a></li>
+  </ol>
+</div>
+
+<h2 id="sos">1. Search Optimization Service (SOS)</h2>
+
+<div class="card">
+  <h3>What Is the Search Optimization Service?</h3>
+  <p>The Search Optimization Service is a <strong>serverless, maintenance-free</strong> feature that significantly improves performance of selective point-lookup queries. It builds and maintains an optimized search access path in the background.</p>
+
+  <div class="key-point">
+    <strong>Key Concept:</strong> SOS creates a persistent data structure (search access paths) that allows Snowflake to efficiently locate specific rows without scanning entire partitions. Think of it like a secondary index, but fully managed and serverless.
+  </div>
+
+  <h3>Supported Predicate Types</h3>
+  <table>
+    <tr><th>Predicate Type</th><th>Example</th><th>Notes</th></tr>
+    <tr><td>Equality (=)</td><td><code>WHERE id = 12345</code></td><td>Primary use case — point lookups</td></tr>
+    <tr><td>IN list</td><td><code>WHERE status IN ('A','B','C')</code></td><td>Multiple value lookups</td></tr>
+    <tr><td>Substring/LIKE</td><td><code>WHERE name LIKE '%smith%'</code></td><td>Substring search support</td></tr>
+    <tr><td>Range predicates</td><td><code>WHERE amount BETWEEN 100 AND 200</code></td><td>Selective ranges on high-cardinality columns</td></tr>
+    <tr><td>GEOGRAPHY functions</td><td><code>ST_DISTANCE, ST_CONTAINS</code></td><td>Geospatial point lookups</td></tr>
+    <tr><td>VARIANT fields</td><td><code>WHERE data:key = 'value'</code></td><td>Semi-structured field lookups</td></tr>
+    <tr><td>IS NULL / IS NOT NULL</td><td><code>WHERE col IS NULL</code></td><td>NULL predicate optimization</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3>Enabling &amp; Managing SOS</h3>
+  <pre>-- Enable SOS for entire table (all columns eligible)
+ALTER TABLE my_table ADD SEARCH OPTIMIZATION;
+
+-- Enable SOS for specific columns only (cost-effective)
+ALTER TABLE my_table ADD SEARCH OPTIMIZATION
+  ON EQUALITY(customer_id),
+  ON EQUALITY(order_id),
+  ON SUBSTRING(product_name),
+  ON GEO(geo_column);
+
+-- Disable SOS for specific columns
+ALTER TABLE my_table DROP SEARCH OPTIMIZATION
+  ON EQUALITY(customer_id);
+
+-- Disable SOS entirely
+ALTER TABLE my_table DROP SEARCH OPTIMIZATION;
+
+-- Check SOS status
+DESCRIBE SEARCH OPTIMIZATION ON my_table;
+
+-- Monitor SOS costs
+SELECT * FROM TABLE(INFORMATION_SCHEMA.SEARCH_OPTIMIZATION_HISTORY(
+    DATE_RANGE_START => DATEADD('day', -7, CURRENT_TIMESTAMP()),
+    TABLE_NAME => 'MY_TABLE'
+));</pre>
+</div>
+
+<div class="card">
+  <h3>SOS Architecture</h3>
+  <div class="diagram">
+┌─────────────────────────────────────────────────────────┐
+│           SEARCH OPTIMIZATION SERVICE                    │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  ┌──────────────┐     ┌──────────────────────────┐      │
+│  │   Query      │────▶│  Search Access Paths     │      │
+│  │ WHERE id=123 │     │  (Persistent structure)  │      │
+│  └──────────────┘     └──────────┬───────────────┘      │
+│                                  │                       │
+│                                  ▼                       │
+│              ┌──────────────────────────────┐            │
+│              │  Identifies exact partitions  │            │
+│              │  containing matching rows     │            │
+│              └──────────────┬───────────────┘            │
+│                             │                            │
+│                             ▼                            │
+│  ┌──────┐  ┌──────┐  ┌──────┐  ┌──────┐  ┌──────┐    │
+│  │ P1   │  │ P2   │  │ P3 ✓│  │ P4   │  │ P5   │    │
+│  │ skip │  │ skip │  │ READ │  │ skip │  │ skip │    │
+│  └──────┘  └──────┘  └──────┘  └──────┘  └──────┘    │
+│                                                          │
+│  Background Maintenance:                                 │
+│  • Serverless compute updates paths after DML            │
+│  • No warehouse needed for maintenance                   │
+│  • Transparent — no query changes required               │
+└─────────────────────────────────────────────────────────┘</div>
+</div>
+
+<div class="card">
+  <h3>SOS Cost Model</h3>
+  <table>
+    <tr><th>Cost Component</th><th>Description</th></tr>
+    <tr><td>Storage Cost</td><td>Search access paths consume additional storage (typically small % of table size)</td></tr>
+    <tr><td>Compute Cost</td><td>Serverless compute credits for building and maintaining access paths</td></tr>
+    <tr><td>Ongoing Maintenance</td><td>Automatic updates after DML — cost proportional to data churn</td></tr>
+  </table>
+
+  <div class="warning-box">
+    <strong>Cost Warning:</strong> SOS incurs costs even when not queried. The background maintenance process runs continuously. Enable SOS selectively on columns that are frequently used in point lookups, not on entire tables with many columns.
+  </div>
+</div>
+
+<div class="card">
+  <h3>When to Use SOS</h3>
+  <ul>
+    <li><strong>Use when:</strong> Queries perform point lookups or selective equality/IN predicates on large tables</li>
+    <li><strong>Use when:</strong> Clustering alone doesn't help (e.g., lookup on high-cardinality ID column)</li>
+    <li><strong>Use when:</strong> VARIANT field lookups are common</li>
+    <li><strong>Use when:</strong> Geospatial queries with selective predicates</li>
+    <li><strong>Don't use when:</strong> Queries scan large portions of the table (full scans, broad ranges)</li>
+    <li><strong>Don't use when:</strong> Table is small (pruning already effective)</li>
+    <li><strong>Don't use when:</strong> Queries already well-served by clustering</li>
+  </ul>
+</div>
+
+<h2 id="qas">2. Query Acceleration Service (QAS)</h2>
+
+<div class="card">
+  <h3>What Is the Query Acceleration Service?</h3>
+  <p>QAS offloads portions of query processing to shared compute resources provided by Snowflake. It helps queries that scan a lot of data but return a small result set (highly selective after scanning).</p>
+
+  <div class="key-point">
+    <strong>Key Concept:</strong> QAS works by identifying the "scan-heavy" portions of eligible queries and distributing that scan work to additional serverless compute resources, reducing wall-clock time. The warehouse handles the rest of the query.
+  </div>
+
+  <h3>SCALE_FACTOR Parameter</h3>
+  <pre>-- Enable QAS on a warehouse with scale factor
+ALTER WAREHOUSE my_wh SET
+  ENABLE_QUERY_ACCELERATION = TRUE
+  QUERY_ACCELERATION_MAX_SCALE_FACTOR = 8;
+
+-- Scale factor = 0 means unlimited acceleration
+-- Scale factor = N means up to N times the warehouse compute can be added
+-- Default max scale factor is 8
+
+-- Disable QAS
+ALTER WAREHOUSE my_wh SET
+  ENABLE_QUERY_ACCELERATION = FALSE;</pre>
+
+  <table>
+    <tr><th>Scale Factor</th><th>Meaning</th></tr>
+    <tr><td>0</td><td>No limit — Snowflake uses as much serverless compute as beneficial</td></tr>
+    <tr><td>1</td><td>Up to 1x additional compute (double the warehouse capacity)</td></tr>
+    <tr><td>8 (default max)</td><td>Up to 8x additional compute resources</td></tr>
+    <tr><td>Higher values</td><td>More potential acceleration but higher potential cost</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3>QAS Architecture</h3>
+  <div class="diagram">
+┌─────────────────────────────────────────────────────────────────┐
+│                  QUERY ACCELERATION SERVICE                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  Original Query: SELECT * FROM huge_table                        │
+│                  WHERE date = '2024-01-15' AND category = 'A'    │
+│                                                                   │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                    WAREHOUSE                             │    │
+│  │  Handles: Aggregation, Joins, Sorting, Final Output     │    │
+│  └─────────────────────────────┬───────────────────────────┘    │
+│                                │                                  │
+│                    ┌───────────┴───────────┐                     │
+│                    │  Scan Work Offloaded  │                     │
+│                    └───────────┬───────────┘                     │
+│                                │                                  │
+│         ┌──────────────────────┼──────────────────────┐          │
+│         │                      │                      │          │
+│         ▼                      ▼                      ▼          │
+│  ┌─────────────┐      ┌─────────────┐      ┌─────────────┐    │
+│  │ Serverless  │      │ Serverless  │      │ Serverless  │    │
+│  │ Compute 1   │      │ Compute 2   │      │ Compute 3   │    │
+│  │ Scan P1-P33 │      │ Scan P34-66 │      │ Scan P67-99 │    │
+│  └─────────────┘      └─────────────┘      └─────────────┘    │
+│                                                                   │
+│  Eligible Queries:                                                │
+│  • Large scans with selective filters (few rows returned)         │
+│  • Queries with LIMIT but broad scan needed                       │
+│  • Aggregations over large datasets with GROUP BY                 │
+└─────────────────────────────────────────────────────────────────┘</div>
+</div>
+
+<div class="card">
+  <h3>Eligible Queries for QAS</h3>
+  <ul>
+    <li>Queries that scan many partitions but return few rows (high selectivity after scan)</li>
+    <li>Queries with <code>LIMIT</code> that require scanning broadly to find top results</li>
+    <li>Aggregations with <code>GROUP BY</code> over large datasets</li>
+    <li>Queries where the bottleneck is the scan phase, not joins or sorting</li>
+  </ul>
+
+  <h3>NOT Eligible for QAS</h3>
+  <ul>
+    <li>Queries already well-pruned by clustering (little scan work to offload)</li>
+    <li>Queries bottlenecked by joins, sorting, or network transfer</li>
+    <li>Queries that return most of the scanned data (non-selective)</li>
+    <li>INSERT, UPDATE, DELETE, MERGE operations</li>
+    <li>Queries using external tables or certain complex operations</li>
+  </ul>
+
+  <pre>-- Check which queries are eligible for QAS
+SELECT query_id, eligible_query_acceleration_time
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE eligible_query_acceleration_time > 0
+ORDER BY eligible_query_acceleration_time DESC
+LIMIT 20;
+
+-- System function to check eligibility for a specific query
+SELECT SYSTEM$ESTIMATE_QUERY_ACCELERATION('query-id-here');</pre>
+</div>
+
+<div class="card">
+  <h3>QAS Cost Model</h3>
+  <table>
+    <tr><th>Aspect</th><th>Detail</th></tr>
+    <tr><td>Billing</td><td>Serverless compute credits (separate from warehouse credits)</td></tr>
+    <tr><td>Control</td><td>QUERY_ACCELERATION_MAX_SCALE_FACTOR limits max spend</td></tr>
+    <tr><td>Per-Query</td><td>Each query assessed independently for acceleration benefit</td></tr>
+    <tr><td>No Idle Cost</td><td>Only charged when queries actually use acceleration</td></tr>
+    <tr><td>Monitoring</td><td>QUERY_ACCELERATION_HISTORY table function</td></tr>
+  </table>
+
+  <pre>-- Monitor QAS usage and costs
+SELECT * FROM TABLE(INFORMATION_SCHEMA.QUERY_ACCELERATION_HISTORY(
+    DATE_RANGE_START => DATEADD('day', -7, CURRENT_TIMESTAMP()),
+    WAREHOUSE_NAME => 'MY_WAREHOUSE'
+));</pre>
+</div>
+
+<h2 id="query-profile">3. Query Profile Analysis</h2>
+
+<div class="card">
+  <h3>Key Metrics for Partition Pruning Analysis</h3>
+  <p>The Query Profile in the Snowflake UI provides critical metrics for understanding how well clustering and pruning are working.</p>
+
+  <table>
+    <tr><th>Metric</th><th>What It Shows</th><th>What to Look For</th></tr>
+    <tr><td>Partitions scanned</td><td>Number of micro-partitions read</td><td>Should be small relative to total</td></tr>
+    <tr><td>Partitions total</td><td>Total micro-partitions in table</td><td>Baseline for pruning ratio</td></tr>
+    <tr><td>Bytes scanned</td><td>Total data read from storage</td><td>Less = better pruning</td></tr>
+    <tr><td>Percentage scanned from cache</td><td>Data served from SSD/memory cache</td><td>Higher = faster I/O</td></tr>
+    <tr><td>Bytes sent over network</td><td>Data transferred between nodes</td><td>High values indicate spilling or redistribution</td></tr>
+    <tr><td>Bytes spilled to local</td><td>Data spilled to local SSD</td><td>Indicates insufficient memory</td></tr>
+    <tr><td>Bytes spilled to remote</td><td>Data spilled to remote storage</td><td>Severe — indicates undersized warehouse</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3>Query Profile — Pruning Efficiency</h3>
+  <div class="diagram">
+Query Profile → TableScan Operator:
+
+┌──────────────────────────────────────────────────────┐
+│  TableScan [2]                                        │
+│                                                       │
+│  Table: ORDERS                                        │
+│  Columns: 5 / 12                    ← Column pruning  │
+│                                                       │
+│  Partitions total:    10,000                          │
+│  Partitions scanned:     250        ← 97.5% pruned!  │
+│                                                       │
+│  Bytes scanned:      4.2 GB                           │
+│  % scanned from cache: 85%                            │
+│                                                       │
+│  Rows produced: 1,250,000                             │
+└──────────────────────────────────────────────────────┘
+
+Pruning Ratio = (total - scanned) / total
+             = (10000 - 250) / 10000
+             = 97.5% ← Excellent!
+
+Guidelines:
+  &gt; 90% pruning = Excellent clustering
+  70-90% pruning = Good
+  50-70% pruning = Consider adding/changing clustering key
+  &lt; 50% pruning = Poor — investigate clustering strategy</div>
+</div>
+
+<div class="card">
+  <h3>Identifying Performance Issues in Query Profile</h3>
+
+  <h3>Spilling</h3>
+  <div class="warning-box">
+    <strong>Bytes Spilled to Local Storage:</strong> Indicates the warehouse memory is insufficient. Data overflows to local SSD. Performance impact is moderate.
+    <br><br>
+    <strong>Bytes Spilled to Remote Storage:</strong> Indicates severe memory pressure. Data overflows to S3/Azure Blob. Significant performance impact — consider upsizing the warehouse.
+  </div>
+
+  <h3>Inefficient Pruning</h3>
+  <div class="info-box">
+    <p>Signs of poor pruning in Query Profile:</p>
+    <ul>
+      <li>Partitions scanned close to partitions total (low pruning %)</li>
+      <li>Large bytes scanned relative to result set size</li>
+      <li>Filter operator after TableScan (filtering happening late, not at partition level)</li>
+    </ul>
+    <p><strong>Fix:</strong> Add or adjust clustering key to match filter predicates.</p>
+  </div>
+
+  <h3>Expensive Joins</h3>
+  <div class="info-box">
+    <p>Join operators consuming most of the query time often indicate:</p>
+    <ul>
+      <li>Data explosion (many-to-many joins)</li>
+      <li>Large tables being shuffled/redistributed</li>
+      <li>Missing clustering on join keys in large tables</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Query Profile SQL Analysis</h3>
+  <pre>-- Find queries with poor pruning
+SELECT
+    query_id,
+    query_text,
+    partitions_scanned,
+    partitions_total,
+    ROUND((partitions_total - partitions_scanned) / partitions_total * 100, 1) AS prune_pct,
+    bytes_scanned,
+    bytes_spilled_to_local_storage,
+    bytes_spilled_to_remote_storage
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE start_time > DATEADD('hour', -24, CURRENT_TIMESTAMP())
+  AND partitions_total > 100
+  AND (partitions_total - partitions_scanned) / partitions_total < 0.5  -- Less than 50% pruning
+ORDER BY partitions_scanned DESC
+LIMIT 20;
+
+-- Find queries with spilling
+SELECT
+    query_id,
+    query_text,
+    warehouse_name,
+    warehouse_size,
+    bytes_spilled_to_local_storage,
+    bytes_spilled_to_remote_storage,
+    execution_time
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE bytes_spilled_to_remote_storage > 0
+  AND start_time > DATEADD('day', -7, CURRENT_TIMESTAMP())
+ORDER BY bytes_spilled_to_remote_storage DESC
+LIMIT 20;</pre>
+</div>
+
+<h2 id="comparison">4. Clustering vs SOS vs QAS — When to Use Each</h2>
+
+<div class="card">
+  <h3>Comparison Table</h3>
+  <table class="comparison-table">
+    <tr>
+      <th>Aspect</th>
+      <th>Clustering Keys</th>
+      <th>Search Optimization (SOS)</th>
+      <th>Query Acceleration (QAS)</th>
+    </tr>
+    <tr>
+      <td>What It Does</td>
+      <td>Reorganizes data within micro-partitions for better pruning</td>
+      <td>Builds search access paths for point lookups</td>
+      <td>Offloads scan work to additional serverless compute</td>
+    </tr>
+    <tr>
+      <td>Best For</td>
+      <td>Range queries on known filter columns</td>
+      <td>Equality/IN lookups on high-cardinality columns</td>
+      <td>Large scans with selective filters; queries with LIMIT</td>
+    </tr>
+    <tr>
+      <td>How It Works</td>
+      <td>Background reclustering sorts data by key columns</td>
+      <td>Persistent index-like structure maps values to partitions</td>
+      <td>Parallelizes scan phase across serverless compute</td>
+    </tr>
+    <tr>
+      <td>Applies To</td>
+      <td>Table level (1 key per table)</td>
+      <td>Table level, optionally per-column</td>
+      <td>Warehouse level (all queries on that warehouse)</td>
+    </tr>
+    <tr>
+      <td>Cost Type</td>
+      <td>Serverless compute (ongoing reclustering)</td>
+      <td>Storage + serverless compute (ongoing maintenance)</td>
+      <td>Serverless compute (per-query, only when used)</td>
+    </tr>
+    <tr>
+      <td>Idle Cost</td>
+      <td>Yes — reclustering runs even without queries</td>
+      <td>Yes — maintenance runs after DML</td>
+      <td>No — only charged per accelerated query</td></tr>
+    <tr>
+      <td>Query Changes Needed</td>
+      <td>None</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>Table Size Recommendation</td>
+      <td>&gt; 1 TB</td>
+      <td>Large tables with point lookups</td>
+      <td>Any size (depends on query pattern)</td>
+    </tr>
+    <tr>
+      <td>Complementary?</td>
+      <td>Yes — works with SOS and QAS</td>
+      <td>Yes — different optimization than clustering</td>
+      <td>Yes — helps where pruning can't</td>
+    </tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3>Decision Matrix</h3>
+  <div class="diagram">
+Query Pattern Analysis → Choose Optimization:
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                   │
+│  "I filter on date ranges and region"                            │
+│  → CLUSTERING KEY on (date, region)                              │
+│                                                                   │
+│  "I look up individual orders by order_id"                       │
+│  → SEARCH OPTIMIZATION on EQUALITY(order_id)                     │
+│                                                                   │
+│  "I search for customer names with LIKE '%pattern%'"             │
+│  → SEARCH OPTIMIZATION on SUBSTRING(customer_name)               │
+│                                                                   │
+│  "My aggregation queries scan everything but return few groups"  │
+│  → QUERY ACCELERATION SERVICE                                     │
+│                                                                   │
+│  "I have a huge table filtered on date AND point-lookup on ID"   │
+│  → CLUSTERING on date + SOS on EQUALITY(id) (use BOTH)           │
+│                                                                   │
+│  "My ad-hoc queries hit random columns with LIMIT 100"           │
+│  → QUERY ACCELERATION SERVICE                                     │
+│                                                                   │
+└─────────────────────────────────────────────────────────────────┘</div>
+</div>
+
+<div class="card">
+  <h3>Can They Be Combined?</h3>
+  <div class="key-point">
+    <strong>Yes!</strong> Clustering, SOS, and QAS are complementary and can all be active on the same table/warehouse simultaneously:
+    <ul>
+      <li><strong>Clustering + SOS:</strong> Clustering handles range predicates; SOS handles point lookups on different columns</li>
+      <li><strong>Clustering + QAS:</strong> Clustering reduces scan volume; QAS parallelizes remaining scans</li>
+      <li><strong>All three:</strong> Each addresses a different aspect of query performance</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card" style="margin-top: 2rem; text-align: center;">
+  <p><strong>Next:</strong> <a href="18_03_Clustering_50_Questions.html" style="color: var(--accent);">50 Interactive Questions on Clustering &amp; Search Optimization →</a></p>
+</div>
+
+</body>
+</html>

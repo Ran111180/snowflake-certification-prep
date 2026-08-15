@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>17.04 RBAC Edge Cases & Exam Scenarios</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Edge cases and tricky exam scenarios for Snowflake RBAC - ownership transfer effects, FUTURE grants behavior, managed access schemas, role hierarchy rules, DROP role impact, privilege cascade, and 10 detailed exam scenarios",
+    "sections": [
+      { "id": "ownership-edge-cases", "title": "Ownership Transfer Edge Cases", "dataSources": [], "producerNotes": "What happens during and after ownership transfer" },
+      { "id": "future-grants-edge", "title": "FUTURE Grants Behavior", "dataSources": [], "producerNotes": "Non-obvious FUTURE grant interactions" },
+      { "id": "managed-access-edge", "title": "Managed Access Schema Edge Cases", "dataSources": [], "producerNotes": "Tricky managed access scenarios" },
+      { "id": "hierarchy-rules", "title": "Role Hierarchy Rules", "dataSources": [], "producerNotes": "Circular prevention and hierarchy edge cases" },
+      { "id": "drop-role-impact", "title": "DROP Role Impact", "dataSources": [], "producerNotes": "What happens when roles are dropped" },
+      { "id": "privilege-cascade", "title": "Privilege Cascade", "dataSources": [], "producerNotes": "CASCADE vs no-CASCADE revoke behavior" },
+      { "id": "exam-scenarios", "title": "10 Exam Scenarios", "dataSources": [], "producerNotes": "Complex multi-step scenarios for exam prep" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+      max-width: 920px; margin: 0 auto; padding: 24px;
+      color: light-dark(#1f2937, #e5e7eb);
+      background: light-dark(#ffffff, #0f1117);
+      line-height: 1.7;
+    }
+    h1 { color: light-dark(#9f1239, #fb7185); border-bottom: 3px solid light-dark(#e11d48, #fb7185); padding-bottom: 10px; }
+    h2 { color: light-dark(#be123c, #fda4af); margin-top: 40px; border-left: 4px solid light-dark(#e11d48, #fb7185); padding-left: 12px; }
+    h3 { color: light-dark(#9f1239, #fecdd3); }
+    .card {
+      background: light-dark(#fff1f2, #1c1017);
+      border: 1px solid light-dark(#fecdd3, #4c1d2e);
+      border-radius: 8px; padding: 18px; margin: 16px 0;
+    }
+    .scenario-card {
+      background: light-dark(#fff1f2, #1c1017);
+      border: 2px solid light-dark(#e11d48, #881337);
+      border-radius: 8px; padding: 20px; margin: 24px 0;
+    }
+    .scenario-num {
+      background: light-dark(#e11d48, #9f1239); color: white;
+      display: inline-block; padding: 4px 12px; border-radius: 4px;
+      font-weight: 700; font-size: 0.9em; margin-bottom: 12px;
+    }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { border: 1px solid light-dark(#fecdd3, #4c1d2e); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#ffe4e6, #2a0e1e); font-weight: 600; color: light-dark(#881337, #fda4af); }
+    tr:nth-child(even) { background: light-dark(#fff1f2, #1a0c14); }
+    code {
+      background: light-dark(#ffe4e6, #2a0e1e); padding: 2px 6px; border-radius: 3px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.9em;
+      color: light-dark(#9f1239, #fda4af);
+    }
+    pre {
+      background: light-dark(#1e293b, #0d0d12); color: #e2e8f0;
+      padding: 16px; border-radius: 8px; overflow-x: auto;
+      border: 1px solid light-dark(#334155, #1e293b);
+    }
+    pre code { background: none; color: inherit; padding: 0; }
+    .highlight { color: light-dark(#e11d48, #fb7185); font-weight: 600; }
+    .warning {
+      background: light-dark(#fef2f2, #1c0d0d); border-left: 4px solid #e11d48;
+      padding: 12px 16px; margin: 12px 0; border-radius: 0 6px 6px 0;
+    }
+    .exam-tip {
+      background: light-dark(#fff1f2, #1c1017); border: 2px dashed light-dark(#e11d48, #881337);
+      padding: 12px 16px; margin: 12px 0; border-radius: 6px;
+    }
+    .exam-tip::before { content: "EXAM TIP: "; font-weight: 700; color: light-dark(#e11d48, #fb7185); }
+    .result { font-weight: 600; color: light-dark(#16a34a, #4ade80); }
+    .result-bad { font-weight: 600; color: light-dark(#dc2626, #f87171); }
+    ul, ol { padding-left: 24px; }
+    li { margin: 6px 0; }
+    .reveal-btn {
+      background: light-dark(#e11d48, #9f1239); color: white;
+      border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;
+      font-weight: 600; margin-top: 10px;
+    }
+    .reveal-btn:hover { background: light-dark(#be123c, #e11d48); }
+    .answer { display: none; margin-top: 12px; padding: 14px; background: light-dark(#f0fdf4, #052e16); border-radius: 6px; border-left: 4px solid light-dark(#16a34a, #22c55e); }
+    .answer.show { display: block; }
+    .nav-links { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 16px; border-top: 1px solid light-dark(#fecdd3, #4c1d2e); }
+    .nav-links a { color: light-dark(#e11d48, #fb7185); text-decoration: none; font-weight: 500; }
+  </style>
+</head>
+<body>
+
+  <h1>17.04 RBAC Edge Cases & Exam Scenarios</h1>
+
+  <h2 id="ownership-edge-cases">Ownership Transfer Edge Cases</h2>
+
+  <div class="card">
+    <h3>Edge Case 1: Transfer with REVOKE CURRENT GRANTS (default)</h3>
+    <pre><code>-- Setup
+GRANT SELECT ON TABLE t1 TO ROLE reader_role;  -- reader has SELECT
+GRANT OWNERSHIP ON TABLE t1 TO ROLE new_owner REVOKE CURRENT GRANTS;
+
+-- Result: reader_role LOSES SELECT!</code></pre>
+    <p><span class="result-bad">Impact:</span> All existing grants (except OWNERSHIP) are revoked. Anyone who had access through grants on this object loses it.</p>
+  </div>
+
+  <div class="card">
+    <h3>Edge Case 2: Transfer with COPY CURRENT GRANTS</h3>
+    <pre><code>-- Setup
+GRANT SELECT ON TABLE t1 TO ROLE reader_role;
+GRANT OWNERSHIP ON TABLE t1 TO ROLE new_owner COPY CURRENT GRANTS;
+
+-- Result: reader_role KEEPS SELECT</code></pre>
+    <p><span class="result">Impact:</span> All existing grants remain intact. The new owner inherits full control without disrupting access.</p>
+  </div>
+
+  <div class="card">
+    <h3>Edge Case 3: Previous owner loses implicit privileges</h3>
+    <pre><code>-- Role A owns table t1 (has implicit full control)
+-- Role A can SELECT, INSERT, UPDATE, DELETE, DROP, GRANT, etc.
+GRANT OWNERSHIP ON TABLE t1 TO ROLE B;
+
+-- After transfer: Role A has ZERO privileges on t1
+-- Unless Role A was separately GRANTED explicit privileges</code></pre>
+    <p><span class="result-bad">Key insight:</span> The previous owner loses ALL implicit privileges from ownership. They have no access unless explicitly granted.</p>
+  </div>
+
+  <div class="card">
+    <h3>Edge Case 4: Ownership of FUTURE objects</h3>
+    <pre><code>-- Grant future ownership (all future tables will be owned by data_admin)
+GRANT OWNERSHIP ON FUTURE TABLES IN SCHEMA s1 TO ROLE data_admin;
+
+-- Now any role creating tables in s1 creates them owned by data_admin
+-- The creating role does NOT own the object!</code></pre>
+    <div class="exam-tip">When FUTURE OWNERSHIP is set, the creating role does NOT become the owner. The role specified in the FUTURE grant becomes the owner, even though another role executed the CREATE statement.</div>
+  </div>
+
+  <h2 id="future-grants-edge">FUTURE Grants Behavior - Edge Cases</h2>
+
+  <div class="card">
+    <h3>Edge Case 5: Schema-level overrides database-level</h3>
+    <pre><code>-- Database level: grant SELECT on future tables to role A
+GRANT SELECT ON FUTURE TABLES IN DATABASE db1 TO ROLE role_a;
+
+-- Schema level: grant SELECT on future tables to role B  
+GRANT SELECT ON FUTURE TABLES IN SCHEMA db1.s1 TO ROLE role_b;
+
+-- Create a table in db1.s1:
+CREATE TABLE db1.s1.new_table (id INT);
+
+-- Result: role_b gets SELECT, role_a does NOT get SELECT on this table
+-- Schema-level FUTURE overrides database-level for the same object type</code></pre>
+    <div class="warning">This is a common exam trap. When both database-level and schema-level FUTURE grants exist for the same object type, the schema-level grant takes effect and the database-level grant is ignored FOR OBJECTS IN THAT SCHEMA.</div>
+  </div>
+
+  <div class="card">
+    <h3>Edge Case 6: FUTURE grants and CLONE</h3>
+    <pre><code>-- FUTURE grants on schema s1
+GRANT SELECT ON FUTURE TABLES IN SCHEMA db1.s1 TO ROLE reader;
+
+-- Clone the schema
+CREATE SCHEMA db1.s1_clone CLONE db1.s1;
+
+-- Result: FUTURE grants are NOT copied to the clone
+-- Existing tables in the clone DO retain their grants (from the source)
+-- But NEW tables in s1_clone won't get automatic grants</code></pre>
+    <p><span class="highlight">Rule:</span> FUTURE grants are NOT propagated by cloning. You must re-establish them on the cloned schema.</p>
+  </div>
+
+  <div class="card">
+    <h3>Edge Case 7: Dropping schema removes its FUTURE grants</h3>
+    <pre><code>-- Set FUTURE grants
+GRANT SELECT ON FUTURE TABLES IN SCHEMA db1.s1 TO ROLE reader;
+
+-- Drop and recreate schema
+DROP SCHEMA db1.s1;
+CREATE SCHEMA db1.s1;
+
+-- Result: FUTURE grants are GONE. Must be re-established.</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Edge Case 8: FUTURE grants don't affect EXISTING objects</h3>
+    <pre><code>-- Table already exists
+CREATE TABLE db1.s1.existing_table (id INT);
+
+-- Now set FUTURE grants
+GRANT SELECT ON FUTURE TABLES IN SCHEMA db1.s1 TO ROLE reader;
+
+-- Result: reader does NOT have SELECT on existing_table
+-- Only tables created AFTER this point get the grant
+
+-- Fix: also grant on existing objects
+GRANT SELECT ON ALL TABLES IN SCHEMA db1.s1 TO ROLE reader;</code></pre>
+  </div>
+
+  <h2 id="managed-access-edge">Managed Access Schema - Edge Cases</h2>
+
+  <div class="card">
+    <h3>Edge Case 9: Object owner cannot grant in managed access</h3>
+    <pre><code>-- Schema with managed access
+CREATE SCHEMA db1.secure WITH MANAGED ACCESS;
+
+-- Role A creates a table (owns it)
+USE ROLE role_a;
+CREATE TABLE db1.secure.my_table (id INT);
+
+-- Role A tries to grant SELECT
+GRANT SELECT ON TABLE db1.secure.my_table TO ROLE reader;
+-- ERROR: Insufficient privileges. 
+-- Only schema owner or MANAGE GRANTS role can grant.</code></pre>
+    <p><span class="result-bad">Impact:</span> Even though Role A owns the table, it cannot grant access in a managed access schema. The schema owner controls all grants.</p>
+  </div>
+
+  <div class="card">
+    <h3>Edge Case 10: Enabling managed access on existing schema</h3>
+    <pre><code>-- Existing schema with grants made by object owners
+ALTER SCHEMA db1.s1 ENABLE MANAGED ACCESS;
+
+-- Result: 
+-- 1. Existing grants remain valid (not revoked)
+-- 2. Going forward, only schema owner can make NEW grants
+-- 3. Object owners can no longer grant on their objects
+-- 4. FUTURE grants set by non-schema-owner are invalid going forward</code></pre>
+  </div>
+
+  <h2 id="hierarchy-rules">Role Hierarchy Rules & Edge Cases</h2>
+
+  <div class="card">
+    <h3>Edge Case 11: Circular grant prevention</h3>
+    <pre><code>CREATE ROLE role_a;
+CREATE ROLE role_b;
+CREATE ROLE role_c;
+
+GRANT ROLE role_a TO ROLE role_b;  -- OK
+GRANT ROLE role_b TO ROLE role_c;  -- OK
+GRANT ROLE role_c TO ROLE role_a;  -- ERROR: Circular role grant detected</code></pre>
+    <p>Snowflake checks for cycles before completing any GRANT ROLE statement.</p>
+  </div>
+
+  <div class="card">
+    <h3>Edge Case 12: Multiple inheritance paths</h3>
+    <pre><code>-- Role hierarchy:
+--   SYSADMIN → admin_role → analyst_role → PUBLIC
+--   SYSADMIN → power_user → analyst_role → PUBLIC
+-- analyst_role is reachable via TWO paths from SYSADMIN
+
+-- The privileges are the SAME regardless of which path
+-- No "double counting" or duplication of privileges</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Edge Case 13: Custom role NOT in SYSADMIN hierarchy</h3>
+    <pre><code>CREATE ROLE orphan_role;
+GRANT CREATE DATABASE TO ROLE orphan_role; -- Given by ACCOUNTADMIN
+-- Note: orphan_role is NOT granted to SYSADMIN
+
+-- Result: SYSADMIN cannot manage objects created by orphan_role
+-- ACCOUNTADMIN can (it encompasses all)
+-- This is a BAD PRACTICE but is possible</code></pre>
+    <div class="exam-tip">If a custom role is not in the SYSADMIN hierarchy, SYSADMIN has no visibility or control over objects owned by that role. Always grant custom roles to SYSADMIN.</div>
+  </div>
+
+  <h2 id="drop-role-impact">DROP Role Impact</h2>
+
+  <div class="card">
+    <h3>Edge Case 14: Cannot drop role that owns objects</h3>
+    <pre><code>-- Role owns a table
+DROP ROLE my_role;
+-- ERROR: Role 'MY_ROLE' owns one or more objects. Cannot be dropped.
+
+-- Solution: Transfer ownership first
+GRANT OWNERSHIP ON ALL TABLES IN SCHEMA db1.s1 
+  OWNED BY ROLE my_role TO ROLE sysadmin COPY CURRENT GRANTS;
+DROP ROLE my_role;  -- Now succeeds</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Edge Case 15: Dropping role with granted privileges</h3>
+    <pre><code>-- role_x has SELECT on table t1 (granted by someone)
+-- role_x does NOT own any objects
+
+DROP ROLE role_x;
+-- Succeeds. The grant record is removed.
+-- If role_x had re-granted (WITH GRANT OPTION) to others:
+--   those downstream grants are also revoked (cascade)</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Edge Case 16: User whose active role is dropped</h3>
+    <pre><code>-- User john has DEFAULT_ROLE = my_role
+DROP ROLE my_role;  -- (after transferring ownership)
+
+-- Result: 
+-- John's DEFAULT_ROLE becomes NULL
+-- Next login: John falls back to PUBLIC role
+-- John keeps any OTHER roles that were granted to them</code></pre>
+  </div>
+
+  <h2 id="privilege-cascade">Privilege Cascade - REVOKE Behavior</h2>
+
+  <div class="card">
+    <h3>Edge Case 17: REVOKE without CASCADE</h3>
+    <pre><code>-- Chain: GRANT SELECT ON t1 TO role_a WITH GRANT OPTION
+--        role_a grants SELECT on t1 TO role_b
+REVOKE SELECT ON TABLE t1 FROM ROLE role_a;
+
+-- Result WITHOUT CASCADE:
+-- role_a loses SELECT
+-- role_b KEEPS SELECT (the downstream grant persists)
+
+-- This seems counterintuitive but is how Snowflake works!</code></pre>
+    <div class="warning">Without CASCADE, revoking from role_a does NOT affect role_b's grant, even though role_b received it via role_a's GRANT OPTION. The grant to role_b becomes "orphaned" but valid.</div>
+  </div>
+
+  <div class="card">
+    <h3>Edge Case 18: REVOKE with CASCADE</h3>
+    <pre><code>-- Same chain as above
+REVOKE SELECT ON TABLE t1 FROM ROLE role_a CASCADE;
+
+-- Result WITH CASCADE:
+-- role_a loses SELECT
+-- role_b also loses SELECT (cascaded revocation)</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Edge Case 19: Revoking from parent vs child role</h3>
+    <pre><code>-- Hierarchy: parent_role → child_role
+-- child_role has SELECT on t1
+
+-- Revoking from child_role:
+REVOKE SELECT ON TABLE t1 FROM ROLE child_role;
+-- child_role loses SELECT
+-- parent_role also loses inherited SELECT on t1 (because it came from child)
+
+-- But if parent_role ALSO has a DIRECT grant of SELECT on t1:
+-- parent_role keeps it (direct grant is independent of inherited grant)</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Edge Case 20: Access after role change mid-session</h3>
+    <pre><code>-- User is in a session with role analyst_role
+-- Admin revokes SELECT from analyst_role while session is active
+
+-- Result: The user's CURRENT session is NOT affected
+-- The revoke takes effect on the NEXT statement (in most cases)
+-- Cached query results may still be accessible
+-- New queries will fail with insufficient privileges</code></pre>
+  </div>
+
+  <h2 id="exam-scenarios">10 Exam Scenarios</h2>
+
+  <div class="scenario-card">
+    <div class="scenario-num">SCENARIO 1</div>
+    <p><strong>Setup:</strong> User Alice has roles: analyst_role, dev_role, sysadmin. Her DEFAULT_ROLE is analyst_role. She runs USE ROLE dev_role, then creates TABLE t1.</p>
+    <p><strong>Question:</strong> Who owns t1?</p>
+    <button class="reveal-btn" data-target="ans1">Reveal Answer</button>
+    <div class="answer" id="ans1">
+      <p><span class="result">Answer: dev_role owns t1.</span></p>
+      <p>Objects are owned by the currently active role at the time of creation. Since Alice used USE ROLE dev_role before creating the table, dev_role is the owner.</p>
+    </div>
+  </div>
+
+  <div class="scenario-card">
+    <div class="scenario-num">SCENARIO 2</div>
+    <p><strong>Setup:</strong> A FUTURE grant exists: <code>GRANT SELECT ON FUTURE TABLES IN DATABASE db1 TO ROLE reader;</code> A schema-level FUTURE grant also exists: <code>GRANT SELECT ON FUTURE TABLES IN SCHEMA db1.analytics TO ROLE analyst;</code> A new table is created in db1.analytics.</p>
+    <p><strong>Question:</strong> Which role(s) get SELECT on the new table?</p>
+    <button class="reveal-btn" data-target="ans2">Reveal Answer</button>
+    <div class="answer" id="ans2">
+      <p><span class="result">Answer: Only analyst gets SELECT.</span></p>
+      <p>Schema-level FUTURE grants override database-level FUTURE grants. The database-level grant to reader is ignored for objects in db1.analytics because a schema-level FUTURE grant exists for the same object type.</p>
+    </div>
+  </div>
+
+  <div class="scenario-card">
+    <div class="scenario-num">SCENARIO 3</div>
+    <p><strong>Setup:</strong> In a managed access schema, Role A creates a table. Role A attempts to grant SELECT on that table to Role B.</p>
+    <p><strong>Question:</strong> Does the grant succeed?</p>
+    <button class="reveal-btn" data-target="ans3">Reveal Answer</button>
+    <div class="answer" id="ans3">
+      <p><span class="result-bad">Answer: No, the grant fails.</span></p>
+      <p>In a managed access schema, even the object owner cannot grant privileges. Only the schema owner or a role with MANAGE GRANTS can grant access to objects, regardless of who owns them.</p>
+    </div>
+  </div>
+
+  <div class="scenario-card">
+    <div class="scenario-num">SCENARIO 4</div>
+    <p><strong>Setup:</strong> Role hierarchy: sysadmin → data_admin → etl_role. etl_role has SELECT on sensitive_table. An admin revokes SELECT from etl_role.</p>
+    <p><strong>Question:</strong> Can a user with data_admin still access sensitive_table? What about sysadmin?</p>
+    <button class="reveal-btn" data-target="ans4">Reveal Answer</button>
+    <div class="answer" id="ans4">
+      <p><span class="result-bad">Answer: Neither data_admin nor sysadmin can access sensitive_table (via this path).</span></p>
+      <p>Privilege inheritance flows UP. data_admin and sysadmin only had access because they inherited it from etl_role. Once SELECT is revoked from etl_role, the inherited access is gone. They would still have access if they have a DIRECT grant or inherit from a different child role.</p>
+    </div>
+  </div>
+
+  <div class="scenario-card">
+    <div class="scenario-num">SCENARIO 5</div>
+    <p><strong>Setup:</strong> A network policy with ALLOWED_IP_LIST='192.168.1.0/24' and BLOCKED_IP_LIST='192.168.1.50' is set at the account level. User Bob has a user-level network policy allowing 10.0.0.0/8 only. Bob connects from 192.168.1.100.</p>
+    <p><strong>Question:</strong> Can Bob connect?</p>
+    <button class="reveal-btn" data-target="ans5">Reveal Answer</button>
+    <div class="answer" id="ans5">
+      <p><span class="result-bad">Answer: No, Bob cannot connect.</span></p>
+      <p>User-level network policies take precedence over account-level policies. Bob's user-level policy only allows 10.0.0.0/8. His IP (192.168.1.100) is not in 10.0.0.0/8, so he is blocked. The account-level policy is irrelevant for Bob.</p>
+    </div>
+  </div>
+
+  <div class="scenario-card">
+    <div class="scenario-num">SCENARIO 6</div>
+    <p><strong>Setup:</strong> GRANT SELECT ON TABLE t1 TO ROLE role_a WITH GRANT OPTION. Role_a then grants SELECT on t1 to role_b. Later: REVOKE SELECT ON TABLE t1 FROM ROLE role_a (without CASCADE).</p>
+    <p><strong>Question:</strong> Can role_b still SELECT from t1?</p>
+    <button class="reveal-btn" data-target="ans6">Reveal Answer</button>
+    <div class="answer" id="ans6">
+      <p><span class="result">Answer: Yes, role_b retains SELECT.</span></p>
+      <p>Without CASCADE, only role_a loses the privilege. The grant that role_a made to role_b is not revoked. To also remove role_b's access, use REVOKE ... CASCADE.</p>
+    </div>
+  </div>
+
+  <div class="scenario-card">
+    <div class="scenario-num">SCENARIO 7</div>
+    <p><strong>Setup:</strong> User has USE SECONDARY ROLES ALL enabled. Primary role = writer_role. Secondary includes reader_role (which has SELECT on analytics tables). User creates a new table.</p>
+    <p><strong>Question:</strong> Which role owns the new table?</p>
+    <button class="reveal-btn" data-target="ans7">Reveal Answer</button>
+    <div class="answer" id="ans7">
+      <p><span class="result">Answer: writer_role owns the new table.</span></p>
+      <p>When secondary roles are active, the PRIMARY role determines ownership of newly created objects. Secondary roles contribute privileges for access but not for ownership assignment.</p>
+    </div>
+  </div>
+
+  <div class="scenario-card">
+    <div class="scenario-num">SCENARIO 8</div>
+    <p><strong>Setup:</strong> Schema s1 has FUTURE grants: <code>GRANT SELECT ON FUTURE TABLES IN SCHEMA s1 TO ROLE reader;</code> You clone s1 to s1_copy. You then create a new table in s1_copy.</p>
+    <p><strong>Question:</strong> Does reader get SELECT on the new table in s1_copy?</p>
+    <button class="reveal-btn" data-target="ans8">Reveal Answer</button>
+    <div class="answer" id="ans8">
+      <p><span class="result-bad">Answer: No, reader does NOT get SELECT.</span></p>
+      <p>FUTURE grants are NOT cloned. The clone inherits existing object grants but not FUTURE grant definitions. You must re-establish FUTURE grants on s1_copy separately.</p>
+    </div>
+  </div>
+
+  <div class="scenario-card">
+    <div class="scenario-num">SCENARIO 9</div>
+    <p><strong>Setup:</strong> Role analyst_role has USAGE on db1, USAGE on db1.schema1, and SELECT on db1.schema1.table1. An admin revokes USAGE on db1.schema1 from analyst_role.</p>
+    <p><strong>Question:</strong> Can analyst_role SELECT from db1.schema1.table1?</p>
+    <button class="reveal-btn" data-target="ans9">Reveal Answer</button>
+    <div class="answer" id="ans9">
+      <p><span class="result-bad">Answer: No, analyst_role cannot SELECT from the table.</span></p>
+      <p>Even though analyst_role still has SELECT on the table, the access chain is broken. Without USAGE on the schema, the table is unreachable. All links in the chain (warehouse → database → schema → object) must be intact.</p>
+    </div>
+  </div>
+
+  <div class="scenario-card">
+    <div class="scenario-num">SCENARIO 10</div>
+    <p><strong>Setup:</strong> You transfer ownership of table t1 from role_a to role_b using REVOKE CURRENT GRANTS. Before the transfer, role_c had SELECT on t1 (granted by role_a). After the transfer, role_c tries to query t1.</p>
+    <p><strong>Question:</strong> Can role_c query t1? What must be done to restore access?</p>
+    <button class="reveal-btn" data-target="ans10">Reveal Answer</button>
+    <div class="answer" id="ans10">
+      <p><span class="result-bad">Answer: No, role_c cannot query t1.</span></p>
+      <p>REVOKE CURRENT GRANTS removes all existing privilege grants during ownership transfer. role_c's SELECT was revoked. To restore access, the new owner (role_b) or a role with MANAGE GRANTS must explicitly re-grant: <code>GRANT SELECT ON TABLE t1 TO ROLE role_c;</code></p>
+    </div>
+  </div>
+
+  <div class="nav-links">
+    <a href="17_03_RBAC_50_Questions.html">&larr; Previous: 50 Questions</a>
+    <a href="../02-hands-on-practice/lab_queries.sql">Next: Lab Queries &rarr;</a>
+  </div>
+
+  <script>
+    var buttons = document.querySelectorAll('.reveal-btn');
+    buttons.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var target = this.getAttribute('data-target');
+        var el = document.getElementById(target);
+        el.classList.toggle('show');
+        this.textContent = el.classList.contains('show') ? 'Hide Answer' : 'Reveal Answer';
+      });
+    });
+  </script>
+
+</body>
+</html>

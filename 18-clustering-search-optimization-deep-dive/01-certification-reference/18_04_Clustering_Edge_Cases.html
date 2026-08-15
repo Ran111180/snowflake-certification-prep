@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>18.04 Clustering Edge Cases & Gotchas</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "18.04 Clustering Edge Cases",
+  "description": "Edge cases and gotchas for clustering, SOS, QAS, reclustering triggers, and streams interaction",
+  "author": "Snowflake Certification Prep",
+  "created": "2025-01-01",
+  "tags": ["edge-cases", "clustering", "streams", "reclustering", "SOS", "QAS"],
+  "version": "1.0"
+}
+</script>
+<style>
+  :root {
+    --bg-primary: light-dark(#f0fdf4, #022c22);
+    --bg-secondary: light-dark(#dcfce7, #064e3b);
+    --bg-card: light-dark(#ffffff, #0f3d2e);
+    --text-primary: light-dark(#052e16, #ecfdf5);
+    --text-secondary: light-dark(#166534, #a7f3d0);
+    --accent: light-dark(#059669, #34d399);
+    --border: light-dark(#a7f3d0, #065f46);
+    --shadow: light-dark(rgba(5,150,105,0.1), rgba(0,0,0,0.3));
+    --code-bg: light-dark(#ecfdf5, #041f17);
+    --highlight: light-dark(#d1fae5, #064e3b);
+    --warning-bg: light-dark(#fef3c7, #451a03);
+    --warning-border: light-dark(#f59e0b, #d97706);
+    --warning-text: light-dark(#92400e, #fde68a);
+    --danger-bg: light-dark(#fef2f2, #450a0a);
+    --danger-border: light-dark(#ef4444, #f87171);
+    --danger-text: light-dark(#991b1b, #fca5a5);
+    --info-bg: light-dark(#eff6ff, #1e3a5f);
+    --info-border: light-dark(#3b82f6, #60a5fa);
+    --info-text: light-dark(#1e40af, #93c5fd);
+  }
+  html { color-scheme: light dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.7;
+    padding: 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 2rem;
+    color: var(--accent);
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 0.75rem;
+    margin-bottom: 2rem;
+  }
+  h2 {
+    font-size: 1.5rem;
+    color: var(--accent);
+    margin: 2.5rem 0 1rem;
+    padding-left: 0.75rem;
+    border-left: 4px solid var(--accent);
+  }
+  h3 {
+    font-size: 1.15rem;
+    color: var(--text-secondary);
+    margin: 1.5rem 0 0.75rem;
+  }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1.25rem 0;
+    box-shadow: 0 2px 8px var(--shadow);
+  }
+  code {
+    background: var(--code-bg);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-family: 'Courier New', monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 1rem 0;
+  }
+  .warning-box {
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin: 1rem 0;
+    color: var(--warning-text);
+  }
+  .danger-box {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin: 1rem 0;
+    color: var(--danger-text);
+  }
+  .info-box {
+    background: var(--info-bg);
+    border: 1px solid var(--info-border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin: 1rem 0;
+    color: var(--info-text);
+  }
+  .key-point {
+    background: var(--highlight);
+    border-left: 4px solid var(--accent);
+    padding: 1rem 1.25rem;
+    margin: 1rem 0;
+    border-radius: 0 8px 8px 0;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+  th {
+    background: var(--bg-secondary);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  tr:nth-child(even) { background: var(--highlight); }
+  ul, ol { padding-left: 1.5rem; margin: 0.75rem 0; }
+  li { margin: 0.5rem 0; }
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.4;
+  }
+  .edge-case-num {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 28px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-right: 0.5rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>18.04 Clustering Edge Cases &amp; Gotchas</h1>
+
+<h2>1. Reclustering Cost Edge Cases</h2>
+
+<div class="card">
+  <h3><span class="edge-case-num">1</span>High-Churn Tables: Silent Cost Explosion</h3>
+  <p>Tables with frequent INSERT/UPDATE/DELETE operations trigger continuous reclustering. Each DML operation creates new micro-partitions that may violate the clustering key order.</p>
+
+  <div class="danger-box">
+    <strong>Gotcha:</strong> A table receiving 100K updates/hour will trigger near-continuous reclustering. The serverless compute costs can exceed the original warehouse costs without any visible query or user action. Monitor via <code>AUTOMATIC_CLUSTERING_HISTORY</code>.
+  </div>
+
+  <pre>-- Identify high-churn tables with expensive reclustering
+SELECT
+    table_name,
+    SUM(credits_used) AS total_credits_7d,
+    SUM(num_bytes_reclustered) AS bytes_reclustered,
+    COUNT(*) AS recluster_operations
+FROM TABLE(INFORMATION_SCHEMA.AUTOMATIC_CLUSTERING_HISTORY(
+    DATE_RANGE_START => DATEADD('day', -7, CURRENT_TIMESTAMP())
+))
+GROUP BY table_name
+ORDER BY total_credits_7d DESC;</pre>
+
+  <div class="key-point">
+    <strong>Mitigation:</strong> For high-churn tables, consider: (1) suspending reclustering during heavy DML windows, (2) reducing clustering key columns, (3) clustering only if queries benefit enough to justify the cost.
+  </div>
+</div>
+
+<div class="card">
+  <h3><span class="edge-case-num">2</span>Time Travel Storage Inflation During Reclustering</h3>
+  <p>Reclustering creates NEW micro-partitions while old ones remain in Time Travel. This means a reclustering cycle temporarily <em>increases</em> storage.</p>
+
+  <div class="warning-box">
+    <strong>Edge Case:</strong> A 5 TB table undergoing heavy reclustering can temporarily consume 7-8 TB of storage (original + new + Time Travel for old partitions). Storage normalizes only after the Time Travel period expires (default: 1 day standard, up to 90 days Enterprise).
+  </div>
+
+  <div class="diagram">
+Time Travel Storage During Reclustering:
+
+Time T0: Table = 5 TB (all partitions)
+          ┌─────────────────────┐
+          │  5 TB active data    │
+          └─────────────────────┘
+
+Time T1: Reclustering in progress
+          ┌─────────────────────┐
+          │  5 TB active data    │  (new well-clustered partitions)
+          ├─────────────────────┤
+          │  2 TB Time Travel    │  (old replaced partitions)
+          └─────────────────────┘
+          Total storage: ~7 TB
+
+Time T2: After Time Travel expiry
+          ┌─────────────────────┐
+          │  5 TB active data    │  (back to normal)
+          └─────────────────────┘</div>
+</div>
+
+<div class="card">
+  <h3><span class="edge-case-num">3</span>Reclustering a Table with Long Time Travel Retention</h3>
+  <p>If you have <code>DATA_RETENTION_TIME_IN_DAYS = 90</code> and the table undergoes major reclustering, the old partitions persist in Time Travel for 90 days — tripling storage costs temporarily.</p>
+
+  <div class="danger-box">
+    <strong>Cost Impact:</strong> Tables with 90-day retention that are heavily reclustered can see storage costs balloon. Consider temporarily reducing retention before a large-scale reclustering if storage costs are a concern (but understand the audit/recovery implications).
+  </div>
+</div>
+
+<h2>2. High-Cardinality Clustering Key Problems</h2>
+
+<div class="card">
+  <h3><span class="edge-case-num">4</span>Clustering on UUID/High-Cardinality Columns is Counterproductive</h3>
+  <p>A clustering key on a column with near-unique values (UUID, email, random ID) provides <strong>zero pruning benefit</strong> and wastes reclustering credits.</p>
+
+  <div class="diagram">
+Why High-Cardinality Clustering Fails:
+
+CLUSTER BY (uuid_column):
+  Partition 1: UUIDs a000...a999  → Contains range a000-a999
+  Partition 2: UUIDs b000...b999  → Contains range b000-b999
+  ...
+
+Query: WHERE uuid_column = 'b500...'
+  Without clustering: scan ~1-2 partitions (SOS handles this)
+  With clustering: scan ~1 partition (same result, but paid for reclustering!)
+
+Net effect: Paid ongoing reclustering costs for zero query improvement.
+Use SOS on EQUALITY(uuid_column) instead — zero reclustering cost.</div>
+
+  <div class="key-point">
+    <strong>Rule of Thumb:</strong> If column cardinality exceeds the number of micro-partitions, clustering on it is wasteful. Use SOS instead for high-cardinality point lookups.
+  </div>
+</div>
+
+<div class="card">
+  <h3><span class="edge-case-num">5</span>Clustering on Timestamps with Second/Millisecond Precision</h3>
+  <p>Clustering directly on a high-precision TIMESTAMP is effectively high-cardinality clustering. Each second has unique values.</p>
+
+  <div class="warning-box">
+    <strong>Fix:</strong> Use expressions to reduce cardinality: <code>CLUSTER BY (TO_DATE(event_ts))</code> or <code>CLUSTER BY (DATE_TRUNC('hour', event_ts))</code>. This groups data by date or hour — far more effective for pruning.
+  </div>
+
+  <pre>-- BAD: High cardinality (millions of distinct values)
+ALTER TABLE events CLUSTER BY (event_timestamp);
+
+-- GOOD: Reduced cardinality (365 distinct values per year)
+ALTER TABLE events CLUSTER BY (TO_DATE(event_timestamp));
+
+-- GOOD: Medium cardinality with secondary column
+ALTER TABLE events CLUSTER BY (TO_DATE(event_timestamp), event_type);</pre>
+</div>
+
+<h2>3. Max Clustering Key Constraints</h2>
+
+<div class="card">
+  <h3><span class="edge-case-num">6</span>Diminishing Returns Beyond 3-4 Columns</h3>
+  <p>While Snowflake technically allows more columns in a clustering key, effectiveness drops sharply after 3-4 due to the "curse of dimensionality."</p>
+
+  <table>
+    <tr><th>Columns</th><th>Effectiveness</th><th>Reclustering Cost</th><th>Recommendation</th></tr>
+    <tr><td>1</td><td>Good for single-predicate queries</td><td>Low</td><td>Simple range filters</td></tr>
+    <tr><td>2</td><td>Excellent for compound filters</td><td>Moderate</td><td>Most common sweet spot</td></tr>
+    <tr><td>3</td><td>Good if all 3 used in queries</td><td>Higher</td><td>Only if queries consistently use all 3</td></tr>
+    <tr><td>4+</td><td>Diminishing returns</td><td>High</td><td>Rarely justified</td></tr>
+  </table>
+
+  <div class="info-box">
+    <strong>Why?</strong> With 4+ dimensions, achieving low overlap across ALL dimensions simultaneously requires extreme data reorganization. The reclustering engine may never converge to a "well-clustered" state, running continuously without meaningful improvement.
+  </div>
+</div>
+
+<div class="card">
+  <h3><span class="edge-case-num">7</span>Column Order in Clustering Key Matters Dramatically</h3>
+  <p>The first column in the clustering key gets the best partitioning. Subsequent columns partition <em>within</em> the ranges of preceding columns.</p>
+
+  <div class="diagram">
+CLUSTER BY (A, B) vs CLUSTER BY (B, A):
+
+CLUSTER BY (region, date):        CLUSTER BY (date, region):
+┌──────────────────────┐         ┌──────────────────────┐
+│ APAC │ Jan-Jun       │         │ Jan │ APAC,EU,US     │
+│ APAC │ Jul-Dec       │         │ Feb │ APAC,EU,US     │
+│ EU   │ Jan-Jun       │         │ Mar │ APAC,EU,US     │
+│ EU   │ Jul-Dec       │         │ ... │                │
+│ US   │ Jan-Jun       │         │ Dec │ APAC,EU,US     │
+│ US   │ Jul-Dec       │         └──────────────────────┘
+└──────────────────────┘
+
+Query: WHERE date = '2024-03-15'
+  → CLUSTER BY (region, date): Must check all regions → scans more
+  → CLUSTER BY (date, region): Direct prune to March → scans less
+
+Query: WHERE region = 'US'
+  → CLUSTER BY (region, date): Direct prune to US → scans less
+  → CLUSTER BY (date, region): Must check all months → scans more
+
+RULE: Put the most frequently filtered column FIRST.</div>
+</div>
+
+<h2>4. Clustering + Streams: Phantom Changes</h2>
+
+<div class="card">
+  <h3><span class="edge-case-num">8</span>Reclustering Generates Stream "Phantom" Changes</h3>
+  <p>When automatic reclustering reorganizes data, it effectively DELETEs rows from old partitions and INSERTs them into new partitions. Streams track this as real DML.</p>
+
+  <div class="danger-box">
+    <strong>Critical Gotcha:</strong> A standard stream on a clustered table will show INSERT/DELETE pairs for rows that were merely <em>moved</em> by reclustering — not actually modified by users. This can cause downstream tasks to process "phantom" changes.
+  </div>
+
+  <div class="diagram">
+Reclustering + Streams Interaction:
+
+Before reclustering:
+  Partition 1: [Row A (US, Jan), Row B (EU, Mar)]
+  Partition 2: [Row C (EU, Jan), Row D (US, Mar)]
+
+After CLUSTER BY (region):
+  Partition 1: [Row A (US, Jan), Row D (US, Mar)]  ← reorganized
+  Partition 2: [Row B (EU, Mar), Row C (EU, Jan)]  ← reorganized
+
+Stream sees:
+  DELETE Row B from P1, INSERT Row B into P2  ← "phantom" change
+  DELETE Row C from P2, INSERT Row C into P2  ← "phantom" change
+  DELETE Row D from P2, INSERT Row D into P1  ← "phantom" change
+
+These are NOT real user changes but stream reports them!</div>
+
+  <div class="key-point">
+    <strong>Solution: Use APPEND-ONLY streams</strong> on clustered tables when you only care about new INSERTs. Append-only streams ignore DELETE/UPDATE operations (including those from reclustering).
+  </div>
+
+  <pre>-- Standard stream: WILL see phantom changes from reclustering
+CREATE STREAM my_stream ON TABLE clustered_table;
+
+-- Append-only stream: Ignores reclustering moves
+CREATE STREAM my_stream ON TABLE clustered_table APPEND_ONLY = TRUE;
+
+-- If you need change tracking but not phantom changes:
+-- Use CHANGES clause with a timestamp BEFORE reclustering began</pre>
+</div>
+
+<div class="card">
+  <h3><span class="edge-case-num">9</span>Stream Offset Advancement During Reclustering</h3>
+  <p>If a stream is not consumed before reclustering occurs, the phantom changes accumulate. Consuming the stream then processes all phantom rows as real changes.</p>
+
+  <div class="warning-box">
+    <strong>Impact:</strong> A task consuming a stream may trigger unnecessarily after reclustering, processing zero meaningful changes but incurring compute costs. Design tasks to handle/filter phantom DELETE+INSERT pairs or use APPEND_ONLY streams.
+  </div>
+</div>
+
+<h2>5. Search Optimization Service (SOS) Limitations</h2>
+
+<div class="card">
+  <h3><span class="edge-case-num">10</span>SOS Does NOT Help Broad Range Queries</h3>
+  <p>SOS is designed for selective predicates (finding needles in haystacks). If the predicate matches a large percentage of rows, SOS cannot help — and won't be used by the optimizer.</p>
+
+  <div class="diagram">
+SOS Effectiveness vs. Selectivity:
+
+Selectivity:  |  SOS Benefit:
+─────────────────────────────────────
+0.001% (1 row in 1M)    │  EXCELLENT
+0.01%  (100 in 1M)      │  EXCELLENT
+0.1%   (1K in 1M)       │  GOOD
+1%     (10K in 1M)      │  MODERATE
+10%    (100K in 1M)     │  MINIMAL/NONE
+50%    (500K in 1M)     │  NONE — full scan faster
+─────────────────────────────────────
+SOS shines when query returns &lt;&lt; 1% of table rows.</div>
+</div>
+
+<div class="card">
+  <h3><span class="edge-case-num">11</span>SOS Maintenance Cost Scales with DML Volume</h3>
+  <p>Every INSERT/UPDATE/DELETE operation triggers SOS background maintenance to update search access paths. High-frequency micro-batch ingestion can cause continuous maintenance.</p>
+
+  <div class="warning-box">
+    <strong>Cost Trap:</strong> A table receiving 1000 small inserts per hour will trigger frequent SOS maintenance updates. Consider batching inserts or enabling SOS only on specific high-value columns to control costs.
+  </div>
+</div>
+
+<div class="card">
+  <h3><span class="edge-case-num">12</span>SOS on VARIANT — Path Specificity Required</h3>
+  <p>SOS can optimize VARIANT field lookups, but you must specify the exact path. It won't automatically index all paths within a VARIANT column.</p>
+
+  <pre>-- This optimizes lookups on data:customer_id specifically
+ALTER TABLE events ADD SEARCH OPTIMIZATION
+  ON EQUALITY(data:customer_id::STRING);
+
+-- This does NOT automatically help data:order_id or data:region
+-- Each path must be specified separately
+ALTER TABLE events ADD SEARCH OPTIMIZATION
+  ON EQUALITY(data:customer_id::STRING),
+  ON EQUALITY(data:order_id::STRING);</pre>
+</div>
+
+<div class="card">
+  <h3><span class="edge-case-num">13</span>SOS and Table Restructuring Operations</h3>
+  <p>Certain operations require SOS to be rebuilt from scratch:</p>
+  <ul>
+    <li><strong>ALTER TABLE ... CLUSTER BY:</strong> Changing clustering key doesn't invalidate SOS, but reclustering causes SOS maintenance</li>
+    <li><strong>Table recreation (CTAS):</strong> SOS must be re-added to the new table</li>
+    <li><strong>Column type change:</strong> SOS on that column must be dropped and re-added</li>
+    <li><strong>Table clone:</strong> Cloned table does NOT inherit SOS configuration</li>
+  </ul>
+
+  <div class="danger-box">
+    <strong>Gotcha:</strong> <code>CREATE TABLE new_table CLONE old_table</code> does NOT clone the SOS configuration. You must re-add search optimization to the cloned table separately.
+  </div>
+</div>
+
+<h2>6. Query Acceleration Service (QAS) Edge Cases</h2>
+
+<div class="card">
+  <h3><span class="edge-case-num">14</span>QAS Does NOT Accelerate All Queries</h3>
+  <p>QAS only accelerates queries where the scan phase is the bottleneck AND the result is selective. Many query types cannot benefit:</p>
+
+  <table>
+    <tr><th>Query Type</th><th>QAS Eligible?</th><th>Reason</th></tr>
+    <tr><td>Point lookup (WHERE id = X)</td><td>Usually No</td><td>Too little scan work to offload</td></tr>
+    <tr><td>Full table aggregation</td><td>Maybe</td><td>Depends on result selectivity</td></tr>
+    <tr><td>Large scan + selective filter</td><td>Yes</td><td>Ideal case — scan work offloaded</td></tr>
+    <tr><td>INSERT ... SELECT</td><td>No</td><td>DML not eligible</td></tr>
+    <tr><td>MERGE</td><td>No</td><td>DML not eligible</td></tr>
+    <tr><td>External table queries</td><td>No</td><td>Not supported</td></tr>
+    <tr><td>Queries with UDFs in WHERE</td><td>Limited</td><td>Optimizer may not push down</td></tr>
+    <tr><td>Complex multi-join queries</td><td>Limited</td><td>Bottleneck often not in scan phase</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3><span class="edge-case-num">15</span>QAS Scale Factor Misconfigurations</h3>
+
+  <div class="warning-box">
+    <strong>Too High (e.g., 0 unlimited):</strong> Can cause unexpectedly high serverless credit consumption for expensive queries that happen to be eligible. A single poorly-written query could consume significant credits.
+    <br><br>
+    <strong>Too Low (e.g., 1):</strong> May limit acceleration benefit for queries that could significantly benefit from more parallelism. Start conservative and increase based on monitoring.
+  </div>
+
+  <pre>-- Start conservative
+ALTER WAREHOUSE analytics_wh SET
+  ENABLE_QUERY_ACCELERATION = TRUE
+  QUERY_ACCELERATION_MAX_SCALE_FACTOR = 4;
+
+-- Monitor before increasing
+SELECT
+    query_id,
+    query_acceleration_bytes_scanned,
+    query_acceleration_partitions_scanned,
+    query_acceleration_upper_limit_scale_factor
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_ACCELERATION_HISTORY
+WHERE start_time > DATEADD('day', -7, CURRENT_TIMESTAMP())
+ORDER BY query_acceleration_bytes_scanned DESC;</pre>
+</div>
+
+<h2>7. Re-Clustering Triggers &amp; Behavior</h2>
+
+<div class="card">
+  <h3><span class="edge-case-num">16</span>What Triggers Reclustering?</h3>
+  <table>
+    <tr><th>Trigger</th><th>Impact</th><th>Notes</th></tr>
+    <tr><td>INSERT (large batch)</td><td>High — new partitions may violate order</td><td>Biggest trigger for reclustering</td></tr>
+    <tr><td>INSERT (small/micro-batch)</td><td>Low — few new partitions</td><td>May accumulate over time</td></tr>
+    <tr><td>UPDATE</td><td>High — creates new partition versions</td><td>Old rows deleted, new rows inserted</td></tr>
+    <tr><td>DELETE</td><td>Moderate — partition rewrite</td><td>Remaining data may still be clustered</td></tr>
+    <tr><td>MERGE (matched UPDATE)</td><td>High — equivalent to UPDATE</td><td>Partition rewrite triggers recluster</td></tr>
+    <tr><td>COPY INTO</td><td>High — bulk new data</td><td>Same as large INSERT</td></tr>
+    <tr><td>Snowpipe (streaming)</td><td>Moderate — continuous small inserts</td><td>Accumulates clustering debt</td></tr>
+  </table>
+
+  <div class="info-box">
+    <strong>Threshold:</strong> Snowflake doesn't recluster after every single row change. It waits until clustering quality degrades beyond an internal threshold before initiating reclustering. This prevents excessive micro-reclustering operations.
+  </div>
+</div>
+
+<div class="card">
+  <h3><span class="edge-case-num">17</span>Reclustering During Peak Load Windows</h3>
+  <p>While reclustering doesn't block queries, it competes for I/O at the storage layer. During periods of both heavy DML and heavy reclustering, you may observe slightly higher query latencies.</p>
+
+  <div class="key-point">
+    <strong>Strategy:</strong> For tables with predictable DML patterns (e.g., nightly batch loads), consider suspending reclustering during the load window and resuming after completion:
+  </div>
+
+  <pre>-- Before heavy batch load
+ALTER TABLE my_table SUSPEND RECLUSTER;
+
+-- Run ETL / batch load
+COPY INTO my_table FROM @stage/...;
+
+-- After load completes, resume
+ALTER TABLE my_table RESUME RECLUSTER;</pre>
+</div>
+
+<div class="card">
+  <h3><span class="edge-case-num">18</span>Reclustering Never Fully Converges on High-Churn Tables</h3>
+  <p>If DML rate exceeds reclustering rate, clustering quality will never reach optimal. The reclustering service continuously runs but can't "catch up."</p>
+
+  <div class="diagram">
+Convergence Problem:
+
+  DML rate: 500 partitions modified / hour
+  Recluster rate: 200 partitions reorganized / hour
+
+  Result: Clustering debt grows by 300 partitions/hour
+           → Never converges to good clustering
+           → Continuous credit consumption with no benefit
+
+  Solution options:
+  1. Accept natural clustering (drop clustering key)
+  2. Cluster on fewer columns (faster reclustering)
+  3. Reduce DML frequency (batch more aggressively)
+  4. Use SOS/QAS instead for these query patterns</div>
+</div>
+
+<h2>8. Miscellaneous Edge Cases</h2>
+
+<div class="card">
+  <h3><span class="edge-case-num">19</span>Clustering Key and Zero-Copy Clone Behavior</h3>
+  <ul>
+    <li><strong>Clustering key definition:</strong> IS cloned to the new table</li>
+    <li><strong>Clustering state:</strong> Clone shares same partitions initially (good clustering preserved)</li>
+    <li><strong>Reclustering:</strong> Operates independently on clone after divergence</li>
+    <li><strong>Cost:</strong> Both original and clone incur separate reclustering costs after diverging</li>
+  </ul>
+
+  <div class="warning-box">
+    <strong>Gotcha:</strong> Cloning a large clustered table and then modifying the clone heavily means you pay reclustering costs on BOTH the original (for its changes) AND the clone (for its changes). Budget accordingly.
+  </div>
+</div>
+
+<div class="card">
+  <h3><span class="edge-case-num">20</span>Clustering vs. Materialized Views</h3>
+  <p>Materialized views can have their own independent clustering keys, separate from the base table. This is a powerful but expensive pattern:</p>
+
+  <pre>-- Base table clustered on date
+CREATE TABLE events (...)
+  CLUSTER BY (event_date);
+
+-- Materialized view clustered differently for different query patterns
+CREATE MATERIALIZED VIEW events_by_user AS
+  SELECT * FROM events
+  CLUSTER BY (user_id);
+
+-- Now you pay for:
+-- 1. Base table reclustering (by date)
+-- 2. MV reclustering (by user_id)
+-- 3. MV maintenance (refresh after DML)
+-- = Triple cost but enables pruning on both date AND user_id queries</pre>
+
+  <div class="info-box">
+    <strong>When This Makes Sense:</strong> Only when the table is queried by two fundamentally different patterns (date ranges AND user lookups) and both patterns need excellent pruning. Usually SOS on the secondary pattern is cheaper.
+  </div>
+</div>
+
+<div class="card">
+  <h3><span class="edge-case-num">21</span>SYSTEM$CLUSTERING_INFORMATION Can Be Misleading</h3>
+  <p>The clustering information function shows a point-in-time snapshot. It does not account for:</p>
+  <ul>
+    <li>In-flight reclustering operations (currently being reorganized)</li>
+    <li>DML operations executed since the last recluster cycle</li>
+    <li>Whether the "poor" clustering actually matters for your specific queries</li>
+  </ul>
+
+  <div class="key-point">
+    <strong>Always validate with Query Profile:</strong> Don't recluster just because average_depth is high. Check actual query partition pruning statistics first. If queries already prune well despite "poor" clustering metrics, save the reclustering cost.
+  </div>
+</div>
+
+<div class="card" style="margin-top: 2rem; text-align: center;">
+  <p><strong>Next:</strong> <a href="../02-hands-on-practice/lab_queries.sql" style="color: var(--accent);">Hands-On Lab: Clustering & SOS Practice Queries →</a></p>
+</div>
+
+</body>
+</html>

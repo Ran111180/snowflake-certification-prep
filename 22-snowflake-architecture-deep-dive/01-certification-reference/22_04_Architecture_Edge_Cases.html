@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>22.04 Snowflake Architecture - Edge Cases &amp; Gotchas</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Snowflake Architecture - Edge Cases & Gotchas",
+  "topic": "22-snowflake-architecture-deep-dive",
+  "part": 4,
+  "category": "certification-reference",
+  "difficulty": "advanced",
+  "certificationArea": "Architecture",
+  "tags": ["edge-cases", "billing", "cache", "scaling", "cross-cloud"]
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#f8f9fa, #1a1d23);
+  --bg-secondary: light-dark(#ffffff, #22262e);
+  --bg-tertiary: light-dark(#f1f3f5, #2a2f38);
+  --text-primary: light-dark(#1a1d23, #e2e4e8);
+  --text-secondary: light-dark(#4a5568, #a0aab4);
+  --border-color: light-dark(#d1d5db, #3a3f48);
+  --accent: light-dark(#475569, #94a3b8);
+  --accent-bg: light-dark(#f1f5f9, #2d3748);
+  --highlight: light-dark(#334155, #e2e8f0);
+  --code-bg: light-dark(#f1f3f5, #2a2f38);
+  --success: light-dark(#16a34a, #4ade80);
+  --warning: light-dark(#d97706, #fbbf24);
+  --info: light-dark(#2563eb, #60a5fa);
+  --danger: light-dark(#dc2626, #f87171);
+  --card-shadow: light-dark(0 1px 3px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.3));
+}
+html { color-scheme: light dark; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--highlight); }
+h2 { font-size: 1.4rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--highlight); border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; }
+h3 { font-size: 1.1rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: var(--accent); }
+.subtitle { color: var(--text-secondary); margin-bottom: 2rem; font-size: 1rem; }
+.card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--card-shadow);
+}
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+th, td { padding: 0.6rem 0.8rem; text-align: left; border: 1px solid var(--border-color); }
+th { background: var(--bg-tertiary); font-weight: 600; color: var(--highlight); }
+tr:nth-child(even) { background: var(--bg-tertiary); }
+ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+li { margin-bottom: 0.4rem; }
+code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.9em; }
+pre { background: var(--code-bg); padding: 1rem; border-radius: 6px; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+.callout { border-left: 4px solid var(--accent); padding: 1rem 1.5rem; margin: 1rem 0; background: var(--accent-bg); border-radius: 0 6px 6px 0; }
+.callout-warning { border-left-color: var(--warning); }
+.callout-danger { border-left-color: var(--danger); }
+.callout-info { border-left-color: var(--info); }
+.edge-case {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--warning);
+  border-radius: 0 8px 8px 0;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+.edge-case h4 { color: var(--warning); margin-bottom: 0.5rem; font-size: 1rem; }
+.gotcha { border-left-color: var(--danger); }
+.gotcha h4 { color: var(--danger); }
+.diagram {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  white-space: pre;
+  overflow-x: auto;
+  line-height: 1.4;
+}
+</style>
+</head>
+<body>
+
+<h1>22.04 Snowflake Architecture - Edge Cases &amp; Gotchas</h1>
+<p class="subtitle">Tricky scenarios frequently tested on the certification exam</p>
+
+<h2>1. Cloud Services Billing (10% Adjustment)</h2>
+<div class="card">
+<h3>The Rule</h3>
+<p>Cloud Services compute is billed ONLY when daily Cloud Services usage exceeds 10% of the total daily warehouse compute credits consumed.</p>
+
+<div class="edge-case">
+<h4>Edge Case: Zero Warehouse Usage</h4>
+<p>If no warehouses run that day (0 compute credits), then ANY Cloud Services usage above 0 is billed at 100% because 10% of 0 = 0.</p>
+<p><strong>Scenario:</strong> You run metadata-only queries (COUNT(*), SHOW commands) all day without any warehouse. Cloud Services credits used = 0.5. Since compute = 0, the 10% threshold = 0. You are billed for 0.5 credits of Cloud Services.</p>
+</div>
+
+<div class="edge-case">
+<h4>Edge Case: High Cloud Services Usage</h4>
+<p><strong>Scenario:</strong> Daily compute = 100 credits. Cloud Services = 15 credits.</p>
+<p>10% of 100 = 10 credits free. Billed: 15 - 10 = 5 credits.</p>
+</div>
+
+<div class="edge-case gotcha">
+<h4>Gotcha: The Adjustment is Daily</h4>
+<p>The 10% calculation resets every day. You cannot "bank" unused Cloud Services allowance from one day to the next. Each day is evaluated independently.</p>
+</div>
+
+<h3>What Counts as Cloud Services Compute</h3>
+<table>
+  <tr><th>Counts</th><th>Does NOT Count</th></tr>
+  <tr><td>Authentication</td><td>Metadata storage (storage billing)</td></tr>
+  <tr><td>Query parsing/optimization/compilation</td><td>Query execution (warehouse billing)</td></tr>
+  <tr><td>Metadata operations</td><td>Data storage (storage billing)</td></tr>
+  <tr><td>Access control checks</td><td>Local disk caching (warehouse billing)</td></tr>
+  <tr><td>SHOW/DESCRIBE commands</td><td>Data transfer (separate billing)</td></tr>
+  <tr><td>Result cache serving</td><td></td></tr>
+</table>
+</div>
+
+<h2>2. Compute Isolation Between Warehouses</h2>
+<div class="card">
+<div class="edge-case">
+<h4>Edge Case: Warehouse A Cannot Affect Warehouse B</h4>
+<p>Even if Warehouse A is running a massive 4-hour query that saturates all its nodes, Warehouse B operates with zero performance degradation. They share NOTHING in the compute layer.</p>
+</div>
+
+<div class="edge-case">
+<h4>Edge Case: Same Table, Different Warehouses</h4>
+<p>Multiple warehouses can query the same table simultaneously without contention. Storage is shared, but compute is isolated. Each warehouse reads from cloud storage (or its own cache) independently.</p>
+</div>
+
+<div class="edge-case gotcha">
+<h4>Gotcha: DML Conflicts ARE Possible</h4>
+<p>While read queries never conflict, two warehouses running DML on the SAME table can conflict at the micro-partition level. The second transaction to commit fails with a serialization error and must be retried.</p>
+</div>
+
+<h3>Resource Contention Summary</h3>
+<table>
+  <tr><th>Scenario</th><th>Contention?</th><th>Why</th></tr>
+  <tr><td>Two SELECTs on same table, different warehouses</td><td>No</td><td>Compute isolated, storage shared</td></tr>
+  <tr><td>Two SELECTs on same table, same warehouse</td><td>Possible</td><td>Share warehouse resources (queuing)</td></tr>
+  <tr><td>SELECT + UPDATE on same table, different warehouses</td><td>No</td><td>MVCC - reader sees snapshot</td></tr>
+  <tr><td>Two UPDATEs on same table, different warehouses</td><td>Possible</td><td>Write conflict on same partitions</td></tr>
+</table>
+</div>
+
+<h2>3. Metadata Cache Persistence</h2>
+<div class="card">
+<div class="edge-case">
+<h4>Edge Case: Metadata Persists After Warehouse Suspend</h4>
+<p>The metadata cache is in the Cloud Services layer, NOT in the warehouse. Suspending or dropping a warehouse does NOT affect metadata. Queries like <code>SELECT COUNT(*)</code> still return instantly.</p>
+</div>
+
+<div class="edge-case">
+<h4>Edge Case: Metadata Updates are Immediate</h4>
+<p>After any DML (INSERT, UPDATE, DELETE, MERGE), metadata is updated immediately upon commit. There is no lag between data change and metadata refresh.</p>
+</div>
+
+<div class="edge-case gotcha">
+<h4>Gotcha: Metadata vs. Local Disk Cache</h4>
+<p><strong>Metadata cache</strong> (Cloud Services) = Always available, survives warehouse suspend.<br>
+<strong>Local disk cache</strong> (Warehouse SSD) = Lost when warehouse is suspended. Resumes cold.</p>
+</div>
+</div>
+
+<h2>4. Result Cache Invalidation</h2>
+<div class="card">
+<h3>Invalidation Rules</h3>
+<p>Result cache is invalidated when ANY of these occur:</p>
+<ol>
+  <li><strong>24 hours elapse</strong> since the result was cached</li>
+  <li><strong>Underlying data changes</strong> (any DML on referenced tables)</li>
+  <li><strong>Micro-partition versions change</strong> (even if values are the same)</li>
+</ol>
+
+<div class="edge-case">
+<h4>Edge Case: DELETE + Re-INSERT Same Data</h4>
+<p>If you DELETE all rows and re-INSERT the exact same data, the result cache is INVALIDATED. Even though the logical data is identical, the micro-partition versions have changed.</p>
+</div>
+
+<div class="edge-case">
+<h4>Edge Case: Concurrent Session Cache</h4>
+<p>User A runs a query. User B runs the exact same query with the same role. User B gets the cached result - the cache is shared across users (scoped by role, not user).</p>
+</div>
+
+<div class="edge-case gotcha">
+<h4>Gotcha: Non-deterministic Functions Break Cache</h4>
+<p>Queries containing <code>CURRENT_TIMESTAMP()</code>, <code>CURRENT_DATE()</code>, <code>RANDOM()</code>, <code>UUID_STRING()</code>, or external functions will NEVER use the result cache.</p>
+</div>
+
+<div class="edge-case">
+<h4>Edge Case: USE_CACHED_RESULT Parameter</h4>
+<p><code>ALTER SESSION SET USE_CACHED_RESULT = FALSE;</code> disables result cache for that session. The query will always execute fresh. Default is TRUE.</p>
+</div>
+
+<h3>Cache Match Requirements (All Must Be True)</h3>
+<ul>
+  <li>Exact same query text (byte-for-byte, including whitespace and comments)</li>
+  <li>Same executing role</li>
+  <li>No data changes to underlying tables</li>
+  <li>No non-deterministic functions</li>
+  <li>Within 24-hour window</li>
+  <li>USE_CACHED_RESULT = TRUE</li>
+  <li>Result fits within cache size limits</li>
+</ul>
+</div>
+
+<h2>5. Warehouse Suspend/Resume Behavior</h2>
+<div class="card">
+<div class="edge-case">
+<h4>Edge Case: Suspend with Running Queries</h4>
+<p>A warehouse will NOT suspend while queries are actively running, even if auto-suspend timer has expired. It waits until all running queries complete, then suspends after the idle timeout.</p>
+</div>
+
+<div class="edge-case">
+<h4>Edge Case: Resume Latency</h4>
+<p>Resuming a suspended warehouse takes time (provisioning nodes). Typical: a few seconds for small warehouses, longer for larger sizes. During this time, queries are queued.</p>
+</div>
+
+<div class="edge-case">
+<h4>Edge Case: 60-Second Minimum Billing</h4>
+<p>Each time a warehouse resumes, you are billed for a minimum of 60 seconds. If a warehouse processes a 5-second query and suspends, you pay for 60 seconds. If it processes queries continuously for 90 seconds and suspends, you pay for 90 seconds.</p>
+</div>
+
+<div class="edge-case gotcha">
+<h4>Gotcha: Frequent Suspend/Resume Costs More</h4>
+<p>A warehouse that suspends and resumes 60 times in an hour (1-minute auto-suspend, sporadic queries) costs 60 credits/hour (for X-Small) due to the 60-second minimum. Keeping it running would cost only 1 credit/hour.</p>
+<p><strong>Best Practice:</strong> Set auto-suspend to 5-10 minutes for interactive workloads to avoid the 60-second minimum penalty on frequent resumes.</p>
+</div>
+
+<div class="edge-case">
+<h4>Edge Case: Local Disk Cache on Resume</h4>
+<p>When a warehouse resumes, its local SSD cache is COLD (empty). First queries after resume may be slower as they re-populate the cache from cloud storage.</p>
+</div>
+</div>
+
+<h2>6. Multi-Cluster Warehouse Scaling</h2>
+<div class="card">
+<h3>Scaling Policies</h3>
+<table>
+  <tr><th>Policy</th><th>Behavior</th><th>Best For</th></tr>
+  <tr><td><strong>Standard</strong></td><td>Adds clusters when queries queue; removes after 2-3 checks (conservative scale-down)</td><td>Steady workloads, predictable concurrency</td></tr>
+  <tr><td><strong>Economy</strong></td><td>Waits longer before adding clusters; removes quickly (aggressive scale-down)</td><td>Cost-sensitive, bursty workloads</td></tr>
+</table>
+
+<div class="edge-case">
+<h4>Edge Case: Scale-Out Timing</h4>
+<p>Adding a new cluster takes time (provisioning + warming). During this window, queries still queue on existing clusters. Multi-cluster is NOT instant - there is a lag of several seconds to a minute.</p>
+</div>
+
+<div class="edge-case">
+<h4>Edge Case: Minimum and Maximum Clusters</h4>
+<p>If MIN = MAX (e.g., both set to 3), the warehouse always runs exactly 3 clusters. This eliminates scale-out latency but costs more during low-usage periods.</p>
+</div>
+
+<div class="edge-case gotcha">
+<h4>Gotcha: Scale-Out vs. Scale-Up</h4>
+<p>Multi-cluster warehouses add MORE clusters of the SAME size. They do NOT increase individual cluster size. If a single query is slow because it needs more compute, you need to resize (scale UP), not add clusters (scale OUT).</p>
+<ul>
+  <li><strong>Scale UP (resize)</strong>: Single slow query needs more power</li>
+  <li><strong>Scale OUT (multi-cluster)</strong>: Many concurrent queries need to run simultaneously</li>
+</ul>
+</div>
+
+<div class="edge-case">
+<h4>Edge Case: Multi-Cluster + Auto-Suspend</h4>
+<p>With MIN_CLUSTER_COUNT = 1, if all queries complete, extra clusters shut down first. If idle timeout expires, the last cluster also suspends. With MIN > 1, at least MIN clusters always remain running (and billing).</p>
+</div>
+</div>
+
+<h2>7. Cross-Cloud Limitations</h2>
+<div class="card">
+<div class="edge-case">
+<h4>Edge Case: No Cross-Cloud Queries</h4>
+<p>You CANNOT directly join a table in an AWS account with a table in an Azure account. Data must be replicated first via Database Replication or Replication Groups.</p>
+</div>
+
+<div class="edge-case">
+<h4>Edge Case: Data Sharing Region Lock</h4>
+<p>Direct shares only work within the same cloud region. To share cross-region or cross-cloud, you must use a Snowflake listing with auto-fulfillment (which creates a replica in the consumer's region).</p>
+</div>
+
+<div class="edge-case">
+<h4>Edge Case: Replication Costs</h4>
+<p>Cross-cloud replication incurs:</p>
+<ul>
+  <li>Data transfer costs (cloud provider egress fees)</li>
+  <li>Compute credits for the replication process</li>
+  <li>Storage costs in the target region</li>
+</ul>
+</div>
+
+<div class="edge-case gotcha">
+<h4>Gotcha: Organization Account Required</h4>
+<p>Cross-cloud/cross-region replication requires the Organization feature (accounts linked under same org). Replication between unrelated accounts is done via Secure Data Sharing, not Database Replication.</p>
+</div>
+
+<h3>Cross-Cloud Feature Matrix</h3>
+<table>
+  <tr><th>Feature</th><th>Same Region</th><th>Cross-Region (Same Cloud)</th><th>Cross-Cloud</th></tr>
+  <tr><td>Direct Share</td><td>Yes</td><td>No (use listing)</td><td>No (use listing)</td></tr>
+  <tr><td>Database Replication</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Failover</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Cross-database JOIN</td><td>N/A (same account)</td><td>No</td><td>No</td></tr>
+  <tr><td>Client Redirect</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+</table>
+</div>
+
+<h2>8. Additional Architecture Gotchas</h2>
+<div class="card">
+<div class="edge-case">
+<h4>Edge Case: Time Travel + Fail-Safe Storage</h4>
+<p>A dropped table with 90-day Time Travel + 7-day Fail-Safe means the storage is retained for up to 97 days total. You pay for storage during this entire period.</p>
+</div>
+
+<div class="edge-case gotcha">
+<h4>Gotcha: UNDROP Requires Exact Name</h4>
+<p>If you create a table, drop it, then create a new table with the same name and drop that too, <code>UNDROP TABLE</code> restores the MOST RECENTLY dropped table with that name. To recover the earlier one, you must first UNDROP the later one (or rename it).</p>
+</div>
+
+<div class="edge-case">
+<h4>Edge Case: Clone Does Not Clone Privileges</h4>
+<p>A cloned object does NOT inherit the grants/privileges of the source object. You must re-grant access separately. The exception: cloning a database clones all contained objects AND their grants.</p>
+</div>
+
+<div class="edge-case gotcha">
+<h4>Gotcha: ACCOUNTADMIN and Cloud Services</h4>
+<p>Operations performed with ACCOUNTADMIN (like SHOW DATABASES across all) may consume more Cloud Services credits than the same operation with a restricted role, because the metadata scan is broader.</p>
+</div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UDFs & Stored Procedures - 50 Practice Questions</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "UDFs & Stored Procedures - 50 Practice Questions",
+  "description": "50 interactive certification-style questions on UDFs, stored procedures, and related topics",
+  "author": "Snowflake Certification Prep",
+  "created": "2026-08-15",
+  "topic": "UDFs-Stored-Procedures",
+  "part": 3,
+  "certification_relevance": "high"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#fff5f9, #1a0a12);
+  --bg-secondary: light-dark(#fff0f5, #2a1020);
+  --bg-card: light-dark(#ffffff, #1e0e18);
+  --bg-code: light-dark(#fdf0f5, #2d1525);
+  --text-primary: light-dark(#2d0a1a, #fce4ec);
+  --text-secondary: light-dark(#5c1a3a, #f8bbd0);
+  --accent: light-dark(#d81b60, #f06292);
+  --accent-secondary: light-dark(#ad1457, #ec407a);
+  --border: light-dark(#f8bbd0, #4a1a35);
+  --highlight: light-dark(#fce4ec, #3d1530);
+  --success: light-dark(#2e7d32, #66bb6a);
+  --error: light-dark(#c62828, #ef5350);
+  --shadow: light-dark(rgba(216, 27, 96, 0.1), rgba(0, 0, 0, 0.3));
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { color-scheme: light dark; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+h1 { font-size: 2.2rem; color: var(--accent); border-bottom: 3px solid var(--accent); padding-bottom: 0.8rem; margin-bottom: 1rem; }
+
+.score-bar {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin: 1rem 0 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.score-bar span { font-weight: 600; color: var(--accent); }
+#score-display { font-size: 1.3rem; }
+.score-bar button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 0.5rem 1.2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.score-bar button:hover { opacity: 0.9; }
+
+.question-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.8rem;
+  margin: 1.5rem 0;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.q-number {
+  display: inline-block;
+  background: var(--accent);
+  color: white;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 2rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-right: 0.8rem;
+}
+
+.q-text {
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin-bottom: 1rem;
+  display: inline;
+}
+
+.options { list-style: none; padding: 0; margin: 1rem 0; }
+.options li {
+  padding: 0.7rem 1rem;
+  margin: 0.5rem 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.options li:hover { background: var(--highlight); border-color: var(--accent); }
+.options li.selected { border-color: var(--accent); background: var(--highlight); }
+.options li.correct { border-color: var(--success); background: light-dark(#e8f5e9, #1b3d1f); }
+.options li.incorrect { border-color: var(--error); background: light-dark(#ffebee, #3d1b1b); }
+
+.explanation {
+  display: none;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border-left: 3px solid var(--accent);
+}
+.explanation.show { display: block; }
+
+code { background: var(--bg-code); padding: 0.2rem 0.5rem; border-radius: 4px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.88em; color: var(--accent); }
+pre { background: var(--bg-code); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 0.8rem 0; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.83rem; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<h1>20.03 UDFs &amp; Stored Procedures - 50 Practice Questions</h1>
+
+<div class="score-bar">
+  <span id="score-display">Score: 0 / 0</span>
+  <span id="percent-display"></span>
+  <button onclick="resetAll()">Reset All</button>
+</div>
+
+<div id="questions-container"></div>
+
+<script>
+const questions = [
+  {
+    q: "Which clause ensures a UDF returns NULL automatically if any input argument is NULL, without executing the function body?",
+    options: ["CALLED ON NULL INPUT", "RETURNS NULL ON NULL INPUT", "NOT NULL", "VOLATILE"],
+    answer: 1,
+    explanation: "RETURNS NULL ON NULL INPUT (or its synonym STRICT) tells Snowflake to short-circuit and return NULL without executing the function body whenever any argument is NULL. CALLED ON NULL INPUT (the default) executes the body regardless."
+  },
+  {
+    q: "What is the default execution rights mode for a Snowflake stored procedure?",
+    options: ["EXECUTE AS CALLER", "EXECUTE AS OWNER", "EXECUTE AS SESSION", "EXECUTE AS DEFINER"],
+    answer: 1,
+    explanation: "The default is EXECUTE AS OWNER (also called definer's rights in other databases). The procedure runs with the privileges of the role that owns the procedure, not the role that calls it."
+  },
+  {
+    q: "Which LANGUAGE keyword is required for a Python UDF in Snowflake?",
+    options: ["LANGUAGE PYTHON3", "LANGUAGE PYTHON", "LANGUAGE PY", "LANGUAGE SNOWPARK"],
+    answer: 1,
+    explanation: "The correct keyword is LANGUAGE PYTHON. Additionally, RUNTIME_VERSION and HANDLER are required clauses for Python UDFs."
+  },
+  {
+    q: "A UDF needs to INSERT rows into an audit table whenever it is called. What should you use?",
+    options: ["SQL UDF with INSERT statement", "JavaScript UDF with snowflake.execute()", "Stored Procedure instead of UDF", "Python UDF with session.sql()"],
+    answer: 2,
+    explanation: "UDFs cannot perform DML (INSERT, UPDATE, DELETE). If you need to modify data, you must use a Stored Procedure. This is a fundamental distinction between UDFs and stored procedures."
+  },
+  {
+    q: "In a JavaScript UDF, how are the input parameters referenced inside the function body?",
+    options: ["By their original case as defined", "Always in UPPERCASE", "Always in lowercase", "With a $ prefix"],
+    answer: 1,
+    explanation: "In JavaScript UDFs, all parameter names are automatically converted to UPPERCASE inside the function body, regardless of how they were defined in the CREATE FUNCTION statement. This is a common source of bugs."
+  },
+  {
+    q: "What is the purpose of the HANDLER clause in a Python/Java UDF?",
+    options: ["Specifies the error handler function", "Specifies the entry-point function or class.method", "Specifies the HTTP endpoint for external calls", "Specifies the return type handler"],
+    answer: 1,
+    explanation: "HANDLER names the function (for scalar UDFs) or class (for UDTFs) that Snowflake calls when the UDF is invoked. For Java, it's ClassName.methodName. For Python scalar UDFs, it's the function name. For Python UDTFs, it's the class name."
+  },
+  {
+    q: "Which statement about SECURE UDFs is FALSE?",
+    options: ["The function body is hidden from non-owner roles", "They prevent optimizer-based data leakage", "They always perform better than non-secure UDFs", "They are required for masking policy functions"],
+    answer: 2,
+    explanation: "SECURE UDFs may perform WORSE because the query optimizer cannot inline or push predicates through them. The security benefit comes at a potential performance cost."
+  },
+  {
+    q: "How do you call a table function (UDTF) in a SQL query?",
+    options: ["SELECT my_udtf(args) FROM dual", "SELECT * FROM TABLE(my_udtf(args))", "CALL my_udtf(args)", "SELECT my_udtf(args) AS TABLE"],
+    answer: 1,
+    explanation: "Table functions (UDTFs) are called in the FROM clause wrapped with TABLE(). Example: SELECT * FROM TABLE(my_udtf(col1, col2)). The TABLE() wrapper is required syntax."
+  },
+  {
+    q: "What does marking a UDF as IMMUTABLE allow Snowflake to do?",
+    options: ["Prevent any modifications to the function", "Cache/memoize results for repeated inputs", "Execute it only once per query", "Make it read-only with no table access"],
+    answer: 1,
+    explanation: "IMMUTABLE tells the optimizer that the function always returns the same result for the same inputs (deterministic). This allows Snowflake to cache results and potentially reduce the number of function invocations."
+  },
+  {
+    q: "What is an anonymous block in Snowflake?",
+    options: ["A UDF without a name", "A procedural BEGIN...END block executed without CREATE PROCEDURE", "A temporary stored procedure", "An encrypted function body"],
+    answer: 1,
+    explanation: "Anonymous blocks are BEGIN...END blocks that execute immediately without being stored as a named procedure. They support full Snowflake Scripting (variables, loops, cursors, exception handling) and always run with caller's rights."
+  },
+  {
+    q: "Which of these is NOT a valid way to differentiate overloaded functions in Snowflake?",
+    options: ["Different number of parameters", "Different parameter data types", "Different return type only", "Different parameter names with different types"],
+    answer: 2,
+    explanation: "Functions cannot be overloaded based solely on return type. Overloading requires differences in the number and/or types of arguments. The return type is not part of the function signature for resolution purposes."
+  },
+  {
+    q: "In a SQL stored procedure, how must you reference a variable inside a SQL statement?",
+    options: ["Just the variable name: my_var", "With colon prefix: :my_var", "With @ prefix: @my_var", "With $ prefix: $my_var"],
+    answer: 1,
+    explanation: "In Snowflake SQL scripting (stored procedures and anonymous blocks), variables must be prefixed with a colon (:) when used inside SQL statements (SELECT, INSERT, UPDATE, etc.). Without the colon, Snowflake treats them as column identifiers."
+  },
+  {
+    q: "What is the RESULTSET data type used for in stored procedures?",
+    options: ["Storing multiple result sets from a query", "Holding a pointer to query results that can be returned as a table", "Caching query results for reuse", "Defining the output schema of a procedure"],
+    answer: 1,
+    explanation: "RESULTSET is a special type in Snowflake Scripting that holds a reference to query results. It can be returned from a procedure using RETURN TABLE(res) when the procedure has RETURNS TABLE(...) signature."
+  },
+  {
+    q: "Which stored procedure execution right is needed if the procedure must create tables owned by the calling user?",
+    options: ["EXECUTE AS OWNER", "EXECUTE AS CALLER", "EXECUTE AS SESSION", "EXECUTE AS CREATOR"],
+    answer: 1,
+    explanation: "EXECUTE AS CALLER is needed because objects created within the procedure will be owned by the caller's current role. With OWNER rights, created objects would be owned by the procedure owner's role."
+  },
+  {
+    q: "What is the maximum number of rows a scalar UDF can return per invocation?",
+    options: ["1 (exactly one value)", "Unlimited rows", "1000 rows", "Depends on warehouse size"],
+    answer: 0,
+    explanation: "A scalar UDF returns exactly one value per invocation (per input row). To return multiple rows, use a UDTF (table function) with RETURNS TABLE."
+  },
+  {
+    q: "Which Python UDF clause specifies third-party library dependencies?",
+    options: ["IMPORTS", "PACKAGES", "DEPENDENCIES", "REQUIREMENTS"],
+    answer: 1,
+    explanation: "PACKAGES = ('library_name') specifies packages from Snowflake's curated Anaconda channel. IMPORTS is for stage files (custom modules, data files, JARs). There is no DEPENDENCIES or REQUIREMENTS clause."
+  },
+  {
+    q: "External functions in Snowflake communicate with remote services via which protocol?",
+    options: ["gRPC", "HTTPS (REST API)", "WebSocket", "JDBC"],
+    answer: 1,
+    explanation: "External functions communicate via HTTPS REST API calls through API Gateway services (AWS API Gateway, Azure API Management, or GCP API Gateway). Data is sent and received as JSON arrays in batches."
+  },
+  {
+    q: "What happens if you mark a function as IMMUTABLE but it internally calls CURRENT_TIMESTAMP()?",
+    options: ["Snowflake raises a compile error", "The function is automatically changed to VOLATILE", "It may return cached/stale results", "CURRENT_TIMESTAMP is evaluated fresh regardless"],
+    answer: 2,
+    explanation: "Snowflake does NOT validate the IMMUTABLE claim. If you incorrectly mark a non-deterministic function as IMMUTABLE, the optimizer may cache results, leading to incorrect/stale values. It's the developer's responsibility to ensure correctness."
+  },
+  {
+    q: "Which exception variable gives you the numeric error code in a Snowflake scripting EXCEPTION block?",
+    options: ["SQLERRM", "SQLCODE", "SQLSTATE", "SQL_ERROR_NUMBER"],
+    answer: 1,
+    explanation: "SQLCODE returns the numeric error code. SQLERRM returns the error message text. SQLSTATE returns the 5-character SQL state code. These are available in EXCEPTION handlers."
+  },
+  {
+    q: "A Python UDTF class must implement which method to emit output rows?",
+    options: ["execute()", "emit()", "process()", "run()"],
+    answer: 2,
+    explanation: "Python UDTFs must implement the process() method, which is called once per input row. It can yield zero or more output tuples. Optionally, end_partition() emits rows after all rows in a partition are processed."
+  },
+  {
+    q: "How do you use PARTITION BY with a UDTF?",
+    options: ["PARTITION BY clause in CREATE FUNCTION", "TABLE(func(args) OVER (PARTITION BY col))", "GROUP BY in the calling query", "CLUSTER BY in the UDTF definition"],
+    answer: 1,
+    explanation: "PARTITION BY is specified at call time in the OVER clause: TABLE(my_udtf(col) OVER (PARTITION BY group_col)). This groups input rows for the UDTF's process() and end_partition() methods."
+  },
+  {
+    q: "What privilege is needed to call (execute) a stored procedure you don't own?",
+    options: ["SELECT on the procedure", "USAGE on the procedure", "EXECUTE on the procedure", "CALL on the procedure"],
+    answer: 1,
+    explanation: "To call a stored procedure, you need USAGE privilege on the procedure (GRANT USAGE ON PROCEDURE proc_name(arg_types) TO ROLE my_role). For UDFs, it's also USAGE."
+  },
+  {
+    q: "Which statement about SQL UDFs is TRUE?",
+    options: ["They support IF/THEN/ELSE logic", "They can contain multiple SQL statements", "Their body is a single expression or single SELECT", "They require a HANDLER clause"],
+    answer: 2,
+    explanation: "SQL UDF bodies must be a single SQL expression (for scalar) or a single SELECT statement (for table functions). They cannot contain procedural logic (IF, LOOP, etc.) - that requires a stored procedure or non-SQL UDF."
+  },
+  {
+    q: "What is the Snowflake Scripting keyword to execute dynamic SQL inside a stored procedure?",
+    options: ["EXEC", "EXECUTE IMMEDIATE", "RUN SQL", "DYNAMIC EXECUTE"],
+    answer: 1,
+    explanation: "EXECUTE IMMEDIATE is used to execute a dynamically constructed SQL string inside Snowflake Scripting stored procedures. Example: EXECUTE IMMEDIATE 'CREATE TABLE ' || table_name || ' (id INT)';"
+  },
+  {
+    q: "In which scenario would you use EXECUTE AS OWNER for a stored procedure?",
+    options: ["When the procedure creates objects for the caller", "When you want callers to perform controlled actions without direct object access", "When you need to use the caller's session context", "When testing procedures interactively"],
+    answer: 1,
+    explanation: "EXECUTE AS OWNER is ideal when you want to grant controlled access to operations (like inserting into specific tables) without giving callers direct privileges on those objects. It acts as a controlled gateway."
+  },
+  {
+    q: "What does the STRICT keyword do when applied to a UDF?",
+    options: ["Enables strict type checking", "Synonym for RETURNS NULL ON NULL INPUT", "Prevents overloading", "Disables implicit type coercion"],
+    answer: 1,
+    explanation: "STRICT is simply a synonym for RETURNS NULL ON NULL INPUT. If any argument is NULL, the function immediately returns NULL without executing the body."
+  },
+  {
+    q: "Which is required for a Java UDF but NOT for a SQL UDF?",
+    options: ["RETURNS clause", "LANGUAGE keyword", "HANDLER clause", "Function name"],
+    answer: 2,
+    explanation: "HANDLER is required for Java (and Python/Scala) UDFs to specify the class.method entry point. SQL UDFs don't need HANDLER because the body IS the implementation. LANGUAGE is technically optional for SQL (it's the default)."
+  },
+  {
+    q: "A cursor in a Snowflake stored procedure is used for:",
+    options: ["Random access to rows in a result set", "Sequential row-by-row processing of query results", "Parallel processing of partitions", "Caching query results across sessions"],
+    answer: 1,
+    explanation: "Cursors provide sequential (forward-only) row-by-row iteration over a result set. They're declared with a query, opened, and traversed with FETCH or FOR loops. They're useful when set-based operations aren't possible."
+  },
+  {
+    q: "What happens to a temporary UDF created via Snowpark when the session ends?",
+    options: ["It persists in the schema", "It is automatically dropped", "It becomes a permanent UDF", "It moves to a temp schema"],
+    answer: 1,
+    explanation: "Temporary UDFs (is_permanent=False in Snowpark) exist only for the duration of the session. When the session ends, they are automatically cleaned up. Permanent UDFs require a stage_location for storing the code."
+  },
+  {
+    q: "Which approach gives the BEST performance for a simple mathematical calculation UDF?",
+    options: ["Python UDF", "JavaScript UDF", "Java UDF", "SQL UDF"],
+    answer: 3,
+    explanation: "SQL UDFs provide the best performance because they are expanded inline into the query plan with no context switch overhead. Non-SQL UDFs (Python, JS, Java) require a separate execution environment which adds latency."
+  },
+  {
+    q: "What is MAX_BATCH_ROWS in an external function definition?",
+    options: ["Maximum rows the function can process total", "Maximum rows sent per HTTP request to the remote service", "Maximum rows returned by the function", "Maximum rows cached by the function"],
+    answer: 1,
+    explanation: "MAX_BATCH_ROWS controls how many rows are sent in each HTTP request to the remote service. Snowflake batches input rows and sends them as JSON arrays. The default is typically 100."
+  },
+  {
+    q: "Which Snowflake object is required before creating an external function?",
+    options: ["NETWORK POLICY", "API INTEGRATION", "STORAGE INTEGRATION", "SECURITY INTEGRATION"],
+    answer: 1,
+    explanation: "An API INTEGRATION is required. It defines the authentication and allowed endpoints for the external function. It must be created by ACCOUNTADMIN and specifies the API provider (AWS, Azure, GCP) and allowed URL prefixes."
+  },
+  {
+    q: "In a Python stored procedure, what is the first parameter automatically passed to the handler function?",
+    options: ["The connection object", "The Snowpark Session object", "The database name", "A context dictionary"],
+    answer: 1,
+    explanation: "Python stored procedures automatically receive a Snowpark Session object as their first parameter. This session provides access to Snowflake operations (session.sql(), session.table(), etc.) without explicit connection setup."
+  },
+  {
+    q: "What is the correct way to DROP a specific overloaded function?",
+    options: ["DROP FUNCTION func_name", "DROP FUNCTION func_name(NUMBER, VARCHAR)", "DROP ALL FUNCTION func_name", "DROP FUNCTION func_name OVERLOAD 2"],
+    answer: 1,
+    explanation: "You must specify the argument types to identify which overload to drop: DROP FUNCTION func_name(arg_type1, arg_type2). Without the argument types, the DROP would be ambiguous if overloads exist."
+  },
+  {
+    q: "Which statement about UDTFs and the end_partition() method is correct?",
+    options: ["It is called once per input row", "It is called after all rows in a partition have been processed", "It is required for all UDTFs", "It cannot yield any output rows"],
+    answer: 1,
+    explanation: "end_partition() is called once after all rows in a partition have been processed by process(). It's optional and commonly used to emit aggregate results or final summaries for the partition."
+  },
+  {
+    q: "A SQL UDF with RETURNS TABLE must contain:",
+    options: ["An INSERT statement", "A single SELECT statement", "Multiple SQL statements", "A RETURN keyword"],
+    answer: 1,
+    explanation: "A SQL table function (RETURNS TABLE) must have a body that is a single SELECT statement. It cannot contain DML, DDL, or multiple statements. The SELECT defines the output rows."
+  },
+  {
+    q: "What is the IMPORTS clause used for in Python/Java UDFs?",
+    options: ["Importing Python/Java packages from Anaconda", "Importing files (JARs, Python modules, data) from Snowflake stages", "Importing UDFs from other schemas", "Importing environment variables"],
+    answer: 1,
+    explanation: "IMPORTS specifies files from Snowflake stages to be made available to the UDF at runtime. This includes JAR files for Java, custom Python modules (.py/.zip), and data files. PACKAGES (not IMPORTS) is for Anaconda packages."
+  },
+  {
+    q: "An anonymous block in Snowflake always runs with which execution rights?",
+    options: ["Owner's rights", "Caller's rights", "System rights", "Admin rights"],
+    answer: 1,
+    explanation: "Anonymous blocks always run with caller's rights. There is no way to specify EXECUTE AS OWNER for an anonymous block since it has no owner (it's not a stored object). They execute with the privileges of the current role."
+  },
+  {
+    q: "Which clause makes a Python UDF process rows in batches using pandas Series for better performance?",
+    options: ["BATCH_SIZE = N", "The @pandas_udf decorator in Snowpark", "VECTORIZED = TRUE", "Using pd.Series type hints"],
+    answer: 1,
+    explanation: "In Snowpark, the @pandas_udf decorator (or using pandas Series type annotations) creates a vectorized UDF that processes batches of rows as pandas Series instead of row-by-row. This significantly improves performance for large datasets."
+  },
+  {
+    q: "What is the maximum number of arguments a Snowflake UDF can accept?",
+    options: ["32", "128", "500", "No explicit limit documented"],
+    answer: 2,
+    explanation: "Snowflake UDFs can accept up to 500 arguments. While this is rarely needed, it's a documented limit. Stored procedures have the same 500 argument limit."
+  },
+  {
+    q: "Which is TRUE about error handling in JavaScript stored procedures?",
+    options: ["Use try/catch blocks (standard JavaScript)", "Use EXCEPTION WHEN THEN syntax", "Use ON ERROR GOTO", "Errors cannot be caught in JS procedures"],
+    answer: 0,
+    explanation: "JavaScript stored procedures use standard JavaScript try/catch/finally for error handling. The Snowflake-specific EXCEPTION...WHEN...THEN syntax is for SQL Scripting procedures only."
+  },
+  {
+    q: "What does EXTERNAL_ACCESS_INTEGRATIONS enable for a Python UDF?",
+    options: ["Access to external stages", "Network access to call external APIs/services", "Access to external tables", "Cross-account access"],
+    answer: 1,
+    explanation: "EXTERNAL_ACCESS_INTEGRATIONS allows Python (and Java) UDFs to make outbound network calls to specified external endpoints. Without this, the Python sandbox blocks all network access."
+  },
+  {
+    q: "Which CANNOT be done inside a UDF?",
+    options: ["Call another UDF", "Perform arithmetic operations", "Execute a MERGE statement", "Parse JSON data"],
+    answer: 2,
+    explanation: "UDFs cannot perform DML operations (INSERT, UPDATE, DELETE, MERGE). They are designed to compute and return values, not modify data. Use stored procedures for DML operations."
+  },
+  {
+    q: "The SECRETS clause in a UDF definition is used to:",
+    options: ["Encrypt the function body", "Pass credentials securely from Snowflake secrets to the UDF", "Hide the function from SHOW FUNCTIONS", "Set a password on the function"],
+    answer: 1,
+    explanation: "SECRETS = ('var_name' = secret_object_name) makes secret values (API keys, passwords) available inside the UDF without exposing them in the function definition. Used with EXTERNAL_ACCESS_INTEGRATIONS."
+  },
+  {
+    q: "How do you specify that a stored procedure returns tabular results?",
+    options: ["RETURNS RESULTSET", "RETURNS TABLE(col1 TYPE, col2 TYPE, ...)", "RETURNS CURSOR", "RETURNS ARRAY"],
+    answer: 1,
+    explanation: "Use RETURNS TABLE(column_name data_type, ...) to declare that a procedure returns tabular results. Inside, use a RESULTSET variable and RETURN TABLE(resultset_var)."
+  },
+  {
+    q: "Which statement about function overloading resolution is TRUE?",
+    options: ["The function with the most arguments always wins", "Snowflake uses implicit type coercion to resolve ambiguous calls", "Return type is used to disambiguate", "Only the first created overload is ever used"],
+    answer: 1,
+    explanation: "When a call matches multiple overloads, Snowflake uses implicit type coercion rules to find the best match. If it's still ambiguous after coercion, an error is raised."
+  },
+  {
+    q: "What is the Snowpark equivalent of CREATE FUNCTION ... LANGUAGE PYTHON?",
+    options: ["session.create_function()", "session.udf.register() or @udf decorator", "session.sql('CREATE FUNCTION ...')", "session.register_python_udf()"],
+    answer: 1,
+    explanation: "In Snowpark Python, you use session.udf.register() or the @udf decorator to register Python UDFs. Both approaches allow you to create temporary or permanent UDFs programmatically."
+  },
+  {
+    q: "A stored procedure with EXECUTE AS OWNER calls another procedure with EXECUTE AS CALLER. What rights does the nested procedure use?",
+    options: ["The original caller's rights", "The outer procedure owner's rights", "System admin rights", "This combination is not allowed"],
+    answer: 1,
+    explanation: "When a CALLER-rights procedure is called from within an OWNER-rights procedure, the 'caller' is effectively the owner of the outer procedure. So the inner procedure runs with the outer owner's privileges."
+  },
+  {
+    q: "Which is NOT a valid volatility option for Snowflake UDFs?",
+    options: ["VOLATILE", "IMMUTABLE", "STABLE", "All listed are valid"],
+    answer: 2,
+    explanation: "Snowflake only supports VOLATILE and IMMUTABLE. There is no STABLE option (which exists in PostgreSQL). VOLATILE means results may change; IMMUTABLE means same inputs always give same outputs."
+  },
+  {
+    q: "What happens when you call a UDTF without PARTITION BY?",
+    options: ["An error is raised", "All input rows go into a single partition", "Each row is its own partition", "PARTITION BY is always required"],
+    answer: 1,
+    explanation: "Without PARTITION BY, all input rows are treated as a single partition. The process() method is called for each row, and end_partition() is called once after all rows. PARTITION BY is optional."
+  },
+  {
+    q: "The FOR loop in Snowflake Scripting can iterate over:",
+    options: ["Only numeric ranges", "Only cursors", "Both numeric ranges and cursors/result sets", "Only arrays"],
+    answer: 2,
+    explanation: "FOR loops in Snowflake Scripting support both patterns: FOR i IN 1 TO 10 (numeric range) and FOR rec IN cursor_name or FOR rec IN (SELECT ...) (iterating over query results)."
+  }
+];
+
+let answered = {};
+let correct = 0;
+let total = 0;
+
+function renderQuestions() {
+  const container = document.getElementById('questions-container');
+  container.innerHTML = questions.map((q, i) => `
+    <div class="question-card" id="qcard-${i}">
+      <div><span class="q-number">${i + 1}</span><span class="q-text">${q.q}</span></div>
+      ${q.code ? `<pre>${q.code}</pre>` : ''}
+      <ul class="options" id="opts-${i}">
+        ${q.options.map((opt, j) => `<li onclick="selectAnswer(${i}, ${j})" id="opt-${i}-${j}">${opt}</li>`).join('')}
+      </ul>
+      <div class="explanation" id="exp-${i}"><strong>Explanation:</strong> ${q.explanation}</div>
+    </div>
+  `).join('');
+}
+
+function selectAnswer(qi, oi) {
+  if (answered[qi] !== undefined) return;
+  answered[qi] = oi;
+  total++;
+
+  const correctIdx = questions[qi].answer;
+  document.getElementById(`opt-${qi}-${oi}`).classList.add(oi === correctIdx ? 'correct' : 'incorrect');
+  document.getElementById(`opt-${qi}-${correctIdx}`).classList.add('correct');
+  document.getElementById(`exp-${qi}`).classList.add('show');
+
+  if (oi === correctIdx) correct++;
+  updateScore();
+}
+
+function updateScore() {
+  document.getElementById('score-display').textContent = `Score: ${correct} / ${total}`;
+  document.getElementById('percent-display').textContent = total > 0 ? `(${Math.round(correct/total*100)}%)` : '';
+}
+
+function resetAll() {
+  answered = {};
+  correct = 0;
+  total = 0;
+  updateScore();
+  renderQuestions();
+}
+
+renderQuestions();
+</script>
+</body>
+</html>

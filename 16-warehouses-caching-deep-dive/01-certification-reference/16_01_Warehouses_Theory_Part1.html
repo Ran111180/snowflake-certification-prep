@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warehouses & Caching - Fundamentals | Snowflake Certification Reference</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Warehouses & Caching - Fundamentals",
+  "subject": "Snowflake Certification Prep",
+  "topic": "16-warehouses-caching-deep-dive",
+  "subtopic": "01-certification-reference",
+  "part": 1,
+  "version": "1.0",
+  "created": "2026-08-15",
+  "sections": [
+    "Virtual Warehouses Overview",
+    "Warehouse Sizing and Credit Rates",
+    "Auto-Suspend and Auto-Resume",
+    "Multi-Cluster Warehouses",
+    "Warehouse Types",
+    "Cache Layers",
+    "Query Queuing",
+    "Sizing Guidelines",
+    "Features and Limitations"
+  ],
+  "certification_relevance": ["SnowPro Core", "SnowPro Advanced: Architect"],
+  "difficulty": "Intermediate"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#fffaf5, #12100d);
+  --bg-secondary: light-dark(#ffffff, #1c1814);
+  --bg-tertiary: light-dark(#fef5ed, #221c14);
+  --text-primary: light-dark(#1a1209, #f0e6d8);
+  --text-secondary: light-dark(#5c4a32, #bfa882);
+  --text-muted: light-dark(#7a6548, #8a7a60);
+  --accent-orange: light-dark(#c2620a, #f09030);
+  --accent-amber: light-dark(#92400e, #f59e0b);
+  --accent-orange-bg: light-dark(#fef3e2, #2a1c08);
+  --accent-amber-bg: light-dark(#fffbeb, #1a1508);
+  --border-color: light-dark(#e8dcc8, #3a2e1e);
+  --border-accent: light-dark(#d4a86a, #5a4020);
+  --code-bg: light-dark(#fdf6ee, #16120e);
+  --code-text: light-dark(#c2620a, #f0a050);
+  --callout-info-bg: light-dark(#fef3e2, #221808);
+  --callout-info-border: light-dark(#c2620a, #a05a10);
+  --callout-warn-bg: light-dark(#fef9e7, #1e1a08);
+  --callout-warn-border: light-dark(#d4860a, #c49020);
+  --callout-exam-bg: light-dark(#fef5ed, #1e1408);
+  --callout-exam-border: light-dark(#92400e, #b86e20);
+  --callout-success-bg: light-dark(#f0fdf4, #0f2818);
+  --callout-success-border: light-dark(#16a34a, #22a856);
+  --table-header-bg: light-dark(#c2620a, #6b3a08);
+  --table-header-text: #ffffff;
+  --table-row-alt: light-dark(#fef9f2, #18140e);
+  --shadow: light-dark(0 2px 12px rgba(194,98,10,0.08), 0 2px 12px rgba(0,0,0,0.3));
+  --tag-orange-bg: light-dark(#fed7aa, #3a2008);
+  --tag-orange-text: light-dark(#9a3412, #fb923c);
+  --tag-amber-bg: light-dark(#fef3c7, #2a1e08);
+  --tag-amber-text: light-dark(#92400e, #fbbf24);
+}
+
+:root { color-scheme: light dark; }
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--accent-orange), var(--accent-amber));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--border-color);
+}
+
+h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-orange);
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--border-accent);
+}
+
+h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--accent-amber);
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+p { margin-bottom: 1rem; color: var(--text-primary); }
+
+ul, ol {
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+li { margin-bottom: 0.4rem; color: var(--text-primary); }
+
+code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.88rem;
+  background: var(--code-bg);
+  color: var(--code-text);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.25rem;
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+thead th {
+  background: var(--table-header-bg);
+  color: var(--table-header-text);
+  padding: 0.85rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+tbody td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.9rem;
+  vertical-align: top;
+}
+
+tbody tr:nth-child(even) { background: var(--table-row-alt); }
+tbody tr:hover { background: var(--accent-orange-bg); }
+
+.callout {
+  border-left: 4px solid;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.callout-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.callout-info {
+  background: var(--callout-info-bg);
+  border-color: var(--callout-info-border);
+}
+.callout-info .callout-title { color: var(--accent-orange); }
+
+.callout-warn {
+  background: var(--callout-warn-bg);
+  border-color: var(--callout-warn-border);
+}
+.callout-warn .callout-title { color: light-dark(#d4860a, #f0a830); }
+
+.callout-exam {
+  background: var(--callout-exam-bg);
+  border-color: var(--callout-exam-border);
+}
+.callout-exam .callout-title { color: var(--accent-amber); }
+
+.callout-success {
+  background: var(--callout-success-bg);
+  border-color: var(--callout-success-border);
+}
+.callout-success .callout-title { color: light-dark(#16a34a, #22a856); }
+
+.tag {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-right: 0.4rem;
+}
+
+.tag-orange { background: var(--tag-orange-bg); color: var(--tag-orange-text); }
+.tag-amber { background: var(--tag-amber-bg); color: var(--tag-amber-text); }
+
+.section-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 1.75rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow);
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .two-col { grid-template-columns: 1fr; }
+  body { padding: 1rem; }
+  h1 { font-size: 1.7rem; }
+}
+
+.diagram-box {
+  background: var(--bg-tertiary);
+  border: 1px dashed var(--border-accent);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-family: 'SF Mono', monospace;
+  font-size: 0.85rem;
+  line-height: 1.8;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.toc {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.toc-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--accent-orange);
+  margin-bottom: 0.75rem;
+}
+
+.toc ol {
+  list-style: none;
+  counter-reset: toc-counter;
+  padding-left: 0;
+}
+
+.toc li {
+  counter-increment: toc-counter;
+  padding: 0.3rem 0;
+}
+
+.toc li::before {
+  content: counter(toc-counter) ". ";
+  color: var(--accent-amber);
+  font-weight: 700;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  font-size: 0.9rem;
+}
+
+.feature-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: white;
+}
+
+.feature-icon.green { background: #16a34a; }
+.feature-icon.red { background: #dc2626; }
+
+@media (max-width: 768px) {
+  .feature-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<h1>Warehouses & Caching - Fundamentals</h1>
+<p class="subtitle">Virtual Warehouses, Multi-Cluster, Cache Layers, Query Queuing & Sizing Guidelines</p>
+
+<div class="toc">
+  <div class="toc-title">Table of Contents</div>
+  <ol>
+    <li>Virtual Warehouses Overview</li>
+    <li>Warehouse Sizing & Credit Rates</li>
+    <li>Auto-Suspend & Auto-Resume</li>
+    <li>Multi-Cluster Warehouses</li>
+    <li>Warehouse Types</li>
+    <li>Cache Layers</li>
+    <li>Query Queuing</li>
+    <li>Sizing Guidelines: Scale Up vs Scale Out</li>
+    <li>Features & Limitations</li>
+  </ol>
+</div>
+
+<!-- Section 1: Virtual Warehouses Overview -->
+<div class="section-card">
+  <h2>1. Virtual Warehouses Overview</h2>
+  <p>A <strong>virtual warehouse</strong> is a cluster of compute resources in Snowflake. Warehouses provide the CPU, memory, and temporary storage needed to execute SQL queries and DML operations. They are completely independent of storage.</p>
+
+  <div class="callout callout-exam">
+    <div class="callout-title">Exam Tip</div>
+    <p>Warehouses do NOT store data. They are pure compute. Storage is separate (in cloud object storage). This separation is a core Snowflake architectural principle.</p>
+  </div>
+
+  <h3>Key Characteristics</h3>
+  <ul>
+    <li>Warehouses can be started/stopped at any time (no data loss)</li>
+    <li>Warehouses can be resized at any time (even while running queries)</li>
+    <li>Each warehouse is an independent compute cluster — no resource contention between warehouses</li>
+    <li>Multiple warehouses can query the same data simultaneously</li>
+    <li>Billing is per-second with a 60-second minimum each time a warehouse resumes</li>
+  </ul>
+
+  <div class="callout callout-info">
+    <div class="callout-title">Architecture Note</div>
+    <p>When you resize a warehouse while queries are running, existing queries use the original resources. New queries after the resize use the new resources.</p>
+  </div>
+</div>
+
+<!-- Section 2: Sizing & Credit Rates -->
+<div class="section-card">
+  <h2>2. Warehouse Sizing & Credit Rates</h2>
+  <p>Each warehouse size doubles the compute resources (and cost) of the previous size.</p>
+
+  <table>
+    <thead>
+      <tr><th>Size</th><th>Credits/Hour</th><th>Nodes</th><th>Relative Performance</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>X-Small (XS)</td><td>1</td><td>1</td><td>1x (baseline)</td></tr>
+      <tr><td>Small (S)</td><td>2</td><td>2</td><td>~2x</td></tr>
+      <tr><td>Medium (M)</td><td>4</td><td>4</td><td>~4x</td></tr>
+      <tr><td>Large (L)</td><td>8</td><td>8</td><td>~8x</td></tr>
+      <tr><td>X-Large (XL)</td><td>16</td><td>16</td><td>~16x</td></tr>
+      <tr><td>2X-Large (2XL)</td><td>32</td><td>32</td><td>~32x</td></tr>
+      <tr><td>3X-Large (3XL)</td><td>64</td><td>64</td><td>~64x</td></tr>
+      <tr><td>4X-Large (4XL)</td><td>128</td><td>128</td><td>~128x</td></tr>
+      <tr><td>5X-Large (5XL)</td><td>256</td><td>256</td><td>~256x</td></tr>
+      <tr><td>6X-Large (6XL)</td><td>512</td><td>512</td><td>~512x</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-warn">
+    <div class="callout-title">Important</div>
+    <p>Doubling warehouse size does NOT guarantee 2x faster queries. Complex queries with more parallelism benefit more. Simple single-threaded operations may see little improvement.</p>
+  </div>
+
+  <pre><code>-- Create a warehouse with specific size
+CREATE WAREHOUSE analytics_wh
+  WAREHOUSE_SIZE = 'LARGE'
+  AUTO_SUSPEND = 300
+  AUTO_RESUME = TRUE
+  INITIALLY_SUSPENDED = TRUE;
+
+-- Resize on the fly
+ALTER WAREHOUSE analytics_wh SET WAREHOUSE_SIZE = 'XLARGE';</code></pre>
+</div>
+
+<!-- Section 3: Auto-Suspend & Auto-Resume -->
+<div class="section-card">
+  <h2>3. Auto-Suspend & Auto-Resume</h2>
+
+  <h3>Auto-Suspend</h3>
+  <ul>
+    <li>Specified in <strong>seconds</strong> (minimum 60 seconds, or 0 for immediate)</li>
+    <li>Timer starts when the last query finishes and no queries are queued</li>
+    <li>When suspended, the warehouse consumes zero credits</li>
+    <li>Default: 600 seconds (10 minutes)</li>
+    <li>Setting to 0 means: suspend immediately when idle (subject to the 60s minimum billing)</li>
+  </ul>
+
+  <h3>Auto-Resume</h3>
+  <ul>
+    <li>When enabled, warehouse automatically starts when a query is submitted to it</li>
+    <li>Enabled by default (<code>AUTO_RESUME = TRUE</code>)</li>
+    <li>If disabled, users must manually resume with <code>ALTER WAREHOUSE ... RESUME</code></li>
+  </ul>
+
+  <div class="callout callout-exam">
+    <div class="callout-title">Exam Tip</div>
+    <p>Auto-suspend timer is specified in seconds in SQL but displayed in minutes in the UI. A common exam trap: <code>AUTO_SUSPEND = 300</code> means 5 minutes, not 300 minutes.</p>
+  </div>
+
+  <pre><code>-- Aggressive auto-suspend for dev warehouses
+ALTER WAREHOUSE dev_wh SET AUTO_SUSPEND = 60;
+
+-- Manual suspend
+ALTER WAREHOUSE dev_wh SUSPEND;
+
+-- Manual resume
+ALTER WAREHOUSE dev_wh RESUME;</code></pre>
+</div>
+
+<!-- Section 4: Multi-Cluster Warehouses -->
+<div class="section-card">
+  <h2>4. Multi-Cluster Warehouses</h2>
+  <p>Multi-cluster warehouses automatically add or remove clusters of the same size to handle concurrency fluctuations. Available in <span class="tag tag-orange">Enterprise Edition+</span>.</p>
+
+  <h3>Configuration</h3>
+  <ul>
+    <li><code>MIN_CLUSTER_COUNT</code> — minimum clusters always running (1-10)</li>
+    <li><code>MAX_CLUSTER_COUNT</code> — maximum clusters that can be added (1-10)</li>
+    <li>Each additional cluster = same size and credit rate as one cluster</li>
+    <li>Example: A LARGE warehouse with MAX=3 can use up to 24 credits/hour (8 x 3)</li>
+  </ul>
+
+  <h3>Scaling Policies</h3>
+  <table>
+    <thead>
+      <tr><th>Policy</th><th>Behavior</th><th>Best For</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Standard</strong> (default)</td>
+        <td>Starts additional cluster as soon as a query is queued (or estimated to queue). Shuts down extra clusters after 2-3 consecutive checks (each 1 minute apart) showing reduced load.</td>
+        <td>Minimize queuing; prioritize performance. Higher credit usage.</td>
+      </tr>
+      <tr>
+        <td><strong>Economy</strong></td>
+        <td>Starts additional cluster only after enough load to keep it busy for at least 6 minutes. Shuts down after 5-6 consecutive checks showing reduced load.</td>
+        <td>Minimize credit costs; tolerate some queuing. Lower credit usage.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-info">
+    <div class="callout-title">Key Detail</div>
+    <p>When <code>MIN_CLUSTER_COUNT = MAX_CLUSTER_COUNT</code>, the warehouse runs in "Maximized" mode — all clusters are always running. There is no autoscaling. This guarantees maximum concurrency but consumes constant credits.</p>
+  </div>
+
+  <pre><code>-- Create multi-cluster warehouse
+CREATE WAREHOUSE reporting_wh
+  WAREHOUSE_SIZE = 'MEDIUM'
+  MIN_CLUSTER_COUNT = 1
+  MAX_CLUSTER_COUNT = 4
+  SCALING_POLICY = 'STANDARD'
+  AUTO_SUSPEND = 120
+  AUTO_RESUME = TRUE;</code></pre>
+
+  <div class="diagram-box">Multi-Cluster Scaling (Standard Policy)
+
+  Load Low        Load Increasing       Load High         Load Decreasing
+  ┌───────┐       ┌───────┐───────┐    ┌───────┐───────┐  ┌───────┐
+  │Cluster│       │Cluster│Cluster│    │Cl 1│Cl 2│Cl 3│  │Cluster│
+  │   1   │  -->  │   1   │   2   │ -> │    │    │    │  │   1   │
+  └───────┘       └───────┘───────┘    └───────┘───────┘  └───────┘
+  (MIN=1)         (query queued)        (MAX=3 reached)    (scale-in)</div>
+</div>
+
+<!-- Section 5: Warehouse Types -->
+<div class="section-card">
+  <h2>5. Warehouse Types</h2>
+
+  <table>
+    <thead>
+      <tr><th>Type</th><th>Description</th><th>Use Case</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Standard</strong></td>
+        <td>Default warehouse type. Balanced compute and memory.</td>
+        <td>General SQL queries, DML, most workloads</td>
+      </tr>
+      <tr>
+        <td><strong>Snowpark-optimized</strong></td>
+        <td>16x more memory per node than Standard. Higher credit cost (1.5x). Available in XL and above.</td>
+        <td>ML training, large UDFs/UDTFs, Snowpark DataFrame operations with large memory needs</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-warn">
+    <div class="callout-title">Credit Cost</div>
+    <p>Snowpark-optimized warehouses cost 1.5x credits compared to standard warehouses of the same size. For example, a Snowpark-optimized XL uses 24 credits/hour vs 16 for standard XL.</p>
+  </div>
+
+  <pre><code>-- Create Snowpark-optimized warehouse
+CREATE WAREHOUSE ml_training_wh
+  WAREHOUSE_TYPE = 'SNOWPARK-OPTIMIZED'
+  WAREHOUSE_SIZE = 'XLARGE';</code></pre>
+</div>
+
+<!-- Section 6: Cache Layers -->
+<div class="section-card">
+  <h2>6. Cache Layers</h2>
+  <p>Snowflake uses three distinct caching layers to optimize query performance and reduce costs.</p>
+
+  <div class="diagram-box">Query Execution Flow with Caching
+
+  ┌─────────────────────────────────────────────────────────┐
+  │                    Query Submitted                        │
+  └──────────────────────────┬──────────────────────────────┘
+                             │
+                 ┌───────────▼───────────┐
+                 │  1. Result Cache       │  (Cloud Services Layer)
+                 │  Same query + same     │  FREE - no warehouse
+                 │  data? Return cached.  │  needed
+                 └───────────┬───────────┘
+                             │ miss
+                 ┌───────────▼───────────┐
+                 │  2. Metadata Cache     │  (Cloud Services Layer)
+                 │  MIN/MAX/COUNT/etc.    │  FREE - no warehouse
+                 │  answered from metadata│  needed
+                 └───────────┬───────────┘
+                             │ miss
+                 ┌───────────▼───────────┐
+                 │  3. Warehouse Local    │  (Compute Layer)
+                 │  Disk Cache (SSD)      │  Warehouse must be
+                 │  Raw data cached on    │  running
+                 │  local SSD from prior  │
+                 │  queries               │
+                 └───────────┬───────────┘
+                             │ miss
+                 ┌───────────▼───────────┐
+                 │  4. Remote Storage     │  (Storage Layer)
+                 │  Read from S3/Azure/   │  Slowest path
+                 │  GCS                   │
+                 └───────────────────────┘</div>
+
+  <h3>Result Cache (Query Result Cache)</h3>
+  <ul>
+    <li>Stores exact results of previously executed queries</li>
+    <li>Valid for <strong>24 hours</strong> from last access (resets each time reused)</li>
+    <li>Conditions for reuse: same query text, same role, same database/schema context, underlying data unchanged</li>
+    <li>Does NOT require a running warehouse — served from cloud services layer</li>
+    <li>Can be disabled per session: <code>ALTER SESSION SET USE_CACHED_RESULT = FALSE</code></li>
+    <li>Persists even if the warehouse is suspended</li>
+  </ul>
+
+  <div class="callout callout-exam">
+    <div class="callout-title">Exam Tip</div>
+    <p>Result cache is invalidated if the underlying data changes (any DML on the table). It is also user/role-specific — a cached result from ROLE_A cannot be served to ROLE_B (due to access control).</p>
+  </div>
+
+  <h3>Metadata Cache</h3>
+  <ul>
+    <li>Cloud services layer maintains metadata about all micro-partitions</li>
+    <li>Answers queries like <code>SELECT COUNT(*)</code>, <code>MIN(col)</code>, <code>MAX(col)</code> without scanning data</li>
+    <li>Also used for <code>SHOW</code> commands, <code>DESCRIBE</code>, schema information</li>
+    <li>No warehouse needed — completely free</li>
+    <li>No expiration — always up to date as it reflects current partition metadata</li>
+  </ul>
+
+  <h3>Warehouse Local Disk Cache (SSD Cache)</h3>
+  <ul>
+    <li>Each warehouse node caches recently accessed micro-partitions on local SSD</li>
+    <li>Persists as long as the warehouse is running (cleared on suspend)</li>
+    <li>LRU (Least Recently Used) eviction policy</li>
+    <li>Larger warehouse = more SSD cache capacity</li>
+    <li>This is why re-running a query on the same warehouse is faster the second time</li>
+  </ul>
+
+  <div class="callout callout-warn">
+    <div class="callout-title">Important</div>
+    <p>Suspending a warehouse clears its local disk cache. This is a key trade-off when setting AUTO_SUSPEND: shorter suspend saves credits but loses cache. Longer suspend keeps cache warm but costs more.</p>
+  </div>
+
+  <pre><code>-- Disable result cache for testing
+ALTER SESSION SET USE_CACHED_RESULT = FALSE;
+
+-- Check if a query used result cache
+-- In QUERY_HISTORY, look for BYTES_SCANNED = 0 and very fast execution</code></pre>
+</div>
+
+<!-- Section 7: Query Queuing -->
+<div class="section-card">
+  <h2>7. Query Queuing</h2>
+  <p>When a warehouse cannot execute a query immediately due to resource constraints, the query enters a <strong>QUEUED</strong> state.</p>
+
+  <h3>Why Queries Queue</h3>
+  <ul>
+    <li>All available compute threads are busy (concurrency limit reached)</li>
+    <li>Insufficient memory for the query given current load</li>
+    <li>Warehouse is resuming (starting up) — queries wait briefly</li>
+  </ul>
+
+  <h3>Key Parameters</h3>
+  <table>
+    <thead>
+      <tr><th>Parameter</th><th>Default</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>MAX_CONCURRENCY_LEVEL</code></td><td>8</td><td>Max concurrent queries per cluster. Snowflake auto-adjusts, but this sets an upper bound.</td></tr>
+      <tr><td><code>STATEMENT_QUEUED_TIMEOUT_IN_SECONDS</code></td><td>0 (no limit)</td><td>Max seconds a query can wait in queue before being cancelled.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-info">
+    <div class="callout-title">How Snowflake Manages Concurrency</div>
+    <p>Snowflake dynamically allocates memory per query. If a query needs more memory (large sorts, joins), fewer queries run concurrently. The MAX_CONCURRENCY_LEVEL is a soft cap — Snowflake may run fewer queries concurrently if they are memory-intensive.</p>
+  </div>
+</div>
+
+<!-- Section 8: Sizing Guidelines -->
+<div class="section-card">
+  <h2>8. Sizing Guidelines: Scale Up vs Scale Out</h2>
+
+  <div class="two-col">
+    <div>
+      <h3>Scale Up (Larger Warehouse)</h3>
+      <ul>
+        <li>Individual queries are slow/complex</li>
+        <li>Large scans, complex joins, heavy aggregations</li>
+        <li>Query uses significant spilling to disk</li>
+        <li>Single-user or low-concurrency workloads</li>
+        <li>Increase warehouse SIZE (e.g., M to L)</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Scale Out (Multi-Cluster)</h3>
+      <ul>
+        <li>Many simple/moderate queries concurrently</li>
+        <li>Dashboard workloads with many users</li>
+        <li>Queries are queuing (QUEUED state)</li>
+        <li>Individual queries are fast but too many at once</li>
+        <li>Increase MAX_CLUSTER_COUNT</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout callout-exam">
+    <div class="callout-title">Exam Tip</div>
+    <p>"Query is slow" → Scale Up (bigger warehouse). "Queries are queuing" → Scale Out (more clusters). This distinction appears frequently on the exam.</p>
+  </div>
+
+  <h3>Decision Framework</h3>
+  <table>
+    <thead>
+      <tr><th>Symptom</th><th>Solution</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Single query takes too long</td><td>Scale Up</td><td>Increase warehouse size</td></tr>
+      <tr><td>Queries spilling to remote storage</td><td>Scale Up</td><td>Increase warehouse size</td></tr>
+      <tr><td>Many queries in QUEUED state</td><td>Scale Out</td><td>Add multi-cluster</td></tr>
+      <tr><td>High concurrency, simple queries</td><td>Scale Out</td><td>Add multi-cluster</td></tr>
+      <tr><td>Mixed workloads interfering</td><td>Separate</td><td>Use different warehouses</td></tr>
+      <tr><td>Periodic bursts of many users</td><td>Scale Out</td><td>Multi-cluster with Standard policy</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Section 9: Features & Limitations -->
+<div class="section-card">
+  <h2>9. Features & Limitations</h2>
+
+  <h3>15 Key Features</h3>
+  <div class="feature-grid">
+    <div class="feature-item"><span class="feature-icon green">&#10003;</span> Instant elasticity — resize while running</div>
+    <div class="feature-item"><span class="feature-icon green">&#10003;</span> Per-second billing (60s minimum)</div>
+    <div class="feature-item"><span class="feature-icon green">&#10003;</span> Auto-suspend to stop billing when idle</div>
+    <div class="feature-item"><span class="feature-icon green">&#10003;</span> Auto-resume on query submission</div>
+    <div class="feature-item"><span class="feature-icon green">&#10003;</span> Multi-cluster autoscaling (Enterprise+)</div>
+    <div class="feature-item"><span class="feature-icon green">&#10003;</span> Complete workload isolation between warehouses</div>
+    <div class="feature-item"><span class="feature-icon green">&#10003;</span> Three-layer caching (result, metadata, SSD)</div>
+    <div class="feature-item"><span class="feature-icon green">&#10003;</span> Result cache serves queries without warehouse</div>
+    <div class="feature-item"><span class="feature-icon green">&#10003;</span> Multiple warehouses can read same data concurrently</div>
+    <div class="feature-item"><span class="feature-icon green">&#10003;</span> Snowpark-optimized type for ML/memory workloads</div>
+    <div class="feature-item"><span class="feature-icon green">&#10003;</span> Resource monitors for cost control</div>
+    <div class="feature-item"><span class="feature-icon green">&#10003;</span> RBAC with USAGE, OPERATE, MONITOR, MODIFY</div>
+    <div class="feature-item"><span class="feature-icon green">&#10003;</span> Query Acceleration Service for outlier queries</div>
+    <div class="feature-item"><span class="feature-icon green">&#10003;</span> Statement timeouts and queue timeouts configurable</div>
+    <div class="feature-item"><span class="feature-icon green">&#10003;</span> Sizes from XS (1 credit/hr) to 6XL (512 credits/hr)</div>
+  </div>
+
+  <h3>15 Key Limitations</h3>
+  <div class="feature-grid">
+    <div class="feature-item"><span class="feature-icon red">&#10005;</span> Cannot share warehouse across accounts</div>
+    <div class="feature-item"><span class="feature-icon red">&#10005;</span> Local SSD cache lost on suspend</div>
+    <div class="feature-item"><span class="feature-icon red">&#10005;</span> Minimum 60-second billing per resume</div>
+    <div class="feature-item"><span class="feature-icon red">&#10005;</span> Multi-cluster requires Enterprise Edition</div>
+    <div class="feature-item"><span class="feature-icon red">&#10005;</span> Max 10 clusters per multi-cluster warehouse</div>
+    <div class="feature-item"><span class="feature-icon red">&#10005;</span> Result cache invalid if underlying data changes</div>
+    <div class="feature-item"><span class="feature-icon red">&#10005;</span> Result cache is role-specific (no cross-role sharing)</div>
+    <div class="feature-item"><span class="feature-icon red">&#10005;</span> Snowpark-optimized costs 1.5x credits</div>
+    <div class="feature-item"><span class="feature-icon red">&#10005;</span> Snowpark-optimized only available XL and above</div>
+    <div class="feature-item"><span class="feature-icon red">&#10005;</span> Cannot pin specific queries to specific clusters</div>
+    <div class="feature-item"><span class="feature-icon red">&#10005;</span> Economy scaling tolerates queuing (up to 6 min)</div>
+    <div class="feature-item"><span class="feature-icon red">&#10005;</span> No GPU-based warehouse option for SQL</div>
+    <div class="feature-item"><span class="feature-icon red">&#10005;</span> Warehouse resume adds ~1-2 seconds latency</div>
+    <div class="feature-item"><span class="feature-icon red">&#10005;</span> Cannot choose underlying cloud hardware directly</div>
+    <div class="feature-item"><span class="feature-icon red">&#10005;</span> Doubling size does not guarantee 2x performance</div>
+  </div>
+</div>
+
+</body>
+</html>

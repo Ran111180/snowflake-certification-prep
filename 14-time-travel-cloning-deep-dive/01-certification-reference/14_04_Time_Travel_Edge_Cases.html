@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Time Travel Edge Cases &amp; Recovery — Snowflake Certification Deep Dive</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Comprehensive reference for Time Travel, Fail-safe, and Cloning edge cases for Snowflake certification prep",
+    "sections": [
+      { "id": "supported-objects", "title": "Supported/Unsupported Objects", "dataSources": [], "producerNotes": "Static reference content based on Snowflake documentation" },
+      { "id": "ddl-impact", "title": "DDL Impact on Time Travel", "dataSources": [], "producerNotes": "Covers DROP, UNDROP, CREATE OR REPLACE, retention changes" },
+      { "id": "clone-edge-cases", "title": "Clone Edge Cases", "dataSources": [], "producerNotes": "Clone of clone, privileges, streams, pipes, tasks, storage" },
+      { "id": "retention-edge-cases", "title": "Retention Edge Cases", "dataSources": [], "producerNotes": "Transient, temporary, permanent retention and fail-safe rules" },
+      { "id": "recovery-playbook", "title": "Recovery Playbook", "dataSources": [], "producerNotes": "5 recovery scenarios with SQL examples" },
+      { "id": "exam-scenarios", "title": "Exam Scenario Questions", "dataSources": [], "producerNotes": "10 tricky exam-style questions with answers" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      max-width: 960px; margin: 0 auto; padding: 32px 24px;
+      color: light-dark(#1f2937, #e5e7eb);
+      background: light-dark(#ffffff, #0f172a);
+      line-height: 1.7;
+    }
+    h1 { color: light-dark(#065f46, #6ee7b7); border-bottom: 3px solid light-dark(#10b981, #34d399); padding-bottom: 12px; margin-bottom: 8px; font-size: 1.9rem; }
+    h2 { color: light-dark(#047857, #6ee7b7); border-bottom: 2px solid light-dark(#a7f3d0, #065f46); padding-bottom: 8px; margin-top: 48px; font-size: 1.5rem; }
+    h3 { color: light-dark(#065f46, #a7f3d0); margin-top: 32px; font-size: 1.2rem; }
+    h4 { color: light-dark(#0d9488, #5eead4); margin-top: 24px; font-size: 1.05rem; }
+    a { color: light-dark(#0d9488, #5eead4); }
+    code {
+      background: light-dark(#ecfdf5, #1e293b);
+      padding: 2px 6px; border-radius: 4px; font-size: 0.88em;
+      color: light-dark(#065f46, #6ee7b7);
+    }
+    pre {
+      background: light-dark(#f0fdfa, #1e293b);
+      border: 1px solid light-dark(#a7f3d0, #065f46);
+      border-radius: 8px; padding: 16px; overflow-x: auto;
+      font-size: 0.85rem; line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: light-dark(#1f2937, #e5e7eb); }
+
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; }
+    th, td { border: 1px solid light-dark(#a7f3d0, #1e3a3a); padding: 10px 12px; text-align: left; }
+    th { background: light-dark(#ecfdf5, #0d3d3d); font-weight: 600; color: light-dark(#065f46, #a7f3d0); }
+    tr:nth-child(even) td { background: light-dark(#f0fdfa, #0f2a2a); }
+
+    .subtitle { color: light-dark(#6b7280, #9ca3af); font-size: 1rem; margin-top: 0; }
+    .toc { background: light-dark(#ecfdf5, #0d2d2d); border: 1px solid light-dark(#a7f3d0, #065f46); border-radius: 8px; padding: 20px 24px; margin: 24px 0; }
+    .toc ul { padding-left: 20px; margin: 8px 0; }
+    .toc li { margin: 6px 0; }
+    .toc a { text-decoration: none; font-weight: 500; }
+
+    .status-safe { color: light-dark(#059669, #6ee7b7); font-weight: 600; }
+    .status-danger { color: light-dark(#dc2626, #f87171); font-weight: 600; }
+    .status-warn { color: light-dark(#d97706, #fbbf24); font-weight: 600; }
+
+    .callout { border-radius: 8px; padding: 16px 20px; margin: 20px 0; border-left: 4px solid; }
+    .callout p { margin: 4px 0; }
+    .callout-title { font-weight: 700; margin-bottom: 6px; }
+    .warning { background: light-dark(#fffbeb, #1c1a0e); border-color: light-dark(#f59e0b, #fbbf24); }
+    .warning .callout-title { color: light-dark(#b45309, #fbbf24); }
+    .info { background: light-dark(#ecfdf5, #0d2d2d); border-color: light-dark(#10b981, #34d399); }
+    .info .callout-title { color: light-dark(#047857, #34d399); }
+    .danger { background: light-dark(#fef2f2, #1f0e0e); border-color: light-dark(#ef4444, #f87171); }
+    .danger .callout-title { color: light-dark(#dc2626, #f87171); }
+
+    .recovery-box {
+      background: light-dark(#f0fdfa, #0d2d2d);
+      border: 2px solid light-dark(#10b981, #34d399);
+      border-radius: 10px; padding: 20px 24px; margin: 24px 0;
+    }
+    .recovery-box h4 { margin-top: 0; color: light-dark(#047857, #6ee7b7); }
+
+    .scenario { background: light-dark(#f0fdfa, #0f2a2a); border: 1px solid light-dark(#a7f3d0, #065f46); border-radius: 8px; padding: 18px 22px; margin: 20px 0; }
+    .scenario-q { font-weight: 600; color: light-dark(#065f46, #a7f3d0); margin-bottom: 10px; }
+    .scenario-a { margin-top: 12px; padding-top: 12px; border-top: 1px dashed light-dark(#a7f3d0, #065f46); }
+    .scenario-a strong { color: light-dark(#047857, #6ee7b7); }
+
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.78rem; font-weight: 600;
+    }
+    .badge-yes { background: light-dark(#d1fae5, #064e3b); color: light-dark(#065f46, #6ee7b7); }
+    .badge-no { background: light-dark(#fee2e2, #450a0a); color: light-dark(#991b1b, #fca5a5); }
+    .badge-partial { background: light-dark(#fef3c7, #451a03); color: light-dark(#92400e, #fcd34d); }
+  </style>
+</head>
+<body>
+
+  <h1>Time Travel Edge Cases &amp; Recovery</h1>
+  <p class="subtitle">Snowflake Certification Deep Dive — Fail-safe, Cloning, DDL Behavior &amp; Recovery Patterns</p>
+
+  <nav class="toc">
+    <strong>Contents</strong>
+    <ul>
+      <li><a href="#supported-objects">1. Supported/Unsupported Objects</a></li>
+      <li><a href="#ddl-impact">2. DDL Impact on Time Travel</a></li>
+      <li><a href="#clone-edge-cases">3. Clone Edge Cases</a></li>
+      <li><a href="#retention-edge-cases">4. Retention Edge Cases</a></li>
+      <li><a href="#recovery-playbook">5. Recovery Playbook</a></li>
+      <li><a href="#exam-scenarios">6. Exam Scenario Questions</a></li>
+    </ul>
+  </nav>
+
+  <!-- ============================================================ -->
+  <h2 id="supported-objects">1. Supported/Unsupported Objects</h2>
+  <!-- ============================================================ -->
+
+  <h3>Time Travel Support Matrix</h3>
+  <table>
+    <thead>
+      <tr><th>Object Type</th><th>Time Travel</th><th>Fail-safe</th><th>Cloning</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Permanent Tables</td><td><span class="badge badge-yes">YES</span></td><td><span class="badge badge-yes">YES</span></td><td><span class="badge badge-yes">YES</span></td><td>0-90 days TT + 7 days fail-safe</td></tr>
+      <tr><td>Transient Tables</td><td><span class="badge badge-yes">YES</span></td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-yes">YES</span></td><td>0-1 day TT only, no fail-safe</td></tr>
+      <tr><td>Temporary Tables</td><td><span class="badge badge-yes">YES</span></td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-yes">YES</span></td><td>0-1 day TT, session-scoped, no fail-safe</td></tr>
+      <tr><td>External Tables</td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-no">NO</span></td><td>Data managed externally</td></tr>
+      <tr><td>Views</td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-yes">YES</span></td><td>Definition only (no data)</td></tr>
+      <tr><td>Materialized Views</td><td><span class="badge badge-partial">INDIRECT</span></td><td><span class="badge badge-partial">INDIRECT</span></td><td><span class="badge badge-no">NO</span></td><td>Via underlying base table TT</td></tr>
+      <tr><td>Schemas</td><td><span class="badge badge-yes">YES</span></td><td><span class="badge badge-yes">YES</span></td><td><span class="badge badge-yes">YES</span></td><td>Container — cascades to child objects</td></tr>
+      <tr><td>Databases</td><td><span class="badge badge-yes">YES</span></td><td><span class="badge badge-yes">YES</span></td><td><span class="badge badge-yes">YES</span></td><td>Container — cascades to child objects</td></tr>
+      <tr><td>Stages (Internal)</td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-partial">EMPTY</span></td><td>Clone creates empty stage</td></tr>
+      <tr><td>Stages (External)</td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-yes">YES</span></td><td>Definition cloned (points to same location)</td></tr>
+      <tr><td>File Formats</td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-yes">YES</span></td><td>Definition only</td></tr>
+      <tr><td>Sequences</td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-yes">YES</span></td><td>Cloned sequence starts at current value</td></tr>
+      <tr><td>Pipes</td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-yes">YES</span></td><td>Cloned in <span class="status-warn">SUSPENDED</span> state</td></tr>
+      <tr><td>Streams</td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-partial">DEPENDS</span></td><td>Only if source table is also in clone scope</td></tr>
+      <tr><td>Tasks</td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-yes">YES</span></td><td>Cloned in <span class="status-warn">SUSPENDED</span> state</td></tr>
+      <tr><td>UDFs / UDTFs</td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-yes">YES</span></td><td>Definition cloned</td></tr>
+      <tr><td>Stored Procedures</td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-yes">YES</span></td><td>Definition cloned</td></tr>
+      <tr><td>Policies (Masking/Row)</td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-yes">YES</span></td><td>References maintained if in same clone scope</td></tr>
+      <tr><td>Tags</td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-no">NO</span></td><td><span class="badge badge-yes">YES</span></td><td>Tag associations copied</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout info">
+    <p class="callout-title">Key Exam Insight</p>
+    <p>Time Travel applies to <strong>data-bearing objects</strong> (tables, schemas, databases). Non-data objects like views, stages, pipes, tasks, and UDFs do NOT have Time Travel — they can be cloned but not time-traveled.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="ddl-impact">2. DDL Impact on Time Travel</h2>
+  <!-- ============================================================ -->
+
+  <h3>DROP and UNDROP Behavior</h3>
+  <table>
+    <thead>
+      <tr><th>Action</th><th>Time Travel Behavior</th><th>Recovery</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>DROP TABLE t1</code></td><td>TT retention clock <strong>starts</strong> at drop time</td><td><code>UNDROP TABLE t1</code> within retention period</td></tr>
+      <tr><td><code>DROP SCHEMA s1</code></td><td>All child tables enter TT simultaneously</td><td><code>UNDROP SCHEMA s1</code> restores all children</td></tr>
+      <tr><td><code>DROP DATABASE db1</code></td><td>All schemas/tables enter TT</td><td><code>UNDROP DATABASE db1</code> restores entire DB</td></tr>
+      <tr><td>Drop + recreate same name</td><td>Old object still in TT, shadowed by new</td><td>Must rename new, UNDROP old, then rename back</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warning">
+    <p class="callout-title">UNDROP Name Conflict</p>
+    <p>If you DROP a table then CREATE a new table with the same name, <code>UNDROP TABLE</code> will <strong>fail</strong> with a name conflict. You must first <code>ALTER TABLE new_name RENAME TO temp_name</code>, then <code>UNDROP TABLE original_name</code>.</p>
+  </div>
+
+  <h3>CREATE OR REPLACE Behavior</h3>
+
+  <div class="callout danger">
+    <p class="callout-title">CREATE OR REPLACE = DROP + CREATE (Atomically)</p>
+    <p><code>CREATE OR REPLACE TABLE t1 ...</code> effectively drops the old table and creates a new one. The old table enters Time Travel. The new table has <strong>no history</strong> — it's a brand new object with a new internal ID.</p>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Statement</th><th>Effect on Old Object</th><th>Effect on New Object</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>CREATE OR REPLACE TABLE</code></td><td>Old table enters TT (recoverable via UNDROP after renaming new)</td><td>New table, new object ID, no history</td></tr>
+      <tr><td><code>CREATE OR REPLACE VIEW</code></td><td>Old view gone (no TT for views)</td><td>New definition active</td></tr>
+      <tr><td><code>CREATE TABLE IF NOT EXISTS</code></td><td>No effect if exists</td><td>Only creates if missing</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Retention Period Changes</h3>
+  <table>
+    <thead>
+      <tr><th>Scenario</th><th>Behavior</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Increase retention (e.g., 1 → 14 days)</td><td>Applies immediately; historical data already purged is <strong>not</strong> recovered</td></tr>
+      <tr><td>Decrease retention (e.g., 14 → 1 day)</td><td>Data older than new retention immediately moves to Fail-safe (permanent tables) or is purged (transient)</td></tr>
+      <tr><td>Set to 0</td><td>TT disabled; changes go directly to Fail-safe (permanent) or are purged (transient/temporary)</td></tr>
+      <tr><td>Schema-level change</td><td>Applies to new tables created in schema; existing tables retain their individual setting</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout info">
+    <p class="callout-title">Retention Hierarchy</p>
+    <p>Table setting overrides Schema setting, which overrides Database setting. Existing objects keep their current setting — only newly created objects inherit the parent's default.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="clone-edge-cases">3. Clone Edge Cases</h2>
+  <!-- ============================================================ -->
+
+  <h3>Clone of a Clone</h3>
+  <div class="callout info">
+    <p class="callout-title">Fully Supported</p>
+    <p>You can clone a clone. Each clone is an independent object. Snowflake uses metadata pointers — cloning a clone does NOT double storage. All clones share micro-partitions until data diverges.</p>
+  </div>
+
+  <h3>Privileges NOT Inherited</h3>
+  <div class="callout danger">
+    <p class="callout-title">Critical Exam Point</p>
+    <p>Clones do <strong>NOT</strong> copy grants/privileges from the source. The cloned object is owned by the role that performed the clone. You must explicitly <code>GRANT</code> access after cloning — unless you use <code>...CLONE source COPY GRANTS</code> (available for databases, schemas, and tables).</p>
+  </div>
+
+  <pre><code>-- Without COPY GRANTS (default): no privileges transferred
+CREATE DATABASE dev_db CLONE prod_db;
+
+-- With COPY GRANTS: privileges duplicated on clone
+CREATE DATABASE dev_db CLONE prod_db COPY GRANTS;</code></pre>
+
+  <h3>Clone and Streams</h3>
+  <table>
+    <thead>
+      <tr><th>Scenario</th><th>Behavior</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Stream on table, clone the <strong>schema/database</strong></td><td>Stream cloned, points to cloned table, offset preserved</td></tr>
+      <tr><td>Stream on table, clone only the <strong>table</strong></td><td>Stream is <strong>NOT</strong> cloned (stream is a separate object)</td></tr>
+      <tr><td>Clone a table that a stream points to</td><td>Original stream still points to original table (unaffected)</td></tr>
+      <tr><td>Stream offset validity</td><td>If cloned table's offset data has been purged beyond TT, stream becomes <span class="status-danger">STALE</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Clone and Pipes</h3>
+  <div class="recovery-box">
+    <h4>Pipes Are Cloned as SUSPENDED</h4>
+    <p>When you clone a schema or database containing pipes:</p>
+    <ul>
+      <li>Snowpipe objects are cloned but set to <span class="status-warn">PAUSED/SUSPENDED</span></li>
+      <li>They do <strong>NOT</strong> automatically resume — you must explicitly <code>ALTER PIPE ... SET PIPE_EXECUTION_PAUSED = FALSE</code></li>
+      <li>Load history is NOT cloned — the pipe will not know what files were already loaded</li>
+      <li>Risk: if resumed without care, the pipe may <strong>re-ingest files</strong> already loaded into the source</li>
+    </ul>
+  </div>
+
+  <h3>Clone and Tasks</h3>
+  <div class="recovery-box">
+    <h4>Tasks Are Cloned as SUSPENDED</h4>
+    <p>When you clone a schema or database containing tasks:</p>
+    <ul>
+      <li>All tasks are cloned in <span class="status-warn">SUSPENDED</span> state</li>
+      <li>Task graphs (DAGs) are preserved but all nodes are suspended</li>
+      <li>You must <code>ALTER TASK ... RESUME</code> each task individually (leaf tasks first, then root)</li>
+      <li>Scheduled times and CRON expressions are preserved but execution does not begin until resumed</li>
+    </ul>
+  </div>
+
+  <h3>Storage Divergence After Clone</h3>
+
+  <table>
+    <thead>
+      <tr><th>Time</th><th>Storage Used by Clone</th><th>Explanation</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Immediately after clone</td><td><span class="status-safe">~0 bytes</span></td><td>Clone shares all micro-partitions with source (zero-copy)</td></tr>
+      <tr><td>After DML on clone</td><td>Only new/modified partitions</td><td>Changed data written to new partitions owned by clone</td></tr>
+      <tr><td>After DML on source</td><td>Shared partitions unchanged for clone</td><td>Source writes new partitions; clone still references old shared ones</td></tr>
+      <tr><td>After source table DROP</td><td>Clone now "owns" any partitions not shared with other clones</td><td>Storage attributed to clone increases if source is purged</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warning">
+    <p class="callout-title">Storage Billing Surprise</p>
+    <p>If you clone a 1TB table and then DROP the source after Time Travel + Fail-safe expires, the clone will be billed for the full 1TB (because it's now the sole owner of those micro-partitions). Plan accordingly!</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="retention-edge-cases">4. Retention Edge Cases</h2>
+  <!-- ============================================================ -->
+
+  <h3>Retention Rules by Table Type</h3>
+  <table>
+    <thead>
+      <tr><th>Table Type</th><th>Min TT</th><th>Max TT</th><th>Default TT</th><th>Fail-safe</th><th>Total Protection Window</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Permanent</strong> (Standard Edition)</td><td>0 days</td><td>1 day</td><td>1 day</td><td>7 days</td><td>Up to 8 days</td></tr>
+      <tr><td><strong>Permanent</strong> (Enterprise+)</td><td>0 days</td><td>90 days</td><td>1 day</td><td>7 days</td><td>Up to 97 days</td></tr>
+      <tr><td><strong>Transient</strong></td><td>0 days</td><td>1 day</td><td>1 day</td><td><span class="status-danger">NONE</span></td><td>Up to 1 day only</td></tr>
+      <tr><td><strong>Temporary</strong></td><td>0 days</td><td>1 day</td><td>1 day</td><td><span class="status-danger">NONE</span></td><td>Up to 1 day (session-bound)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout danger">
+    <p class="callout-title">Transient &amp; Temporary = No Safety Net</p>
+    <p>Transient and temporary tables have <strong>NO fail-safe</strong>. Once Time Travel expires (max 1 day), the data is <strong>permanently gone</strong>. Snowflake Support cannot recover it. Use these only for reproducible/ephemeral data.</p>
+  </div>
+
+  <h3>Lifecycle Timeline Comparison</h3>
+  <pre><code>Permanent Table (Enterprise, 14-day TT):
+  |--- Active ---|--- Time Travel (14d) ---|--- Fail-safe (7d) ---|--- PURGED ---|
+  
+Permanent Table (Standard, 1-day TT):
+  |--- Active ---|--- TT (1d) ---|--- Fail-safe (7d) ---|--- PURGED ---|
+
+Transient Table (1-day TT):
+  |--- Active ---|--- TT (1d) ---|--- PURGED (no fail-safe) ---|
+
+Temporary Table (1-day TT):
+  |--- Active (session only) ---|--- TT (1d) ---|--- PURGED ---|
+
+Transient/Temporary (TT = 0):
+  |--- Active ---|--- PURGED IMMEDIATELY (no TT, no fail-safe) ---|</code></pre>
+
+  <h3>Edge Case: Table in a Transient Schema</h3>
+  <div class="callout warning">
+    <p class="callout-title">Schema Type Determines Child Defaults</p>
+    <p>A table created in a <strong>transient schema</strong> is automatically transient (max 1 day TT, no fail-safe) — even if you don't explicitly say <code>CREATE TRANSIENT TABLE</code>. You <strong>cannot</strong> create a permanent table inside a transient schema or database.</p>
+  </div>
+
+  <h3>Edge Case: Fail-safe Is Not Self-Service</h3>
+  <div class="callout danger">
+    <p class="callout-title">Fail-safe != Time Travel</p>
+    <p>Fail-safe is Snowflake-internal only. You <strong>cannot</strong> query fail-safe data with <code>AT</code>/<code>BEFORE</code> clauses. Recovery requires contacting Snowflake Support and is best-effort with no SLA. It exists for disaster recovery only.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="recovery-playbook">5. Recovery Playbook</h2>
+  <!-- ============================================================ -->
+
+  <div class="recovery-box">
+    <h4>Scenario 1: Accidental DROP TABLE</h4>
+    <p><strong>Situation:</strong> Someone accidentally dropped <code>PROD_DB.ANALYTICS.SALES_FACT</code></p>
+    <pre><code>-- Step 1: UNDROP the table (within retention period)
+UNDROP TABLE PROD_DB.ANALYTICS.SALES_FACT;
+
+-- If name conflict exists (new table created with same name):
+ALTER TABLE PROD_DB.ANALYTICS.SALES_FACT RENAME TO PROD_DB.ANALYTICS.SALES_FACT_NEW;
+UNDROP TABLE PROD_DB.ANALYTICS.SALES_FACT;</code></pre>
+    <p><span class="status-safe">Recovery: Immediate, zero data loss</span></p>
+  </div>
+
+  <div class="recovery-box">
+    <h4>Scenario 2: Wrong UPDATE (Mass Data Corruption)</h4>
+    <p><strong>Situation:</strong> <code>UPDATE customers SET status = 'INACTIVE'</code> was run without a WHERE clause at 10:30 AM</p>
+    <pre><code>-- Option A: Clone from before the bad UPDATE
+CREATE TABLE PROD_DB.ANALYTICS.CUSTOMERS_RESTORED
+  CLONE PROD_DB.ANALYTICS.CUSTOMERS
+  AT (TIMESTAMP => '2026-08-15 10:29:00'::TIMESTAMP_LTZ);
+
+-- Verify the restored data
+SELECT COUNT(*) FROM CUSTOMERS_RESTORED WHERE status = 'ACTIVE';
+
+-- Swap tables
+ALTER TABLE PROD_DB.ANALYTICS.CUSTOMERS RENAME TO CUSTOMERS_BAD;
+ALTER TABLE PROD_DB.ANALYTICS.CUSTOMERS_RESTORED RENAME TO CUSTOMERS;
+
+-- Option B: Selective restore using INSERT from historical state
+INSERT INTO PROD_DB.ANALYTICS.CUSTOMERS (id, status)
+  SELECT id, status
+  FROM PROD_DB.ANALYTICS.CUSTOMERS
+    AT (TIMESTAMP => '2026-08-15 10:29:00'::TIMESTAMP_LTZ)
+  WHERE id IN (SELECT id FROM PROD_DB.ANALYTICS.CUSTOMERS WHERE status = 'INACTIVE');</code></pre>
+    <p><span class="status-safe">Recovery: Full recovery if within retention period</span></p>
+  </div>
+
+  <div class="recovery-box">
+    <h4>Scenario 3: Restore Historical State (Point-in-Time Query)</h4>
+    <p><strong>Situation:</strong> Need to see what the data looked like at end-of-quarter for audit</p>
+    <pre><code>-- Query historical state without creating any objects
+SELECT *
+FROM PROD_DB.ANALYTICS.REVENUE
+  AT (TIMESTAMP => '2026-06-30 23:59:59'::TIMESTAMP_LTZ);
+
+-- Using OFFSET (seconds before current time)
+SELECT *
+FROM PROD_DB.ANALYTICS.REVENUE
+  AT (OFFSET => -86400);  -- 24 hours ago
+
+-- Using STATEMENT (before a specific query)
+SELECT *
+FROM PROD_DB.ANALYTICS.REVENUE
+  BEFORE (STATEMENT => '01abc234-0000-0000-0000-000000000001');</code></pre>
+    <p><span class="status-safe">Recovery: Read-only access to any point within retention window</span></p>
+  </div>
+
+  <div class="recovery-box">
+    <h4>Scenario 4: Compare Before/After a Change</h4>
+    <p><strong>Situation:</strong> A transformation ran overnight — verify what changed</p>
+    <pre><code>-- Find rows that were modified
+SELECT current.*, 'MODIFIED' AS change_type
+FROM PROD_DB.ANALYTICS.ORDERS current
+INNER JOIN PROD_DB.ANALYTICS.ORDERS
+  AT (TIMESTAMP => '2026-08-14 18:00:00'::TIMESTAMP_LTZ) historical
+  ON current.order_id = historical.order_id
+WHERE current.amount != historical.amount;
+
+-- Find rows that were added (not in historical)
+SELECT current.*, 'INSERTED' AS change_type
+FROM PROD_DB.ANALYTICS.ORDERS current
+LEFT JOIN PROD_DB.ANALYTICS.ORDERS
+  AT (TIMESTAMP => '2026-08-14 18:00:00'::TIMESTAMP_LTZ) historical
+  ON current.order_id = historical.order_id
+WHERE historical.order_id IS NULL;
+
+-- Find rows that were deleted (in historical, not in current)
+SELECT historical.*, 'DELETED' AS change_type
+FROM PROD_DB.ANALYTICS.ORDERS
+  AT (TIMESTAMP => '2026-08-14 18:00:00'::TIMESTAMP_LTZ) historical
+LEFT JOIN PROD_DB.ANALYTICS.ORDERS current
+  ON historical.order_id = current.order_id
+WHERE current.order_id IS NULL;</code></pre>
+    <p><span class="status-safe">Recovery: Full diff analysis within retention</span></p>
+  </div>
+
+  <div class="recovery-box">
+    <h4>Scenario 5: Recovery Beyond Retention Period</h4>
+    <p><strong>Situation:</strong> Data was lost 10 days ago, 1-day TT expired, need recovery</p>
+    <pre><code>-- Check: Is the data still in Fail-safe? (Permanent tables only)
+-- Fail-safe = 7 days AFTER Time Travel expires
+-- If TT = 1 day → Fail-safe covers days 2-8 after the event
+-- Day 10 = BEYOND fail-safe for 1-day TT permanent tables
+
+-- Options:
+-- 1. Contact Snowflake Support (if within Fail-safe window, best-effort)
+-- 2. Check if a clone exists from before the loss
+-- 3. Check if data was replicated to another account
+-- 4. Restore from external backups (S3, Azure Blob, etc.)
+
+-- Prevention: Set longer retention for critical tables
+ALTER TABLE PROD_DB.ANALYTICS.CRITICAL_DATA
+  SET DATA_RETENTION_TIME_IN_DAYS = 90;  -- Enterprise+ only</code></pre>
+    <p><span class="status-danger">Recovery: Limited — depends on fail-safe window and Snowflake Support</span></p>
+  </div>
+
+  <div class="callout warning">
+    <p class="callout-title">Prevention Best Practices</p>
+    <ul>
+      <li>Set 90-day retention on mission-critical tables (Enterprise+ required)</li>
+      <li>Use database replication for cross-region/cross-account DR</li>
+      <li>Maintain nightly clones as "snapshots" for point-in-time recovery</li>
+      <li>Never use transient tables for data that cannot be reproduced</li>
+    </ul>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="exam-scenarios">6. Exam Scenario Questions</h2>
+  <!-- ============================================================ -->
+
+  <div class="scenario">
+    <p class="scenario-q">Q1: A user runs <code>CREATE OR REPLACE TABLE orders AS SELECT * FROM staging.orders</code>. The original <code>orders</code> table had 90 days of Time Travel data. What happens to that historical data?</p>
+    <div class="scenario-a">
+      <p><strong>Answer:</strong> The original table is effectively <strong>dropped</strong> and enters Time Travel as a dropped object. The new table starts fresh with <strong>no Time Travel history</strong>. The old table can be recovered via UNDROP (after renaming the new table) within the retention period. The 90-day history of the OLD table is preserved in TT — but the NEW table's clock starts at zero.</p>
+    </div>
+  </div>
+
+  <div class="scenario">
+    <p class="scenario-q">Q2: A transient table with DATA_RETENTION_TIME_IN_DAYS = 1 is dropped. For how many total days can the data potentially be recovered?</p>
+    <div class="scenario-a">
+      <p><strong>Answer:</strong> <span class="status-danger">1 day only</span>. Transient tables have NO fail-safe period. Once the 1-day Time Travel window expires after the DROP, the data is permanently purged. Compare to a permanent table: 1 day TT + 7 days fail-safe = 8 days total.</p>
+    </div>
+  </div>
+
+  <div class="scenario">
+    <p class="scenario-q">Q3: You clone a database that contains a Snowpipe, a task graph (3 tasks), and 5 streams. What is the state of these objects in the clone?</p>
+    <div class="scenario-a">
+      <p><strong>Answer:</strong></p>
+      <ul>
+        <li><strong>Pipes:</strong> Cloned but <span class="status-warn">SUSPENDED/PAUSED</span> — must be manually resumed</li>
+        <li><strong>Tasks:</strong> All 3 cloned but <span class="status-warn">SUSPENDED</span> — must resume leaf tasks first, then root</li>
+        <li><strong>Streams:</strong> Cloned with offset preserved (source tables also in clone scope) — but may go <span class="status-danger">STALE</span> if offset references data beyond TT retention of the cloned table</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="scenario">
+    <p class="scenario-q">Q4: An Enterprise account sets DATA_RETENTION_TIME_IN_DAYS = 90 at the database level. A new table is created in that database with no explicit retention setting. What is the table's retention?</p>
+    <div class="scenario-a">
+      <p><strong>Answer:</strong> <span class="status-safe">90 days</span>. New objects inherit the retention setting from their parent (table inherits from schema, schema from database). Since no schema or table override exists, the table gets the database-level setting of 90 days.</p>
+    </div>
+  </div>
+
+  <div class="scenario">
+    <p class="scenario-q">Q5: You clone a table and then DROP the original source table. After Time Travel and Fail-safe expire for the source, who pays for the storage of the shared micro-partitions?</p>
+    <div class="scenario-a">
+      <p><strong>Answer:</strong> The <strong>clone</strong> becomes the sole owner of all micro-partitions that were previously shared. The full storage cost is now attributed to the clone. This is a common exam trap — zero-copy cloning means zero <em>additional</em> storage at creation time, but ownership transfers when the source is purged.</p>
+    </div>
+  </div>
+
+  <div class="scenario">
+    <p class="scenario-q">Q6: Can you perform Time Travel on a view? What about a materialized view?</p>
+    <div class="scenario-a">
+      <p><strong>Answer:</strong> <span class="status-danger">NO</span> for regular views — views have no data, only a definition. For <strong>materialized views</strong>: you cannot directly time-travel the MV object, but you CAN time-travel the <strong>underlying base table</strong> and the MV's cached results reflect the base table's state at that point (indirectly).</p>
+    </div>
+  </div>
+
+  <div class="scenario">
+    <p class="scenario-q">Q7: A table in a TRANSIENT schema has DATA_RETENTION_TIME_IN_DAYS explicitly set to 5. Is this valid?</p>
+    <div class="scenario-a">
+      <p><strong>Answer:</strong> <span class="status-danger">NO — this will fail</span>. Tables in transient schemas are implicitly transient, and transient tables have a maximum retention of 1 day. Setting retention &gt; 1 on a transient table produces an error. The valid range is 0 or 1.</p>
+    </div>
+  </div>
+
+  <div class="scenario">
+    <p class="scenario-q">Q8: You DROP a schema, then CREATE a new schema with the same name, then try UNDROP SCHEMA. What happens?</p>
+    <div class="scenario-a">
+      <p><strong>Answer:</strong> <span class="status-danger">UNDROP fails</span> with an object-already-exists error. The new schema occupies the same namespace. Resolution: <code>ALTER SCHEMA new_schema RENAME TO temp_name</code>, then <code>UNDROP SCHEMA original_name</code>. This is the same pattern as table UNDROP name conflicts.</p>
+    </div>
+  </div>
+
+  <div class="scenario">
+    <p class="scenario-q">Q9: You clone a production database for development. A developer in dev runs a DELETE on a cloned table. Does this affect production storage costs?</p>
+    <div class="scenario-a">
+      <p><strong>Answer:</strong> <span class="status-safe">NO</span>. The clone and source are independent after creation. The DELETE in the clone writes new micro-partitions (or marks existing ones as deleted) only in the clone's context. Production's storage is unaffected. However, the <strong>clone's</strong> TT will store the pre-DELETE state, increasing the clone's storage footprint.</p>
+    </div>
+  </div>
+
+  <div class="scenario">
+    <p class="scenario-q">Q10: An internal stage exists in a schema. You clone the schema. What happens to the files in that stage?</p>
+    <div class="scenario-a">
+      <p><strong>Answer:</strong> The cloned schema contains a <strong>new, empty stage</strong> with the same name and properties. <span class="status-danger">Files are NOT copied</span>. Internal stage data is not cloned — only the stage definition. External stages are cloned with their definition (URL, credentials reference), pointing to the same external location. This is a critical exam distinction.</p>
+    </div>
+  </div>
+
+  <div class="callout info">
+    <p class="callout-title">Quick Exam Mnemonics</p>
+    <ul>
+      <li><strong>T-T-P:</strong> Transient/Temporary = no fail-safe, Permanent = 7-day fail-safe</li>
+      <li><strong>S-P-T:</strong> Streams, Pipes, Tasks in clones = Suspended (must manually resume)</li>
+      <li><strong>COR = D+C:</strong> CREATE OR REPLACE = DROP (old enters TT) + CREATE (new, no history)</li>
+      <li><strong>Clone ≠ Grants:</strong> Privileges never auto-copied unless COPY GRANTS specified</li>
+      <li><strong>Zero-copy ≠ Zero-cost:</strong> Storage diverges over time, especially after source DROP</li>
+    </ul>
+  </div>
+
+</body>
+</html>

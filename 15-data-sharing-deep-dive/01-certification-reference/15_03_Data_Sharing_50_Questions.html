@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Data Sharing - 50 Question Quiz</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Interactive 50-question certification prep quiz for Snowflake Data Sharing topics",
+    "sections": [
+      { "id": "quiz-section", "title": "Data Sharing Quiz",
+        "dataSources": [{ "type": "static", "description": "50 hand-crafted questions covering shares, secure views, reader accounts, marketplace, cross-region, provider/consumer model, shareable objects, IMPORT SHARE privilege, database from share, and cost model" }],
+        "producerNotes": "Questions are embedded as a JS array. No external data source needed." }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      max-width: 900px; margin: 0 auto; padding: 24px;
+      color: light-dark(#1e293b, #e2e8f0);
+      background: light-dark(#f8fafc, #0f172a);
+      line-height: 1.6;
+    }
+    h1 {
+      text-align: center; margin-bottom: 8px;
+      color: light-dark(#1e3a5f, #93c5fd);
+      font-size: 1.8rem;
+    }
+    .subtitle {
+      text-align: center; margin-bottom: 24px;
+      color: light-dark(#475569, #94a3b8);
+      font-size: 0.95rem;
+    }
+    .score-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      background: light-dark(#e0e7ff, #1e1b4b);
+      border: 1px solid light-dark(#a5b4fc, #4338ca);
+      border-radius: 10px; padding: 12px 20px; margin-bottom: 24px;
+      position: sticky; top: 8px; z-index: 100;
+    }
+    .score-bar span { font-weight: 600; color: light-dark(#3730a3, #a5b4fc); }
+    .score-bar .score-pct { font-size: 1.1rem; }
+    #resetBtn {
+      background: light-dark(#4f46e5, #6366f1); color: #fff;
+      border: none; border-radius: 6px; padding: 8px 16px;
+      cursor: pointer; font-size: 0.85rem; font-weight: 600;
+      transition: background 0.2s;
+    }
+    #resetBtn:hover { background: light-dark(#4338ca, #818cf8); }
+    .question-card {
+      background: light-dark(#ffffff, #1e293b);
+      border: 1px solid light-dark(#e2e8f0, #334155);
+      border-radius: 10px; padding: 20px; margin-bottom: 16px;
+      transition: border-color 0.3s;
+    }
+    .question-card.answered-correct { border-color: #22c55e; }
+    .question-card.answered-wrong { border-color: #ef4444; }
+    .q-header {
+      display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-start;
+    }
+    .q-num {
+      background: light-dark(#4f46e5, #6366f1); color: #fff;
+      border-radius: 50%; width: 28px; height: 28px; min-width: 28px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 700;
+    }
+    .q-text { font-weight: 600; color: light-dark(#1e293b, #f1f5f9); }
+    .options { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+    .option {
+      padding: 10px 14px; border-radius: 8px; cursor: pointer;
+      border: 1px solid light-dark(#cbd5e1, #475569);
+      background: light-dark(#f8fafc, #0f172a);
+      transition: all 0.2s; font-size: 0.92rem;
+    }
+    .option:hover:not(.disabled) {
+      border-color: light-dark(#6366f1, #818cf8);
+      background: light-dark(#eef2ff, #1e1b4b);
+    }
+    .option.correct {
+      background: light-dark(#dcfce7, #052e16);
+      border-color: #22c55e; color: light-dark(#166534, #86efac);
+    }
+    .option.wrong {
+      background: light-dark(#fee2e2, #350a0a);
+      border-color: #ef4444; color: light-dark(#991b1b, #fca5a5);
+    }
+    .option.disabled { cursor: default; opacity: 0.7; }
+    .explanation {
+      display: none; margin-top: 12px; padding: 10px 14px;
+      background: light-dark(#eef2ff, #1e1b4b);
+      border-left: 3px solid light-dark(#6366f1, #818cf8);
+      border-radius: 4px; font-size: 0.88rem;
+      color: light-dark(#3730a3, #c7d2fe);
+    }
+    .explanation.show { display: block; }
+  </style>
+</head>
+<body>
+
+<h1>Snowflake Data Sharing Quiz</h1>
+<p class="subtitle">50 Questions — Shares, Secure Views, Reader Accounts, Marketplace, Cross-Region & More</p>
+
+<div class="score-bar">
+  <span>Score: <span id="scoreVal">0</span> / <span id="totalAnswered">0</span></span>
+  <span class="score-pct" id="pctVal">0%</span>
+  <button id="resetBtn">Reset</button>
+</div>
+
+<div id="quizContainer"></div>
+
+<script>
+const questions=[
+{q:"What SQL command creates a new share object in Snowflake?",o:["CREATE SHARE share_name","CREATE DATA SHARE share_name","CREATE SHARING share_name","CREATE OUTBOUND SHARE share_name"],a:0,e:"The correct syntax is CREATE SHARE <name>. There is no 'DATA SHARE' or 'OUTBOUND SHARE' variant."},
+{q:"Which privilege is required on a consumer account to create a database from a share?",o:["ACCOUNTADMIN role only","CREATE DATABASE privilege","IMPORT SHARE privilege","MANAGE SHARES privilege"],a:2,e:"The IMPORT SHARE privilege is required to create a database from an inbound share. By default only ACCOUNTADMIN has this."},
+{q:"When a provider shares data with a consumer, who pays for the queries run on shared data?",o:["The provider pays all compute costs","The consumer pays compute costs; provider pays storage","Costs are split 50/50","The consumer pays all costs including storage"],a:1,e:"The consumer pays for compute (warehouse credits) to query shared data. The provider continues to pay for the underlying storage."},
+{q:"Which of these objects CANNOT be included directly in a share?",o:["Tables","Secure views","Secure UDFs","Stages"],a:3,e:"Stages cannot be shared directly. Shares support tables, secure views, secure materialized views, and secure UDFs."},
+{q:"What is a Reader Account in Snowflake data sharing?",o:["An account created by the consumer to read data","A managed account created by the provider for consumers who do not have a Snowflake account","A special role within the provider account","A temporary trial account from Snowflake"],a:1,e:"Reader accounts (formerly managed accounts) are created by the provider for non-Snowflake consumers. The provider manages and pays for the compute."},
+{q:"How does Snowflake ensure that shared data cannot expose underlying table data beyond what is intended?",o:["By encrypting shared data with a separate key","By requiring secure views or secure UDFs as sharing intermediaries","By copying data to an isolated storage location","By limiting queries to SELECT COUNT(*) only"],a:1,e:"Secure views and secure UDFs hide the view/function definition from consumers, preventing them from reverse-engineering access to underlying data beyond what the view exposes."},
+{q:"Which statement about cross-region data sharing is correct?",o:["Cross-region sharing is not supported in Snowflake","Cross-region sharing requires database replication to be set up first","Cross-region sharing works automatically with no additional setup","Cross-region sharing only works between accounts on AWS"],a:1,e:"For cross-region (or cross-cloud) sharing, the provider must first replicate the database to a Snowflake deployment in the consumer's region/cloud. Listings/shares then reference the replica."},
+{q:"What happens to a consumer's database from share if the provider revokes access?",o:["The database remains but becomes read-only","The database is automatically dropped","The database becomes inaccessible but still shows in SHOW DATABASES","The consumer retains a snapshot of the last-accessed data"],a:2,e:"When access is revoked, the database created from the share becomes inaccessible. It still appears in metadata but queries will fail."},
+{q:"Which command grants a specific account access to a share?",o:["GRANT SHARE share_name TO ACCOUNT acct","ALTER SHARE share_name ADD ACCOUNTS = acct","GRANT USAGE ON SHARE share_name TO ACCOUNT acct","SHARE share_name WITH ACCOUNT acct"],a:1,e:"The correct syntax is ALTER SHARE <name> ADD ACCOUNTS = <account_identifier> to grant consumer account access."},
+{q:"Can a consumer create a materialized view on top of shared data?",o:["Yes, with no restrictions","Yes, but only if the provider grants OWNERSHIP","No, materialized views cannot be created on shared objects","No, unless the shared object is a table, not a view"],a:2,e:"Consumers cannot create materialized views on shared data. They can create regular views or query the shared objects directly."},
+{q:"What is the Snowflake Marketplace?",o:["A web portal to purchase Snowflake credits at discount","A platform for providers to list and share data products with any Snowflake consumer","An internal tool for managing data pipelines","A feature for selling Snowflake Native Apps only"],a:1,e:"The Snowflake Marketplace enables providers to publish data listings (free or paid) that any Snowflake customer can discover and access via shares."},
+{q:"Which type of listing allows a provider to charge consumers for data access on the Marketplace?",o:["Free listing","Personalized listing","Paid listing (commercialized)","Standard listing"],a:2,e:"Paid (commercialized) listings allow providers to monetize their data on the Marketplace. Free listings provide data at no additional charge."},
+{q:"In the provider/consumer model, who owns the shared data?",o:["The consumer owns a copy","Snowflake owns the data","The provider retains full ownership","Ownership is transferred upon sharing"],a:2,e:"The provider always retains full ownership of the shared data. No data is copied to the consumer — they get a read-only reference."},
+{q:"Which privilege must be granted on objects before adding them to a share?",o:["SELECT privilege to the share","USAGE on the database and schema, plus GRANT on the objects to the share","OWNERSHIP on the objects","No privilege is needed; ACCOUNTADMIN can share anything"],a:1,e:"You must grant USAGE on the database and schema to the share, and then grant SELECT (for tables/views) or USAGE (for UDFs) on the specific objects to the share."},
+{q:"What is true about data shared via Snowflake's secure data sharing?",o:["Data is copied to the consumer's account storage","Data is shared as a live, real-time reference with no data movement","Data is replicated nightly via micro-batches","Data is exported as Parquet files to a shared stage"],a:1,e:"Snowflake's architecture enables zero-copy sharing. Consumers access the provider's data in place — no data movement or copying occurs."},
+{q:"Can you share data between a Snowflake account on AWS and one on Azure?",o:["No, sharing only works within the same cloud provider","Yes, but only via the Marketplace","Yes, using database replication across clouds and then sharing","Yes, it works automatically with no additional steps"],a:2,e:"Cross-cloud sharing requires replicating the database to a Snowflake deployment on the target cloud, then sharing from that replica. It does not work automatically across clouds."},
+{q:"Which Snowflake edition is required to use Secure Data Sharing?",o:["Enterprise Edition or higher only","Business Critical or higher only","Standard Edition and above (all editions)","VPS (Virtual Private Snowflake) only"],a:2,e:"Secure Data Sharing is available in all Snowflake editions including Standard. No upgrade is needed."},
+{q:"What does the SHOW SHARES command display?",o:["Only outbound shares created by the current account","Only inbound shares available to the current account","Both inbound and outbound shares visible to the current account","All shares across all Snowflake accounts globally"],a:2,e:"SHOW SHARES displays both INBOUND shares (from providers) and OUTBOUND shares (created by the current account) that are visible to the executing role."},
+{q:"A provider wants to share a subset of rows from a table with different consumers. What is the recommended approach?",o:["Create separate physical tables for each consumer","Use secure views with CURRENT_ACCOUNT() to filter rows per consumer","Export CSVs and share via stage","Use dynamic data masking on the shared table"],a:1,e:"Secure views using CURRENT_ACCOUNT() allow row-level filtering per consumer without duplicating data. Each consumer sees only their authorized rows."},
+{q:"Which role can create shares by default?",o:["SYSADMIN","ACCOUNTADMIN","Any role with CREATE SHARE privilege","SECURITYADMIN"],a:1,e:"By default, only ACCOUNTADMIN can create shares. The CREATE SHARE privilege can be granted to other roles to delegate this ability."},
+{q:"How does a consumer access shared data?",o:["By running IMPORT SHARE and then querying a new database","By creating a database from the share using CREATE DATABASE ... FROM SHARE","By mounting the share as an external stage","By using GET_SHARE() function in SQL"],a:1,e:"Consumers create a local database from the inbound share using CREATE DATABASE <name> FROM SHARE <provider_account>.<share_name>."},
+{q:"Can consumers write (INSERT/UPDATE/DELETE) to shared objects?",o:["Yes, consumers have full DML access","Yes, but only if the provider grants WRITE privilege on the share","No, shared data is always read-only to consumers","No, unless it is a reader account"],a:2,e:"Shared objects are always read-only for consumers. They cannot perform any DML operations on shared data."},
+{q:"What is a 'Data Exchange' in Snowflake?",o:["A feature for swapping data between two accounts bidirectionally","A private, governed hub for a group of accounts to share and discover data","A type of ETL pipeline for exchanging data with external systems","A billing mechanism for settling data sharing costs"],a:1,e:"A Data Exchange is a private marketplace/hub that an organization sets up for a curated group of accounts to publish and consume data listings in a governed way."},
+{q:"Which object type must views be in order to be shared?",o:["Regular views","Materialized views","Secure views","Any view type can be shared"],a:2,e:"Only secure views (and secure materialized views) can be added to shares. Regular views cannot be shared because their definitions would be visible to consumers."},
+{q:"What is the impact of using a secure view on query performance?",o:["No impact; secure views perform identically to regular views","The Snowflake optimizer may not push predicates into the view, potentially reducing performance","Secure views are always faster because they bypass access checks","Secure views add a mandatory 5-second latency"],a:1,e:"Because the view definition is hidden, the optimizer cannot always push external predicates into a secure view. This can result in reduced performance compared to regular views."},
+{q:"Can a consumer re-share data they received from a provider?",o:["Yes, consumers can freely re-share any received data","Yes, but only if the original provider explicitly enables re-sharing","No, shared data cannot be re-shared under any circumstances","No, unless the consumer makes a physical copy first"],a:2,e:"Shared data cannot be re-shared by consumers. A consumer's database from a share cannot be added to another outbound share."},
+{q:"Which of the following is TRUE about Reader Accounts?",o:["Reader accounts can load their own data into the account","Reader accounts can only query data shared by the creating provider","Reader accounts are billed to the consumer's credit card","Reader accounts have the same capabilities as full Snowflake accounts"],a:1,e:"Reader accounts are limited — they can only consume data shared by the provider who created them. They cannot load data, create shares, or access data from other providers."},
+{q:"Who pays for the compute in a Reader Account?",o:["The consumer using the reader account","The provider who created the reader account","Snowflake covers it as part of the sharing feature","Costs are shared between provider and reader account user"],a:1,e:"The provider who creates and manages the reader account pays for all compute (warehouse) costs incurred by the reader account."},
+{q:"What SQL statement removes an account's access from a share?",o:["REVOKE SHARE share_name FROM ACCOUNT acct","ALTER SHARE share_name REMOVE ACCOUNTS = acct","DROP ACCOUNT acct FROM SHARE share_name","DELETE SHARE ACCESS share_name ACCOUNT acct"],a:1,e:"Use ALTER SHARE <name> REMOVE ACCOUNTS = <account> to revoke a consumer's access to the share."},
+{q:"Can you share a single schema from a database, or must you share the entire database?",o:["You must share the entire database","You can share individual schemas but not individual objects","You can share specific objects within a schema (you grant USAGE on the schema and SELECT on chosen objects)","You can only share objects if they are in the PUBLIC schema"],a:2,e:"Sharing is granular — you grant USAGE on the database and schema to the share, then SELECT on specific tables/views. You do not need to share everything in the database."},
+{q:"What is a 'Personalized Listing' on the Snowflake Marketplace?",o:["A listing visible to all Snowflake accounts globally","A listing shared only with specific, approved consumer accounts","A listing that auto-customizes data per consumer using AI","A listing only available in the same region as the provider"],a:1,e:"A Personalized Listing is visible only to specific consumer accounts approved by the provider, unlike standard listings which are publicly discoverable."},
+{q:"Which of the following describes an advantage of Snowflake data sharing over traditional data sharing methods?",o:["Data is compressed into ZIP files for fast transfer","No data copying, no ETL, real-time access to live data","Consumers get physical Parquet files they can load anywhere","It requires less security than traditional methods"],a:1,e:"Snowflake's zero-copy sharing eliminates data movement, ETL pipelines, and stale copies. Consumers always see the provider's current, live data."},
+{q:"Which metadata can a consumer see about a shared secure view?",o:["The full view definition (SQL text)","Only the column names and data types (schema)","No metadata at all — the view is completely hidden","The view definition plus the provider's query history"],a:1,e:"Consumers can see the schema (column names and types) of shared secure views, but NOT the underlying SQL definition. This is the key property of secure views."},
+{q:"How do you add a table to an existing share?",o:["ALTER SHARE share_name ADD TABLE db.schema.table","GRANT SELECT ON TABLE db.schema.table TO SHARE share_name","INSERT INTO SHARE share_name VALUES (db.schema.table)","SHARE TABLE db.schema.table USING share_name"],a:1,e:"You use GRANT SELECT ON TABLE <table> TO SHARE <share_name>. You must also ensure USAGE has been granted on the database and schema to the share."},
+{q:"What happens to existing consumer databases when a provider adds a new table to a share?",o:["Consumer must drop and recreate the database from share","New tables automatically become visible in the consumer's shared database","Consumer must run ALTER DATABASE ... REFRESH","Provider must notify consumers who then run IMPORT TABLE"],a:1,e:"When a provider adds objects to a share, they automatically become visible in all consumer databases created from that share — no consumer action is needed."},
+{q:"Can stored procedures be shared directly?",o:["Yes, all stored procedures can be shared","Yes, but only JavaScript stored procedures","No, stored procedures cannot be shared directly","Yes, but only if they are defined as SECURE"],a:2,e:"Stored procedures cannot be included in shares. Only tables, secure views, secure materialized views, and secure UDFs can be shared."},
+{q:"A consumer tries to query shared data but gets an error. Which is a likely cause?",o:["The provider's warehouse is offline","The consumer's warehouse is not running or the consumer's role lacks USAGE on the shared database","The share has expired after 30 days","Shared data requires MFA authentication"],a:1,e:"Consumers need their own running warehouse and proper USAGE grants on the database created from the share. The provider's warehouse status is irrelevant — consumers use their own compute."},
+{q:"What is TRUE about sharing data across Snowflake accounts in the SAME region and cloud?",o:["It requires database replication to be configured","It works instantly with no data copying or replication needed","It requires a Marketplace listing","It only works for Enterprise edition accounts"],a:1,e:"Within the same region and cloud platform, Snowflake sharing works instantly via metadata — no replication, no data copying, no Marketplace listing required."},
+{q:"Which account identifier format is used when adding consumers to a share?",o:["The consumer's email address","The consumer's account URL (e.g., acct.snowflakecomputing.com)","The consumer's organization name and account name (org.account)","The consumer's AWS/Azure/GCP account ID"],a:2,e:"When adding accounts to a share, you use the org_name.account_name format (account locator format is also supported but org.account is preferred)."},
+{q:"Can you share an entire database using a single command?",o:["Yes — GRANT ALL ON DATABASE db TO SHARE share_name","No — you must grant USAGE on the database, USAGE on schemas, and SELECT on individual objects","Yes — ALTER SHARE ADD DATABASE db","No — you must create a secure view over every table first"],a:1,e:"There is no single command to share an entire database. You must grant USAGE on the database and each schema, then SELECT on each table/view you want to include."},
+{q:"What type of account is required for a data consumer to use Snowflake Marketplace?",o:["Any Snowflake account (Standard or higher)","Enterprise Edition or higher only","Business Critical or higher only","Only accounts with ORGADMIN enabled"],a:0,e:"Any Snowflake account can consume Marketplace listings. No special edition or configuration is required for consumers."},
+{q:"Which statement correctly describes the difference between a SHARE and a LISTING?",o:["A share is a database-level copy; a listing is a schema-level copy","A share is the underlying mechanism; a listing is the Marketplace/Exchange publication that references a share","A listing can contain multiple shares from different providers","Shares are free; listings always cost money"],a:1,e:"A share is the Snowflake object that defines what data is accessible. A listing is the Marketplace or Data Exchange publication (with metadata, description, terms) that references one share."},
+{q:"What is required before creating a reader account?",o:["You must have Enterprise Edition","You must enable managed accounts at the organization level","You must have ACCOUNTADMIN privileges and the account must have the CREATE MANAGED ACCOUNT privilege enabled","You must file a support ticket with Snowflake"],a:2,e:"Creating reader (managed) accounts requires ACCOUNTADMIN role and the capability must be enabled for the account. No support ticket is needed."},
+{q:"How does Time Travel work with shared data from a consumer's perspective?",o:["Consumers can use Time Travel on shared data just like local data","Consumers cannot use Time Travel on shared data","Time Travel is available but limited to 1 day regardless of provider settings","Consumers can use Time Travel only if the provider explicitly enables it in the share"],a:1,e:"Consumers cannot use Time Travel (AT/BEFORE clauses) on shared data. Time Travel is only available to the data owner (provider)."},
+{q:"Which is a valid use case for the CURRENT_ACCOUNT() function in data sharing?",o:["To track which provider created the share","To implement row-level security in secure views so different consumers see different rows","To convert account credits between currencies","To enforce query timeouts per consumer"],a:1,e:"CURRENT_ACCOUNT() returns the consumer's account identifier at query time. Used inside a secure view's WHERE clause, it enables per-consumer row-level filtering."},
+{q:"Can a share include objects from multiple databases?",o:["Yes, a share can include objects from any number of databases","No, each share can only include objects from a single database","Yes, but only if all databases are in the same schema","Yes, but limited to 3 databases per share"],a:1,e:"A share can only contain objects from a single database. If you need to share objects from multiple databases, you must create separate shares or consolidate objects into one database (possibly using secure views)."},
+{q:"What happens to a consumer's shared database during a provider's zero-copy cloning operation on the source database?",o:["The shared database is automatically cloned for the consumer too","Nothing — cloning the source database does not affect existing shares","The share becomes invalid and must be recreated","The consumer sees duplicate data temporarily"],a:1,e:"Cloning a database creates an independent copy. Existing shares continue to reference the original database and are unaffected by the clone operation."},
+{q:"What is the effect of dropping an object that is currently part of a share?",o:["The drop fails with an error because the object is shared","The object is dropped and consumers immediately lose access to it","The object enters a pending-drop state until consumers are notified","The object is dropped but consumers retain access for 24 hours via Time Travel"],a:1,e:"Dropping a shared object succeeds immediately, and consumers will get errors when trying to access it. Snowflake does not prevent dropping shared objects."},
+{q:"Which Snowflake feature allows a provider to track how consumers are using shared data?",o:["ACCESS_HISTORY view in ACCOUNT_USAGE","SHARE_USAGE_HISTORY in the READER_ACCOUNT_USAGE schema","DATA_SHARING_USAGE view in ORGANIZATION_USAGE","Providers cannot track consumer usage"],a:2,e:"The DATA_SHARING_USAGE view (in ORGANIZATION_USAGE or ACCOUNT_USAGE depending on context) helps providers see consumption metrics. Additionally, ACCESS_HISTORY tracks access within an account."},
+{q:"A provider wants to share data but the consumer does NOT have a Snowflake account and refuses to create one. What is the provider's best option?",o:["Export data as CSV and email it","Create a Reader Account for the consumer","Use a Snowflake partner connector to push data to the consumer","Sharing is impossible without a Snowflake account of any type"],a:1,e:"Reader accounts solve this exactly — the provider creates a managed Snowflake account for the consumer, who can then query the shared data via a web interface without purchasing their own account."},
+{q:"What is the maximum number of accounts that can be added to a single share?",o:["10 accounts","100 accounts","1,000 accounts","There is no hard limit documented; it is effectively unlimited for practical purposes"],a:3,e:"Snowflake does not document a hard limit on the number of consumer accounts per share. In practice, shares can serve many consumers."}
+];
+
+const container=document.getElementById('quizContainer');
+let score=0,answered=0;
+
+function render(){
+  container.innerHTML='';
+  questions.forEach((item,idx)=>{
+    const card=document.createElement('div');
+    card.className='question-card';
+    card.id='q'+idx;
+    let optsHtml='';
+    item.o.forEach((opt,oi)=>{
+      optsHtml+=`<div class="option" data-q="${idx}" data-o="${oi}">${opt}</div>`;
+    });
+    card.innerHTML=`<div class="q-header"><span class="q-num">${idx+1}</span><span class="q-text">${item.q}</span></div><div class="options">${optsHtml}</div><div class="explanation" id="exp${idx}">${item.e}</div>`;
+    container.appendChild(card);
+  });
+  attachListeners();
+}
+
+function attachListeners(){
+  document.querySelectorAll('.option').forEach(el=>{
+    el.addEventListener('click',function(){
+      const qi=parseInt(this.dataset.q);
+      const oi=parseInt(this.dataset.o);
+      const card=document.getElementById('q'+qi);
+      if(card.classList.contains('answered-correct')||card.classList.contains('answered-wrong'))return;
+      const opts=card.querySelectorAll('.option');
+      const correct=questions[qi].a;
+      opts.forEach(o=>o.classList.add('disabled'));
+      if(oi===correct){
+        this.classList.add('correct');
+        card.classList.add('answered-correct');
+        score++;
+      }else{
+        this.classList.add('wrong');
+        opts[correct].classList.add('correct');
+        card.classList.add('answered-wrong');
+      }
+      answered++;
+      updateScore();
+      document.getElementById('exp'+qi).classList.add('show');
+    });
+  });
+}
+
+function updateScore(){
+  document.getElementById('scoreVal').textContent=score;
+  document.getElementById('totalAnswered').textContent=answered;
+  document.getElementById('pctVal').textContent=answered?Math.round(score/answered*100)+'%':'0%';
+}
+
+document.getElementById('resetBtn').addEventListener('click',function(){
+  score=0;answered=0;updateScore();render();
+});
+
+render();
+</script>
+</body>
+</html>

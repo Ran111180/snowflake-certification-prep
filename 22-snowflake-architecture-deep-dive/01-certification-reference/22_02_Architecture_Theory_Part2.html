@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>22.02 Snowflake Architecture Deep Dive - Advanced Internals</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Snowflake Architecture Deep Dive - Advanced Internals",
+  "topic": "22-snowflake-architecture-deep-dive",
+  "part": 2,
+  "category": "certification-reference",
+  "difficulty": "advanced",
+  "certificationArea": "Architecture",
+  "tags": ["micro-partitions", "metadata", "optimization", "transactions", "connectors", "replication"]
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#f8f9fa, #1a1d23);
+  --bg-secondary: light-dark(#ffffff, #22262e);
+  --bg-tertiary: light-dark(#f1f3f5, #2a2f38);
+  --text-primary: light-dark(#1a1d23, #e2e4e8);
+  --text-secondary: light-dark(#4a5568, #a0aab4);
+  --border-color: light-dark(#d1d5db, #3a3f48);
+  --accent: light-dark(#475569, #94a3b8);
+  --accent-bg: light-dark(#f1f5f9, #2d3748);
+  --highlight: light-dark(#334155, #e2e8f0);
+  --code-bg: light-dark(#f1f3f5, #2a2f38);
+  --success: light-dark(#16a34a, #4ade80);
+  --warning: light-dark(#d97706, #fbbf24);
+  --info: light-dark(#2563eb, #60a5fa);
+  --card-shadow: light-dark(0 1px 3px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.3));
+}
+html { color-scheme: light dark; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--highlight); }
+h2 { font-size: 1.4rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--highlight); border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; }
+h3 { font-size: 1.1rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: var(--accent); }
+.subtitle { color: var(--text-secondary); margin-bottom: 2rem; font-size: 1rem; }
+.card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--card-shadow);
+}
+.diagram {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  white-space: pre;
+  overflow-x: auto;
+  line-height: 1.4;
+}
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+th, td { padding: 0.6rem 0.8rem; text-align: left; border: 1px solid var(--border-color); }
+th { background: var(--bg-tertiary); font-weight: 600; color: var(--highlight); }
+tr:nth-child(even) { background: var(--bg-tertiary); }
+ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+li { margin-bottom: 0.4rem; }
+code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.9em; }
+pre { background: var(--code-bg); padding: 1rem; border-radius: 6px; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+.callout { border-left: 4px solid var(--accent); padding: 1rem 1.5rem; margin: 1rem 0; background: var(--accent-bg); border-radius: 0 6px 6px 0; }
+.callout-warning { border-left-color: var(--warning); }
+.callout-info { border-left-color: var(--info); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<h1>22.02 Snowflake Architecture - Advanced Internals</h1>
+<p class="subtitle">Micro-partition internals, metadata, query optimization, transactions, connectors, replication</p>
+
+<h2>1. Micro-Partition Internals</h2>
+<div class="card">
+<h3>Physical Structure</h3>
+<div class="diagram">
+┌─────────────────────────────────────────────────────┐
+│            MICRO-PARTITION (50-500 MB)               │
+├─────────────────────────────────────────────────────┤
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐  │
+│  │ Column A│ │ Column B│ │ Column C│ │ Column D│  │
+│  │ (INT)   │ │ (VARCHAR│ │ (DATE)  │ │ (FLOAT) │  │
+│  │         │ │         │ │         │ │         │  │
+│  │ Row Grp │ │ Row Grp │ │ Row Grp │ │ Row Grp │  │
+│  │  1..N   │ │  1..N   │ │  1..N   │ │  1..N   │  │
+│  │         │ │         │ │         │ │         │  │
+│  │Compressed│ │Compressed│ │Compressed│ │Compressed│  │
+│  └─────────┘ └─────────┘ └─────────┘ └─────────┘  │
+├─────────────────────────────────────────────────────┤
+│  Header: Column offsets, encoding types, row count  │
+└─────────────────────────────────────────────────────┘</div>
+
+<h3>Properties</h3>
+<table>
+  <tr><th>Property</th><th>Detail</th></tr>
+  <tr><td>Size range</td><td>50-500 MB compressed (before compression the data may be much larger)</td></tr>
+  <tr><td>Row count</td><td>Typically 50,000 to 500,000 rows per partition</td></tr>
+  <tr><td>Storage format</td><td>Columnar with row groups (PAX-style hybrid)</td></tr>
+  <tr><td>Compression</td><td>Automatic per-column (dictionary, RLE, delta, etc.)</td></tr>
+  <tr><td>Immutability</td><td>Write-once, never modified in place</td></tr>
+  <tr><td>Creation</td><td>Automatically during INSERT, COPY, CTAS, or reclustering</td></tr>
+  <tr><td>Overlap</td><td>Partitions can have overlapping value ranges</td></tr>
+</table>
+
+<div class="callout">
+  <strong>DML Impact:</strong> Updates/Deletes create NEW micro-partitions (old ones marked for garbage collection). A single row update rewrites the entire micro-partition containing that row.
+</div>
+</div>
+
+<h2>2. Metadata Store</h2>
+<div class="card">
+<h3>What the Cloud Services Layer Stores</h3>
+<p>For every micro-partition, Snowflake maintains:</p>
+<table>
+  <tr><th>Metadata Type</th><th>Description</th><th>Used For</th></tr>
+  <tr><td>Range (min/max)</td><td>Minimum and maximum value per column per partition</td><td>Partition pruning</td></tr>
+  <tr><td>Distinct count</td><td>Number of distinct values per column</td><td>Query optimization, cardinality estimation</td></tr>
+  <tr><td>Null count</td><td>Number of NULL values per column</td><td>Optimization, predicate evaluation</td></tr>
+  <tr><td>Number of rows</td><td>Row count per micro-partition</td><td>COUNT(*) without scanning</td></tr>
+  <tr><td>File references</td><td>Location of the physical file in cloud storage</td><td>Data retrieval</td></tr>
+  <tr><td>Table version</td><td>Version tracking for Time Travel</td><td>Historical queries</td></tr>
+</table>
+
+<div class="callout-info callout">
+  <strong>Performance Impact:</strong> <code>SELECT COUNT(*)</code> on a table returns instantly because it reads from metadata only - no table scan required. Similarly, <code>MIN()</code> and <code>MAX()</code> on clustered columns can be metadata-only operations.
+</div>
+
+<h3>Metadata Store Location</h3>
+<ul>
+  <li>Stored in the Cloud Services layer (NOT in the storage layer)</li>
+  <li>Highly available, replicated within the cloud provider</li>
+  <li>Accessed by all warehouses (shared across compute)</li>
+  <li>Powers the query optimizer and pruning engine</li>
+</ul>
+</div>
+
+<h2>3. Query Compilation and Optimization</h2>
+<div class="card">
+<h3>Query Lifecycle</h3>
+<div class="diagram">
+SQL Query Submitted
+       │
+       ▼
+┌──────────────┐
+│   PARSING    │  Syntax validation, AST generation
+└──────┬───────┘
+       ▼
+┌──────────────┐
+│  RESOLUTION  │  Object names, column refs, permissions
+└──────┬───────┘
+       ▼
+┌──────────────┐
+│ OPTIMIZATION │  Cost-based optimizer, join reordering,
+│              │  predicate pushdown, pruning estimates
+└──────┬───────┘
+       ▼
+┌──────────────┐
+│ COMPILATION  │  Generate execution plan (DAG of operators)
+└──────┬───────┘
+       ▼
+┌──────────────┐
+│  EXECUTION   │  Distributed across warehouse nodes
+└──────────────┘</div>
+
+<h3>Optimization Techniques</h3>
+<ul>
+  <li><strong>Partition pruning</strong> - Skip partitions based on metadata min/max values</li>
+  <li><strong>Predicate pushdown</strong> - Push filters as close to storage as possible</li>
+  <li><strong>Join reordering</strong> - Rearrange join order for optimal performance</li>
+  <li><strong>Subquery decorrelation</strong> - Convert correlated subqueries to joins</li>
+  <li><strong>Common subexpression elimination</strong> - Avoid redundant computation</li>
+  <li><strong>Projection pruning</strong> - Only read required columns (columnar benefit)</li>
+</ul>
+</div>
+
+<h2>4. Partition Pruning</h2>
+<div class="card">
+<h3>How Pruning Works</h3>
+<div class="diagram">
+Query: SELECT * FROM orders WHERE order_date = '2024-01-15'
+
+Micro-Partition Metadata:
+┌──────────┬─────────────────────────────────┬─────────┐
+│ Partition│  order_date range               │ Pruned? │
+├──────────┼─────────────────────────────────┼─────────┤
+│ MP_001   │ 2023-12-01 ... 2023-12-31       │   YES   │
+│ MP_002   │ 2024-01-01 ... 2024-01-10       │   YES   │
+│ MP_003   │ 2024-01-11 ... 2024-01-20       │   NO    │  ← Scanned
+│ MP_004   │ 2024-01-21 ... 2024-01-31       │   YES   │
+│ MP_005   │ 2024-02-01 ... 2024-02-15       │   YES   │
+└──────────┴─────────────────────────────────┴─────────┘
+
+Result: Only 1 of 5 partitions scanned (80% pruning)</div>
+
+<h3>Pruning Effectiveness</h3>
+<ul>
+  <li>Works best on columns with natural ordering (timestamps, sequential IDs)</li>
+  <li>Clustering keys improve pruning by reordering data</li>
+  <li>Check pruning with <code>SYSTEM$CLUSTERING_INFORMATION()</code></li>
+  <li>Query profile shows "Partitions scanned" vs "Partitions total"</li>
+</ul>
+</div>
+
+<h2>5. Transaction Model</h2>
+<div class="card">
+<h3>ACID Properties</h3>
+<table>
+  <tr><th>Property</th><th>Snowflake Implementation</th></tr>
+  <tr><td><strong>Atomicity</strong></td><td>Entire statement succeeds or fails (auto-commit by default)</td></tr>
+  <tr><td><strong>Consistency</strong></td><td>Constraints enforced (though most are informational only)</td></tr>
+  <tr><td><strong>Isolation</strong></td><td>Snapshot isolation (READ COMMITTED level is the only option)</td></tr>
+  <tr><td><strong>Durability</strong></td><td>Committed data persisted to cloud storage with replication</td></tr>
+</table>
+
+<h3>Snapshot Isolation and MVCC</h3>
+<ul>
+  <li><strong>MVCC</strong> (Multi-Version Concurrency Control) - readers never block writers</li>
+  <li>Each transaction sees a consistent snapshot of data at statement/transaction start</li>
+  <li>DML creates new micro-partitions (old versions retained for Time Travel)</li>
+  <li>No dirty reads, no non-repeatable reads within a statement</li>
+  <li>Write conflicts resolved by "first committer wins" (later transaction aborted)</li>
+</ul>
+
+<h3>Concurrency Control</h3>
+<div class="callout-warning callout">
+  <strong>Important:</strong> Snowflake does NOT support row-level locking. DML on the same table from concurrent transactions may cause conflicts. The second transaction to commit is rolled back if it touches the same micro-partitions.
+</div>
+<ul>
+  <li>DDL statements are auto-committed immediately</li>
+  <li>Default: each DML statement is its own transaction (auto-commit)</li>
+  <li>Explicit transactions via <code>BEGIN ... COMMIT/ROLLBACK</code></li>
+  <li>Transaction timeout: 4 hours (default), configurable up to 24 hours</li>
+  <li>Idle transaction timeout: STATEMENT_TIMEOUT_IN_SECONDS</li>
+</ul>
+</div>
+
+<h2>6. Connectors and Drivers</h2>
+<div class="card">
+<h3>Available Connectors</h3>
+<table>
+  <tr><th>Connector/Driver</th><th>Language/Platform</th><th>Key Use Case</th></tr>
+  <tr><td>JDBC Driver</td><td>Java</td><td>Java applications, BI tools (Tableau, Looker)</td></tr>
+  <tr><td>ODBC Driver</td><td>C/C++</td><td>Legacy applications, Windows-based tools</td></tr>
+  <tr><td>Python Connector</td><td>Python</td><td>Data science, ETL scripts, pandas integration</td></tr>
+  <tr><td>Node.js Driver</td><td>JavaScript</td><td>Web applications, serverless functions</td></tr>
+  <tr><td>Go Driver</td><td>Go</td><td>Backend services, microservices</td></tr>
+  <tr><td>.NET Driver</td><td>C#/.NET</td><td>Enterprise applications, Azure integration</td></tr>
+  <tr><td>Snowpark</td><td>Python, Java, Scala</td><td>DataFrame-style processing, ML pipelines</td></tr>
+  <tr><td>PHP PDO Driver</td><td>PHP</td><td>Web applications</td></tr>
+</table>
+
+<h3>SnowSQL CLI</h3>
+<ul>
+  <li>Command-line client for Snowflake</li>
+  <li>Supports scripting, batch execution, variable substitution</li>
+  <li>PUT/GET commands for file staging</li>
+  <li>Available on Windows, macOS, Linux</li>
+  <li>Configuration via <code>~/.snowsql/config</code></li>
+</ul>
+
+<h3>Snowsight (Web UI)</h3>
+<ul>
+  <li>Modern web-based interface (replaced Classic Console)</li>
+  <li>SQL worksheets with autocomplete and syntax highlighting</li>
+  <li>Dashboards and visualizations</li>
+  <li>Query history and profiling</li>
+  <li>Role switching, context management</li>
+  <li>Activity monitoring</li>
+</ul>
+
+<h3>REST API</h3>
+<ul>
+  <li>Snowflake SQL API - execute SQL via HTTP POST</li>
+  <li>Returns results as JSON</li>
+  <li>Supports async queries (poll for results)</li>
+  <li>OAuth or key-pair authentication</li>
+</ul>
+</div>
+
+<h2>7. Regions and Availability</h2>
+<div class="card">
+<h3>Deployment Model</h3>
+<ul>
+  <li>Each Snowflake account is deployed in a single cloud region</li>
+  <li>Data resides in that region unless explicitly replicated</li>
+  <li>Snowflake manages availability within the region (multi-AZ)</li>
+  <li>Global URL: <code>&lt;account_locator&gt;.&lt;region&gt;.&lt;cloud&gt;.snowflakecomputing.com</code></li>
+</ul>
+
+<h3>High Availability</h3>
+<ul>
+  <li>Storage: Cloud provider's built-in redundancy (S3 11-9s durability)</li>
+  <li>Compute: Automatic node replacement on failure</li>
+  <li>Cloud Services: Deployed across multiple availability zones</li>
+  <li>Metadata: Replicated across AZs</li>
+</ul>
+</div>
+
+<h2>8. Replication and Failover</h2>
+<div class="card">
+<h3>Database Replication</h3>
+<div class="diagram">
+Primary Account (US-EAST-1, AWS)        Secondary Account (EU-WEST-1, AWS)
+┌────────────────────────┐              ┌────────────────────────┐
+│  Database: PROD_DB     │  ──────────► │  Database: PROD_DB     │
+│  (Read-Write)          │  Replication │  (Read-Only Replica)   │
+│                        │              │                        │
+│  Tables, Views, etc.   │              │  Tables, Views, etc.   │
+└────────────────────────┘              └────────────────────────┘
+                                               │
+                                        FAILOVER (promotes to
+                                        primary on failure)</div>
+
+<h3>Replication Types</h3>
+<table>
+  <tr><th>Type</th><th>Scope</th><th>Edition Required</th></tr>
+  <tr><td>Database Replication</td><td>Individual database</td><td>Business Critical+</td></tr>
+  <tr><td>Replication Group</td><td>Multiple databases + account objects</td><td>Business Critical+</td></tr>
+  <tr><td>Failover Group</td><td>Replication group + failover capability</td><td>Business Critical+</td></tr>
+</table>
+
+<h3>Key Points</h3>
+<ul>
+  <li>Cross-region and cross-cloud replication supported</li>
+  <li>Replication is asynchronous (RPO > 0)</li>
+  <li>Failover can be triggered manually or automatically</li>
+  <li>Client redirect enables transparent failover for applications</li>
+  <li>Replicated objects include: tables, views, stages, file formats, sequences, UDFs, stored procedures</li>
+</ul>
+</div>
+
+<h2>9. Data Exchange Architecture</h2>
+<div class="card">
+<h3>Secure Data Sharing</h3>
+<div class="diagram">
+Provider Account                    Consumer Account
+┌──────────────────┐               ┌──────────────────┐
+│                  │               │                  │
+│  Source Table    │               │  Shared Database │
+│  ┌────────────┐ │   SHARE       │  (Read-Only)     │
+│  │ Data       │─┼──────────────►│  ┌────────────┐  │
+│  │ (Storage)  │ │  No data copy │  │  View of   │  │
+│  └────────────┘ │               │  │  Provider  │  │
+│                  │               │  │  Data      │  │
+│  SHARE object   │               │  └────────────┘  │
+│  (metadata only)│               │                  │
+└──────────────────┘               └──────────────────┘</div>
+
+<h3>Characteristics</h3>
+<ul>
+  <li><strong>Zero-copy</strong> - Consumer reads provider's storage directly (no data duplication)</li>
+  <li><strong>Real-time</strong> - Consumer always sees current data (no ETL delay)</li>
+  <li><strong>Secure</strong> - Provider controls what is shared (views, row/column filters)</li>
+  <li><strong>Cross-account only</strong> - Must be in same region (unless using listing replication)</li>
+  <li><strong>Reader accounts</strong> - Provider can create managed accounts for non-Snowflake consumers</li>
+</ul>
+
+<h3>Data Marketplace / Data Exchange</h3>
+<ul>
+  <li>Snowflake Marketplace: Public data listings (free and paid)</li>
+  <li>Private Data Exchange: Organization-specific sharing hub</li>
+  <li>Both built on Secure Data Sharing infrastructure</li>
+  <li>No data movement - instant access once shared</li>
+</ul>
+</div>
+
+<h2>10. Caching Layers</h2>
+<div class="card">
+<h3>Three-Level Cache Hierarchy</h3>
+<table>
+  <tr><th>Cache Layer</th><th>Location</th><th>Duration</th><th>Scope</th></tr>
+  <tr><td><strong>Result Cache</strong></td><td>Cloud Services</td><td>24 hours</td><td>Cross-warehouse (any user, same role)</td></tr>
+  <tr><td><strong>Local Disk Cache</strong></td><td>Warehouse SSD</td><td>Until evicted or warehouse suspended</td><td>Single warehouse</td></tr>
+  <tr><td><strong>Remote Disk</strong></td><td>Cloud Storage</td><td>Persistent</td><td>All warehouses</td></tr>
+</table>
+
+<h3>Result Cache Rules</h3>
+<ul>
+  <li>Exact same query text (whitespace and case sensitive)</li>
+  <li>Same role executing the query</li>
+  <li>Underlying data has not changed</li>
+  <li>Micro-partition versions are identical</li>
+  <li>No functions that produce non-deterministic results (CURRENT_TIMESTAMP, RANDOM, etc.)</li>
+  <li>Result set must be under a size threshold</li>
+  <li>Returns in milliseconds (no warehouse needed)</li>
+</ul>
+
+<div class="callout">
+  <strong>Exam Note:</strong> Result cache does NOT require a running warehouse. It is served by the Cloud Services layer. The query uses zero compute credits.
+</div>
+</div>
+
+</body>
+</html>

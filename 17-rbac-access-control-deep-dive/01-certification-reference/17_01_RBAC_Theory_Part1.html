@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>17.01 RBAC Theory Part 1 - Fundamentals</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Snowflake certification prep - RBAC fundamentals covering system roles, custom roles, role hierarchy, privilege inheritance, GRANT/REVOKE syntax, object privileges, and FUTURE grants",
+    "sections": [
+      { "id": "system-roles", "title": "System-Defined Roles", "dataSources": [], "producerNotes": "Covers ACCOUNTADMIN, SYSADMIN, SECURITYADMIN, USERADMIN, PUBLIC roles and their hierarchy" },
+      { "id": "custom-roles", "title": "Custom Roles & Hierarchy", "dataSources": [], "producerNotes": "Role creation, hierarchy design, privilege inheritance" },
+      { "id": "grant-revoke", "title": "GRANT/REVOKE Syntax", "dataSources": [], "producerNotes": "Complete syntax reference for granting and revoking privileges" },
+      { "id": "object-privileges", "title": "Object Privileges", "dataSources": [], "producerNotes": "USAGE, SELECT, INSERT, CREATE, OWNERSHIP and more" },
+      { "id": "future-grants", "title": "FUTURE Grants", "dataSources": [], "producerNotes": "Automatic privilege grants on future objects" },
+      { "id": "features-limitations", "title": "Features & Limitations", "dataSources": [], "producerNotes": "15 features and 15 limitations of Snowflake RBAC" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+      max-width: 920px; margin: 0 auto; padding: 24px;
+      color: light-dark(#1f2937, #e5e7eb);
+      background: light-dark(#ffffff, #0f1117);
+      line-height: 1.7;
+    }
+    h1 { color: light-dark(#9f1239, #fb7185); border-bottom: 3px solid light-dark(#e11d48, #fb7185); padding-bottom: 10px; }
+    h2 { color: light-dark(#be123c, #fda4af); margin-top: 40px; border-left: 4px solid light-dark(#e11d48, #fb7185); padding-left: 12px; }
+    h3 { color: light-dark(#9f1239, #fecdd3); }
+    .card {
+      background: light-dark(#fff1f2, #1c1017);
+      border: 1px solid light-dark(#fecdd3, #4c1d2e);
+      border-radius: 8px; padding: 18px; margin: 16px 0;
+    }
+    .role-badge {
+      display: inline-block; padding: 4px 12px; border-radius: 4px; font-weight: 600; margin: 4px;
+      background: light-dark(#ffe4e6, #3b1025); color: light-dark(#9f1239, #fda4af);
+      border: 1px solid light-dark(#fda4af, #881337);
+    }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { border: 1px solid light-dark(#fecdd3, #4c1d2e); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#ffe4e6, #2a0e1e); font-weight: 600; color: light-dark(#881337, #fda4af); }
+    tr:nth-child(even) { background: light-dark(#fff1f2, #1a0c14); }
+    code {
+      background: light-dark(#ffe4e6, #2a0e1e); padding: 2px 6px; border-radius: 3px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.9em;
+      color: light-dark(#9f1239, #fda4af);
+    }
+    pre {
+      background: light-dark(#1e293b, #0d0d12); color: #e2e8f0;
+      padding: 16px; border-radius: 8px; overflow-x: auto;
+      border: 1px solid light-dark(#334155, #1e293b);
+    }
+    pre code { background: none; color: inherit; padding: 0; }
+    .highlight { color: light-dark(#e11d48, #fb7185); font-weight: 600; }
+    .warning {
+      background: light-dark(#fef2f2, #1c0d0d); border-left: 4px solid #e11d48;
+      padding: 12px 16px; margin: 12px 0; border-radius: 0 6px 6px 0;
+    }
+    .exam-tip {
+      background: light-dark(#fff1f2, #1c1017); border: 2px dashed light-dark(#e11d48, #881337);
+      padding: 12px 16px; margin: 12px 0; border-radius: 6px;
+    }
+    .exam-tip::before { content: "EXAM TIP: "; font-weight: 700; color: light-dark(#e11d48, #fb7185); }
+    ul, ol { padding-left: 24px; }
+    li { margin: 6px 0; }
+    .hierarchy-diagram {
+      background: light-dark(#1e293b, #0d0d12); color: #e2e8f0;
+      padding: 20px; border-radius: 8px; font-family: monospace;
+      white-space: pre; line-height: 1.5; overflow-x: auto;
+    }
+    .nav-links { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 16px; border-top: 1px solid light-dark(#fecdd3, #4c1d2e); }
+    .nav-links a { color: light-dark(#e11d48, #fb7185); text-decoration: none; font-weight: 500; }
+    .nav-links a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <h1>17.01 RBAC Theory Part 1 - Fundamentals</h1>
+  <p>Role-Based Access Control (RBAC) is Snowflake's primary authorization mechanism. Every action in Snowflake requires a privilege, and privileges are granted to roles, which are then assigned to users or other roles.</p>
+
+  <h2 id="system-roles">System-Defined Roles</h2>
+  <p>Snowflake provides five system-defined roles that cannot be dropped. Each has a specific purpose in the access control hierarchy.</p>
+
+  <div class="hierarchy-diagram">
+            ACCOUNTADMIN
+           /            \
+    SECURITYADMIN     SYSADMIN
+         |               |
+    USERADMIN        (custom roles)
+         |               |
+         \--- PUBLIC ---/
+  </div>
+
+  <h3>ACCOUNTADMIN</h3>
+  <div class="card">
+    <p><span class="role-badge">ACCOUNTADMIN</span> = SYSADMIN + SECURITYADMIN combined</p>
+    <ul>
+      <li>Top-level role; encapsulates all other system roles</li>
+      <li>Can manage billing, resource monitors, and account-level parameters</li>
+      <li>Can create data shares (provider side)</li>
+      <li>Can view ACCOUNT_USAGE views in SNOWFLAKE database</li>
+      <li>Should be assigned to a <span class="highlight">limited number of users</span></li>
+      <li>Best practice: Enable MFA for all ACCOUNTADMIN users</li>
+      <li>Should NOT be used for daily operations</li>
+    </ul>
+    <div class="exam-tip">ACCOUNTADMIN is the only role that can create resource monitors and manage shares (as provider). It is NOT automatically granted to any user upon account creation - it must be explicitly assigned.</div>
+  </div>
+
+  <h3>SYSADMIN (System Administrator)</h3>
+  <div class="card">
+    <p><span class="role-badge">SYSADMIN</span> - Object management role</p>
+    <ul>
+      <li>Creates and manages warehouses and databases</li>
+      <li>Recommended owner for all custom roles (so SYSADMIN inherits their privileges)</li>
+      <li>All custom roles should ultimately be granted to SYSADMIN</li>
+      <li>Cannot manage users or security-related operations</li>
+      <li>Can grant privileges on objects it owns</li>
+    </ul>
+    <div class="exam-tip">Best practice: All custom roles should be granted to SYSADMIN so that system administrators can manage all objects. If a custom role is NOT granted to SYSADMIN, SYSADMIN cannot manage those objects.</div>
+  </div>
+
+  <h3>SECURITYADMIN</h3>
+  <div class="card">
+    <p><span class="role-badge">SECURITYADMIN</span> - Security management role</p>
+    <ul>
+      <li>Can manage any grant globally (MANAGE GRANTS privilege)</li>
+      <li>Can create, alter, and drop roles</li>
+      <li>Can grant roles to users and other roles</li>
+      <li>Inherits USERADMIN role</li>
+      <li>Can modify or revoke privileges granted to any role</li>
+    </ul>
+    <div class="warning">SECURITYADMIN has MANAGE GRANTS, meaning it can revoke privileges from ANY role, even those granted by ACCOUNTADMIN or other roles.</div>
+  </div>
+
+  <h3>USERADMIN</h3>
+  <div class="card">
+    <p><span class="role-badge">USERADMIN</span> - User and role management</p>
+    <ul>
+      <li>Can create users and roles (CREATE USER, CREATE ROLE privileges)</li>
+      <li>Cannot grant privileges on objects</li>
+      <li>Cannot grant roles to other roles (that requires SECURITYADMIN or the owning role)</li>
+      <li>Granted to SECURITYADMIN by default</li>
+    </ul>
+  </div>
+
+  <h3>PUBLIC</h3>
+  <div class="card">
+    <p><span class="role-badge">PUBLIC</span> - Universal base role</p>
+    <ul>
+      <li>Automatically granted to every user and every role</li>
+      <li>Cannot be revoked from any user or role</li>
+      <li>Any privilege granted to PUBLIC is available to everyone</li>
+      <li>Snowflake grants temporary stage access to PUBLIC by default</li>
+      <li>Should have <span class="highlight">minimal privileges</span> in production</li>
+    </ul>
+    <div class="exam-tip">PUBLIC is implicitly granted to every role. You cannot REVOKE the PUBLIC role from any user or role. Any privilege granted to PUBLIC becomes available to ALL users in the account.</div>
+  </div>
+
+  <h2 id="custom-roles">Custom Roles & Role Hierarchy</h2>
+
+  <h3>Creating Custom Roles</h3>
+  <pre><code>-- Create a custom role
+CREATE ROLE analyst_role;
+
+-- Create with a comment
+CREATE ROLE data_engineer COMMENT = 'For ETL pipeline management';
+
+-- Grant role to a user
+GRANT ROLE analyst_role TO USER john_doe;
+
+-- Build hierarchy: grant custom role to SYSADMIN
+GRANT ROLE analyst_role TO ROLE sysadmin;</code></pre>
+
+  <h3>Role Hierarchy Design</h3>
+  <div class="card">
+    <p><strong>Key Principles:</strong></p>
+    <ul>
+      <li><strong>Inheritance flows UP:</strong> A parent role inherits all privileges of its child roles</li>
+      <li><strong>No circular grants:</strong> Snowflake prevents role hierarchy loops</li>
+      <li><strong>Multiple parents allowed:</strong> A role can be granted to multiple parent roles</li>
+      <li><strong>Multiple children allowed:</strong> A role can have multiple child roles granted to it</li>
+      <li><strong>Depth is unlimited:</strong> Role hierarchies can be arbitrarily deep</li>
+    </ul>
+  </div>
+
+  <div class="hierarchy-diagram">
+    SYSADMIN
+    ├── DATA_ADMIN_ROLE
+    │   ├── DATA_ENGINEER_ROLE
+    │   └── ETL_ROLE
+    ├── ANALYTICS_ADMIN_ROLE
+    │   ├── ANALYST_ROLE
+    │   └── REPORT_ROLE
+    └── APP_ADMIN_ROLE
+        ├── APP_WRITE_ROLE
+        └── APP_READ_ROLE
+  </div>
+
+  <h3>Privilege Inheritance</h3>
+  <div class="card">
+    <p>When Role A is granted to Role B, Role B inherits ALL privileges of Role A:</p>
+    <pre><code>GRANT ROLE analyst_role TO ROLE analytics_admin_role;
+-- analytics_admin_role now has all privileges of analyst_role
+-- PLUS any additional privileges directly granted to analytics_admin_role</code></pre>
+    <p><strong>Key point:</strong> Users activate a role, and that role includes all inherited privileges from the role hierarchy below it.</p>
+  </div>
+
+  <h2 id="grant-revoke">GRANT / REVOKE Syntax</h2>
+
+  <h3>Granting Privileges on Objects</h3>
+  <pre><code>-- Grant privilege on a specific object
+GRANT SELECT ON TABLE mydb.myschema.sales TO ROLE analyst_role;
+
+-- Grant multiple privileges
+GRANT SELECT, INSERT ON TABLE mydb.myschema.sales TO ROLE etl_role;
+
+-- Grant all privileges
+GRANT ALL PRIVILEGES ON TABLE mydb.myschema.sales TO ROLE admin_role;
+
+-- Grant USAGE on database and schema (required for access)
+GRANT USAGE ON DATABASE mydb TO ROLE analyst_role;
+GRANT USAGE ON SCHEMA mydb.myschema TO ROLE analyst_role;
+
+-- Grant on all existing objects in a schema
+GRANT SELECT ON ALL TABLES IN SCHEMA mydb.myschema TO ROLE analyst_role;
+GRANT SELECT ON ALL VIEWS IN SCHEMA mydb.myschema TO ROLE analyst_role;
+
+-- Grant with GRANT OPTION (allows grantee to re-grant)
+GRANT SELECT ON TABLE mydb.myschema.sales TO ROLE analyst_role WITH GRANT OPTION;</code></pre>
+
+  <h3>Granting Roles</h3>
+  <pre><code>-- Grant role to user
+GRANT ROLE analyst_role TO USER jane_doe;
+
+-- Grant role to another role (builds hierarchy)
+GRANT ROLE analyst_role TO ROLE sysadmin;
+
+-- Note: A user must USE ROLE to activate a granted role
+USE ROLE analyst_role;</code></pre>
+
+  <h3>Revoking Privileges</h3>
+  <pre><code>-- Revoke a privilege
+REVOKE SELECT ON TABLE mydb.myschema.sales FROM ROLE analyst_role;
+
+-- Revoke with CASCADE (revokes from role AND anyone it re-granted to)
+REVOKE SELECT ON TABLE mydb.myschema.sales FROM ROLE analyst_role CASCADE;
+
+-- Revoke GRANT OPTION only (keep privilege, remove ability to re-grant)
+REVOKE GRANT OPTION FOR SELECT ON TABLE mydb.myschema.sales FROM ROLE analyst_role;
+
+-- Revoke role from user
+REVOKE ROLE analyst_role FROM USER jane_doe;</code></pre>
+
+  <div class="exam-tip">The WITH GRANT OPTION allows the grantee to grant that same privilege to other roles. REVOKE ... CASCADE will revoke the privilege from the role AND from any roles that received the privilege via re-granting.</div>
+
+  <h2 id="object-privileges">Object Privileges</h2>
+
+  <h3>Account-Level Privileges</h3>
+  <table>
+    <thead><tr><th>Privilege</th><th>Description</th><th>Grantable By</th></tr></thead>
+    <tbody>
+      <tr><td><code>CREATE DATABASE</code></td><td>Create databases in the account</td><td>ACCOUNTADMIN, SYSADMIN</td></tr>
+      <tr><td><code>CREATE WAREHOUSE</code></td><td>Create virtual warehouses</td><td>ACCOUNTADMIN, SYSADMIN</td></tr>
+      <tr><td><code>CREATE ROLE</code></td><td>Create new roles</td><td>USERADMIN, SECURITYADMIN</td></tr>
+      <tr><td><code>CREATE USER</code></td><td>Create new users</td><td>USERADMIN, SECURITYADMIN</td></tr>
+      <tr><td><code>MANAGE GRANTS</code></td><td>Grant/revoke any privilege globally</td><td>SECURITYADMIN</td></tr>
+      <tr><td><code>CREATE INTEGRATION</code></td><td>Create integrations (storage, notification)</td><td>ACCOUNTADMIN</td></tr>
+      <tr><td><code>CREATE SHARE</code></td><td>Create outbound shares</td><td>ACCOUNTADMIN</td></tr>
+      <tr><td><code>MONITOR USAGE</code></td><td>View account-level usage</td><td>ACCOUNTADMIN</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Database Privileges</h3>
+  <table>
+    <thead><tr><th>Privilege</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>USAGE</code></td><td>Required to access any objects within the database</td></tr>
+      <tr><td><code>CREATE SCHEMA</code></td><td>Create schemas in the database</td></tr>
+      <tr><td><code>MONITOR</code></td><td>View database metadata/usage info</td></tr>
+      <tr><td><code>IMPORTED PRIVILEGES</code></td><td>Access shared database objects (for shared databases)</td></tr>
+      <tr><td><code>OWNERSHIP</code></td><td>Full control; can grant privileges to others</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Schema Privileges</h3>
+  <table>
+    <thead><tr><th>Privilege</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>USAGE</code></td><td>Required to access objects in the schema</td></tr>
+      <tr><td><code>CREATE TABLE</code></td><td>Create tables in the schema</td></tr>
+      <tr><td><code>CREATE VIEW</code></td><td>Create views in the schema</td></tr>
+      <tr><td><code>CREATE STAGE</code></td><td>Create stages in the schema</td></tr>
+      <tr><td><code>CREATE PIPE</code></td><td>Create pipes in the schema</td></tr>
+      <tr><td><code>CREATE STREAM</code></td><td>Create streams in the schema</td></tr>
+      <tr><td><code>CREATE TASK</code></td><td>Create tasks in the schema</td></tr>
+      <tr><td><code>CREATE SEQUENCE</code></td><td>Create sequences in the schema</td></tr>
+      <tr><td><code>CREATE FUNCTION</code></td><td>Create UDFs in the schema</td></tr>
+      <tr><td><code>CREATE PROCEDURE</code></td><td>Create stored procedures</td></tr>
+      <tr><td><code>MONITOR</code></td><td>View schema metadata</td></tr>
+      <tr><td><code>OWNERSHIP</code></td><td>Full control of the schema</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Table/View Privileges</h3>
+  <table>
+    <thead><tr><th>Privilege</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>SELECT</code></td><td>Query data from the table/view</td></tr>
+      <tr><td><code>INSERT</code></td><td>Insert rows into the table</td></tr>
+      <tr><td><code>UPDATE</code></td><td>Update existing rows</td></tr>
+      <tr><td><code>DELETE</code></td><td>Delete rows from the table</td></tr>
+      <tr><td><code>TRUNCATE</code></td><td>Truncate the table</td></tr>
+      <tr><td><code>REFERENCES</code></td><td>Reference table in foreign key constraints</td></tr>
+      <tr><td><code>OWNERSHIP</code></td><td>Full control; only one role can own an object</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Warehouse Privileges</h3>
+  <table>
+    <thead><tr><th>Privilege</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>USAGE</code></td><td>Use the warehouse to execute queries</td></tr>
+      <tr><td><code>OPERATE</code></td><td>Start, stop, suspend, resume the warehouse</td></tr>
+      <tr><td><code>MONITOR</code></td><td>View warehouse usage and performance metrics</td></tr>
+      <tr><td><code>MODIFY</code></td><td>Change warehouse properties (size, etc.)</td></tr>
+      <tr><td><code>OWNERSHIP</code></td><td>Full control of the warehouse</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warning">
+    <strong>Access chain required:</strong> To query a table, a role needs: USAGE on warehouse + USAGE on database + USAGE on schema + SELECT on table. Missing ANY link in this chain blocks access.
+  </div>
+
+  <h2 id="future-grants">FUTURE Grants</h2>
+  <div class="card">
+    <p>FUTURE grants automatically apply privileges to objects created in the future within a specified scope.</p>
+    <pre><code>-- Grant SELECT on all future tables in a schema
+GRANT SELECT ON FUTURE TABLES IN SCHEMA mydb.myschema TO ROLE analyst_role;
+
+-- Grant USAGE on all future schemas in a database
+GRANT USAGE ON FUTURE SCHEMAS IN DATABASE mydb TO ROLE analyst_role;
+
+-- Grant SELECT on future views
+GRANT SELECT ON FUTURE VIEWS IN SCHEMA mydb.myschema TO ROLE analyst_role;
+
+-- Revoke future grants
+REVOKE SELECT ON FUTURE TABLES IN SCHEMA mydb.myschema FROM ROLE analyst_role;
+
+-- Show future grants
+SHOW FUTURE GRANTS IN SCHEMA mydb.myschema;
+SHOW FUTURE GRANTS IN DATABASE mydb;</code></pre>
+  </div>
+
+  <div class="exam-tip">FUTURE grants do NOT retroactively apply to existing objects. They only apply to objects created AFTER the FUTURE grant is established. Use "GRANT ... ON ALL ..." for existing objects AND "GRANT ... ON FUTURE ..." for new objects.</div>
+
+  <h3>FUTURE Grants - Important Rules</h3>
+  <ul>
+    <li>Can be defined at the <strong>database level</strong> (applies to objects in any schema within the database)</li>
+    <li>Can be defined at the <strong>schema level</strong> (applies only to objects in that schema)</li>
+    <li>Schema-level FUTURE grants <strong>override</strong> database-level FUTURE grants for the same object type and role</li>
+    <li>When a schema is dropped, its FUTURE grants are also dropped</li>
+    <li>FUTURE grants on schemas can only be defined at the database level</li>
+    <li>Only the role with OWNERSHIP or MANAGE GRANTS can set FUTURE grants</li>
+  </ul>
+
+  <h2 id="features-limitations">Features & Limitations</h2>
+
+  <h3>15 Key Features of Snowflake RBAC</h3>
+  <div class="card">
+    <ol>
+      <li><strong>Hierarchical roles:</strong> Privileges inherit up through the role hierarchy</li>
+      <li><strong>Multiple role assignments:</strong> Users can be granted multiple roles and switch between them</li>
+      <li><strong>FUTURE grants:</strong> Automatically assign privileges to future objects</li>
+      <li><strong>Managed access schemas:</strong> Centralized privilege management by schema owner</li>
+      <li><strong>Database roles:</strong> Roles scoped to a specific database (useful for sharing)</li>
+      <li><strong>WITH GRANT OPTION:</strong> Delegated privilege administration</li>
+      <li><strong>OWNERSHIP privilege:</strong> Clear object ownership model</li>
+      <li><strong>System-defined roles:</strong> Pre-built roles for common administrative patterns</li>
+      <li><strong>Row-level security:</strong> Via secure views or row access policies</li>
+      <li><strong>Column-level security:</strong> Via dynamic data masking policies</li>
+      <li><strong>Network policies:</strong> IP-based access restrictions by user or account</li>
+      <li><strong>Object tagging:</strong> Tag-based governance and policy assignment</li>
+      <li><strong>SHOW GRANTS:</strong> Full auditability of privilege assignments</li>
+      <li><strong>Secondary roles:</strong> USE SECONDARY ROLES ALL enables privilege union</li>
+      <li><strong>IMPORTED PRIVILEGES:</strong> Controlled access to shared databases</li>
+    </ol>
+  </div>
+
+  <h3>15 Key Limitations of Snowflake RBAC</h3>
+  <div class="card">
+    <ol>
+      <li><strong>No DENY statement:</strong> Cannot explicitly deny access; must manage via careful granting</li>
+      <li><strong>Single ownership:</strong> Each object can only be owned by ONE role at a time</li>
+      <li><strong>No attribute-based access:</strong> Pure RBAC only; no ABAC natively (must use policies)</li>
+      <li><strong>FUTURE grants not retroactive:</strong> Do not apply to already-existing objects</li>
+      <li><strong>Role switching required:</strong> Default role is active; must explicitly switch or enable secondary roles</li>
+      <li><strong>No time-based grants:</strong> Cannot natively grant access for a time window (must script)</li>
+      <li><strong>No row-level in RBAC directly:</strong> Requires row access policies or secure views</li>
+      <li><strong>Ownership transfer is all-or-nothing:</strong> Cannot partially transfer privileges</li>
+      <li><strong>PUBLIC cannot be restricted:</strong> Cannot revoke PUBLIC role from any user</li>
+      <li><strong>Schema-level override:</strong> Schema FUTURE grants override database FUTURE grants (can confuse)</li>
+      <li><strong>No privilege groups/bundles:</strong> Must grant individual privileges (no predefined bundles)</li>
+      <li><strong>GRANT OPTION cascades:</strong> Revoking GRANT OPTION can cascade privilege loss</li>
+      <li><strong>No conditional privileges:</strong> Cannot grant based on data values within RBAC itself</li>
+      <li><strong>Clone inherits grants differently:</strong> Cloned objects inherit source grants but future grants may not apply</li>
+      <li><strong>Cross-database references:</strong> Each database/schema in the chain needs separate USAGE grants</li>
+    </ol>
+  </div>
+
+  <div class="exam-tip">Snowflake has NO DENY. If you want to prevent access, you must NOT grant the privilege. This is fundamentally different from SQL Server or Oracle which support DENY statements.</div>
+
+  <div class="nav-links">
+    <span></span>
+    <a href="17_02_RBAC_Theory_Part2.html">Next: Part 2 - Advanced RBAC &rarr;</a>
+  </div>
+
+</body>
+</html>

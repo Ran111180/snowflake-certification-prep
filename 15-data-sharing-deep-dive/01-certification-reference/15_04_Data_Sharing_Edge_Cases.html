@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Sharing Edge Cases - Snowflake Certification Prep</title>
+    <script type="application/json" id="snowflake-report-metadata">
+    {
+        "title": "Data Sharing Edge Cases",
+        "description": "Deep dive into Snowflake data sharing edge cases, limitations, and exam scenarios for SnowPro certification",
+        "version": "1.0",
+        "generated": "2026-08-15",
+        "topic": "Data Sharing",
+        "category": "Certification Prep"
+    }
+    </script>
+    <style>
+        :root {
+            --bg-primary: light-dark(#f0f4ff, #0d1117);
+            --bg-secondary: light-dark(#ffffff, #161b22);
+            --bg-card: light-dark(#ffffff, #1c2333);
+            --bg-highlight: light-dark(#e8f0fe, #1a2744);
+            --text-primary: light-dark(#1a1a2e, #e6edf3);
+            --text-secondary: light-dark(#444466, #8b949e);
+            --text-muted: light-dark(#666688, #6e7681);
+            --accent-blue: light-dark(#1a56db, #58a6ff);
+            --accent-indigo: light-dark(#4338ca, #818cf8);
+            --accent-purple: light-dark(#6d28d9, #a78bfa);
+            --border-color: light-dark(#d1d9e6, #30363d);
+            --border-accent: light-dark(#a5b4fc, #3d4f7c);
+            --success: light-dark(#16a34a, #3fb950);
+            --danger: light-dark(#dc2626, #f85149);
+            --warning: light-dark(#d97706, #d29922);
+            --info: light-dark(#2563eb, #58a6ff);
+            --shadow: light-dark(0 2px 8px rgba(26,86,219,0.08), 0 2px 8px rgba(0,0,0,0.3));
+            --code-bg: light-dark(#f1f5f9, #21262d);
+        }
+
+        color-scheme: light dark;
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            padding: 2rem;
+        }
+
+        .container { max-width: 1100px; margin: 0 auto; }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2.5rem;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+            border-radius: 16px;
+            color: #ffffff;
+        }
+
+        header h1 { font-size: 2.2rem; margin-bottom: 0.5rem; }
+        header p { opacity: 0.9; font-size: 1.1rem; }
+
+        .section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+        }
+
+        .section h2 {
+            color: var(--accent-indigo);
+            font-size: 1.5rem;
+            margin-bottom: 1.2rem;
+            padding-bottom: 0.8rem;
+            border-bottom: 2px solid var(--border-accent);
+        }
+
+        .section h3 {
+            color: var(--accent-blue);
+            font-size: 1.15rem;
+            margin: 1.5rem 0 0.8rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            font-size: 0.95rem;
+        }
+
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border: 1px solid var(--border-color);
+        }
+
+        th {
+            background: var(--bg-highlight);
+            font-weight: 600;
+            color: var(--accent-indigo);
+        }
+
+        tr:hover { background: var(--bg-highlight); }
+
+        .badge-yes {
+            display: inline-block;
+            padding: 0.2rem 0.7rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: light-dark(#dcfce7, #1a3a2a);
+            color: var(--success);
+        }
+
+        .badge-no {
+            display: inline-block;
+            padding: 0.2rem 0.7rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: light-dark(#fee2e2, #3a1a1a);
+            color: var(--danger);
+        }
+
+        .badge-limited {
+            display: inline-block;
+            padding: 0.2rem 0.7rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: light-dark(#fef3c7, #3a3020);
+            color: var(--warning);
+        }
+
+        .callout {
+            padding: 1rem 1.25rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border-left: 4px solid;
+        }
+
+        .callout-warning {
+            background: light-dark(#fffbeb, #2a2418);
+            border-color: var(--warning);
+        }
+
+        .callout-danger {
+            background: light-dark(#fef2f2, #2a1818);
+            border-color: var(--danger);
+        }
+
+        .callout-info {
+            background: light-dark(#eff6ff, #182440);
+            border-color: var(--info);
+        }
+
+        .callout-success {
+            background: light-dark(#f0fdf4, #182a1e);
+            border-color: var(--success);
+        }
+
+        .playbook-item {
+            background: var(--bg-highlight);
+            border: 1px solid var(--border-accent);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin: 1rem 0;
+        }
+
+        .playbook-item h4 {
+            color: var(--accent-purple);
+            margin-bottom: 0.5rem;
+        }
+
+        .playbook-item ol, .playbook-item ul {
+            margin-left: 1.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .playbook-item li { margin-bottom: 0.3rem; }
+
+        .scenario {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin: 1.2rem 0;
+        }
+
+        .scenario-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.8rem;
+        }
+
+        .scenario-num {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+            color: #fff;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-right: 0.8rem;
+        }
+
+        .scenario p { margin-bottom: 0.5rem; }
+
+        .scenario .question { font-weight: 600; color: var(--text-primary); }
+
+        .options { list-style: upper-alpha; margin-left: 1.5rem; margin: 0.5rem 0 0.8rem 1.5rem; }
+        .options li { margin-bottom: 0.3rem; color: var(--text-secondary); }
+
+        details {
+            margin-top: 0.5rem;
+        }
+
+        details summary {
+            cursor: pointer;
+            color: var(--accent-blue);
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        details[open] summary { margin-bottom: 0.5rem; }
+
+        .answer-text {
+            padding: 0.75rem;
+            background: var(--bg-highlight);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        code {
+            background: var(--code-bg);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.88rem;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+        }
+
+        ul, ol { margin-left: 1.5rem; }
+        li { margin-bottom: 0.4rem; }
+
+        @media (max-width: 768px) {
+            body { padding: 1rem; }
+            header { padding: 1.5rem; }
+            header h1 { font-size: 1.6rem; }
+            .section { padding: 1.25rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Data Sharing Edge Cases</h1>
+            <p>Critical scenarios, limitations, and gotchas for SnowPro Certification</p>
+        </header>
+
+        <!-- Section 1: Supported/Unsupported Objects -->
+        <div class="section">
+            <h2>1. Supported &amp; Unsupported Objects for Sharing</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Object Type</th>
+                        <th>Shareable?</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Tables</td>
+                        <td><span class="badge-yes">YES</span></td>
+                        <td>Standard, dynamic, and external tables</td>
+                    </tr>
+                    <tr>
+                        <td>Secure Views</td>
+                        <td><span class="badge-yes">YES</span></td>
+                        <td>Most common sharing pattern; hides DDL from consumer</td>
+                    </tr>
+                    <tr>
+                        <td>Secure Materialized Views</td>
+                        <td><span class="badge-yes">YES</span></td>
+                        <td>Must be SECURE; regular mat views cannot be shared</td>
+                    </tr>
+                    <tr>
+                        <td>Secure UDFs</td>
+                        <td><span class="badge-yes">YES</span></td>
+                        <td>Must be SECURE; SQL and JavaScript UDFs supported</td>
+                    </tr>
+                    <tr>
+                        <td>Schemas (containing above)</td>
+                        <td><span class="badge-yes">YES</span></td>
+                        <td>Grant at schema level shares all qualifying objects within</td>
+                    </tr>
+                    <tr>
+                        <td>Stages</td>
+                        <td><span class="badge-no">NO</span></td>
+                        <td>Cannot share internal or external stages</td>
+                    </tr>
+                    <tr>
+                        <td>Pipes</td>
+                        <td><span class="badge-no">NO</span></td>
+                        <td>Snowpipe objects are account-specific</td>
+                    </tr>
+                    <tr>
+                        <td>Tasks</td>
+                        <td><span class="badge-no">NO</span></td>
+                        <td>Scheduling objects cannot cross account boundary</td>
+                    </tr>
+                    <tr>
+                        <td>Streams</td>
+                        <td><span class="badge-no">NO</span></td>
+                        <td>Change tracking is local to the source account</td>
+                    </tr>
+                    <tr>
+                        <td>Non-Secure Views</td>
+                        <td><span class="badge-no">NO</span></td>
+                        <td>Must be SECURE to prevent DDL exposure</td>
+                    </tr>
+                    <tr>
+                        <td>Sequences</td>
+                        <td><span class="badge-no">NO</span></td>
+                        <td>Not shareable; consumer must create own</td>
+                    </tr>
+                    <tr>
+                        <td>Stored Procedures</td>
+                        <td><span class="badge-no">NO</span></td>
+                        <td>Cannot share procedures directly</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="callout callout-warning">
+                <strong>Exam Tip:</strong> The exam loves testing whether non-secure views can be shared (they CANNOT). Only SECURE views, SECURE materialized views, and SECURE UDFs are shareable. Regular views expose their DDL definition.
+            </div>
+        </div>
+
+        <!-- Section 2: Provider DDL Impact -->
+        <div class="section">
+            <h2>2. Provider DDL Impact on Consumers</h2>
+
+            <h3>DROP Shared Object</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>Consumer Impact</th>
+                        <th>Recovery</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>DROP TABLE</code> in shared schema</td>
+                        <td>Immediate query failure for consumers</td>
+                        <td>UNDROP TABLE (if within Time Travel) or re-add new table to share</td>
+                    </tr>
+                    <tr>
+                        <td><code>DROP SCHEMA</code> containing shared objects</td>
+                        <td>All shared objects in schema become unavailable</td>
+                        <td>UNDROP SCHEMA or recreate &amp; re-grant</td>
+                    </tr>
+                    <tr>
+                        <td><code>DROP DATABASE</code> with active shares</td>
+                        <td>Entire share becomes empty; consumer DB shows no objects</td>
+                        <td>UNDROP DATABASE or rebuild share</td>
+                    </tr>
+                    <tr>
+                        <td><code>DROP SHARE</code></td>
+                        <td>Consumer's imported database is immediately dropped</td>
+                        <td>Must recreate share and consumer must re-import</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>ALTER Operations</h3>
+            <ul>
+                <li><code>ALTER TABLE ... RENAME</code> &mdash; Consumer sees the new name immediately; existing queries using old name break</li>
+                <li><code>ALTER TABLE ... ADD COLUMN</code> &mdash; New column visible to consumer immediately</li>
+                <li><code>ALTER TABLE ... DROP COLUMN</code> &mdash; Column disappears immediately; consumer queries referencing it fail</li>
+                <li><code>ALTER VIEW ... AS</code> (redefine) &mdash; Consumer sees new definition on next query</li>
+            </ul>
+
+            <h3>Revoke Access</h3>
+            <ul>
+                <li><code>REVOKE SELECT ON TABLE ... FROM SHARE</code> &mdash; Table no longer visible to consumer</li>
+                <li><code>ALTER SHARE ... REMOVE ACCOUNTS = ...</code> &mdash; Consumer loses access entirely; imported DB is dropped</li>
+                <li><code>REVOKE USAGE ON SCHEMA ... FROM SHARE</code> &mdash; All objects in that schema become invisible</li>
+            </ul>
+
+            <div class="callout callout-danger">
+                <strong>Critical:</strong> When a provider drops a share (<code>DROP SHARE</code>), the consumer's imported database is <em>automatically and immediately dropped</em>. There is no grace period or warning. This is a frequently tested edge case.
+            </div>
+        </div>
+
+        <!-- Section 3: Consumer Limitations -->
+        <div class="section">
+            <h2>3. Consumer Limitations</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Limitation</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Read-Only Access</strong></td>
+                        <td>Cannot INSERT, UPDATE, DELETE, or MERGE on shared objects. SELECT and show metadata only.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cannot Clone Shared Database</strong></td>
+                        <td><code>CREATE DATABASE ... CLONE</code> fails on an imported (shared) database. Must clone individual tables into a local DB instead.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cannot Re-Share</strong></td>
+                        <td>A consumer cannot add objects from a shared database to their own outbound share. Data cannot be re-shared to third parties.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cannot Create Objects in Shared DB</strong></td>
+                        <td>Cannot create tables, views, schemas, or any object inside the imported database. It is entirely provider-controlled.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cannot Use Time Travel</strong></td>
+                        <td>Time Travel queries (AT/BEFORE) are not available on shared objects. Only current data is accessible.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>No Fail-safe Access</strong></td>
+                        <td>Consumer has no access to fail-safe data for shared objects.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cannot Create Streams on Shared Objects</strong></td>
+                        <td>Change tracking (streams) cannot be created on objects in an imported database.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Limited SHOW Commands</strong></td>
+                        <td>Some metadata commands may show limited info compared to owned objects.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="callout callout-info">
+                <strong>Workaround Pattern:</strong> To transform or persist shared data locally, consumers can <code>CREATE TABLE ... AS SELECT</code> from the shared view/table into their own database. This creates a local copy they fully control (but it won't auto-update).
+            </div>
+        </div>
+
+        <!-- Section 4: Reader Account Edge Cases -->
+        <div class="section">
+            <h2>4. Reader Account Edge Cases</h2>
+
+            <h3>What is a Reader Account?</h3>
+            <p>A reader account (formerly "read-only account") is a Snowflake account created BY the provider specifically for consumers who do not have their own Snowflake account.</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Aspect</th>
+                        <th>Reader Account</th>
+                        <th>Full Account (Consumer)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Compute Cost</td>
+                        <td><span class="badge-limited">Provider Pays</span></td>
+                        <td>Consumer pays own compute</td>
+                    </tr>
+                    <tr>
+                        <td>Can access shares from other providers?</td>
+                        <td><span class="badge-no">NO</span></td>
+                        <td><span class="badge-yes">YES</span></td>
+                    </tr>
+                    <tr>
+                        <td>Can create own databases/tables?</td>
+                        <td><span class="badge-no">NO</span> (very limited)</td>
+                        <td><span class="badge-yes">YES</span></td>
+                    </tr>
+                    <tr>
+                        <td>Replication support</td>
+                        <td><span class="badge-no">NO</span></td>
+                        <td><span class="badge-yes">YES</span></td>
+                    </tr>
+                    <tr>
+                        <td>Resource Monitors</td>
+                        <td>Provider sets via resource monitors on reader warehouse</td>
+                        <td>Consumer manages own</td>
+                    </tr>
+                    <tr>
+                        <td>Who manages users?</td>
+                        <td>Provider creates/manages users in reader account</td>
+                        <td>Consumer manages own users</td>
+                    </tr>
+                    <tr>
+                        <td>Data loading</td>
+                        <td><span class="badge-no">NO</span></td>
+                        <td><span class="badge-yes">YES</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="callout callout-warning">
+                <strong>Exam Favorite:</strong> "Who pays for compute when a reader account queries shared data?" &mdash; The PROVIDER pays. The reader account's warehouse credits are billed to the provider's account. This is the #1 reason providers use resource monitors on reader accounts.
+            </div>
+
+            <h3>Reader Account Limitations</h3>
+            <ul>
+                <li>Can ONLY consume data from the provider that created it</li>
+                <li>Cannot access Snowflake Marketplace listings</li>
+                <li>Cannot use features like data loading, Snowpipe, tasks, or streams</li>
+                <li>Provider must create warehouses for the reader account</li>
+                <li>Provider should always configure resource monitors to control costs</li>
+                <li>Cannot be converted to a full Snowflake account (must create new)</li>
+            </ul>
+        </div>
+
+        <!-- Section 5: Cross-Region Edge Cases -->
+        <div class="section">
+            <h2>5. Cross-Region &amp; Cross-Cloud Edge Cases</h2>
+
+            <h3>Same Region Sharing</h3>
+            <div class="callout callout-success">
+                <strong>Default behavior:</strong> Sharing within the same cloud region is instant, zero-copy, and incurs NO additional storage or data transfer costs. This is the ideal scenario.
+            </div>
+
+            <h3>Cross-Region / Cross-Cloud Sharing</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Challenge</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Replication Required</strong></td>
+                        <td>Data must be replicated to the consumer's region. Provider must set up database replication or use listings (auto-fulfillment).</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Additional Cost</strong></td>
+                        <td>Data transfer fees + storage for the replica. Provider bears replication cost.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Latency</strong></td>
+                        <td>Initial replication can take time. Ongoing refresh has a lag (not real-time).</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Replication Lag</strong></td>
+                        <td>Consumer sees data as fresh as the last replication refresh, not real-time.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Auto-Fulfillment (Listings)</strong></td>
+                        <td>Snowflake Marketplace handles cross-region via auto-fulfillment, abstracting replication complexity.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="callout callout-danger">
+                <strong>Key Exam Point:</strong> Direct sharing (CREATE SHARE) works ONLY within the same region. For cross-region consumers, you MUST use either: (1) Database Replication + sharing in target region, or (2) Snowflake Marketplace listings with auto-fulfillment.
+            </div>
+
+            <h3>Cross-Region Architecture</h3>
+            <ul>
+                <li><strong>Step 1:</strong> Provider enables replication for the source database</li>
+                <li><strong>Step 2:</strong> Create a replica in the consumer's region</li>
+                <li><strong>Step 3:</strong> Create a share in the target region from the replica</li>
+                <li><strong>Step 4:</strong> Consumer imports from the local-region share</li>
+                <li><strong>Alternative:</strong> Publish as a Marketplace listing with auto-fulfillment enabled</li>
+            </ul>
+        </div>
+
+        <!-- Section 6: Recovery Playbook -->
+        <div class="section">
+            <h2>6. Recovery Playbook</h2>
+
+            <div class="playbook-item">
+                <h4>Scenario 1: Provider Accidentally Drops a Shared Table</h4>
+                <ol>
+                    <li>Consumer reports immediate query failures</li>
+                    <li>Provider runs: <code>UNDROP TABLE schema.table_name;</code></li>
+                    <li>If within Time Travel retention, table is restored and share auto-recovers</li>
+                    <li>If past retention: recreate table, re-load data, re-grant to share</li>
+                    <li>Verify consumer access: <code>SHOW GRANTS TO SHARE share_name;</code></li>
+                </ol>
+            </div>
+
+            <div class="playbook-item">
+                <h4>Scenario 2: Provider Drops the Share Itself</h4>
+                <ol>
+                    <li>Consumer's imported database is immediately and automatically dropped</li>
+                    <li><code>UNDROP SHARE</code> is NOT supported &mdash; shares cannot be undropped</li>
+                    <li>Provider must: recreate share, re-add all objects, re-add consumer accounts</li>
+                    <li>Consumer must: <code>CREATE DATABASE ... FROM SHARE</code> again</li>
+                    <li>Prevention: use role separation; only ACCOUNTADMIN or designated role can DROP SHARE</li>
+                </ol>
+            </div>
+
+            <div class="playbook-item">
+                <h4>Scenario 3: Consumer Cannot See Newly Added Table</h4>
+                <ol>
+                    <li>Verify table is granted to share: <code>SHOW GRANTS TO SHARE share_name;</code></li>
+                    <li>Verify USAGE on schema is granted to share</li>
+                    <li>Verify USAGE on database is granted to share</li>
+                    <li>Consumer may need to refresh metadata: exit and re-enter the database context</li>
+                    <li>Check if the table is in a schema not yet added to the share</li>
+                </ol>
+            </div>
+
+            <div class="playbook-item">
+                <h4>Scenario 4: Reader Account Running Up Excessive Costs</h4>
+                <ol>
+                    <li>Check warehouse usage: <code>SELECT * FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY;</code></li>
+                    <li>Create/adjust resource monitor on reader's warehouse</li>
+                    <li>Set SUSPEND and SUSPEND_IMMEDIATELY triggers at credit thresholds</li>
+                    <li>Consider reducing warehouse size or AUTO_SUSPEND timing</li>
+                    <li>Review and revoke unnecessary user access in the reader account</li>
+                </ol>
+            </div>
+
+            <div class="playbook-item">
+                <h4>Scenario 5: Cross-Region Share Data is Stale</h4>
+                <ol>
+                    <li>Check replication status: <code>SELECT * FROM TABLE(INFORMATION_SCHEMA.DATABASE_REFRESH_HISTORY());</code></li>
+                    <li>Verify replication schedule frequency</li>
+                    <li>Trigger manual refresh: <code>ALTER DATABASE replica_db REFRESH;</code></li>
+                    <li>Check for replication failures in REPLICATION_HISTORY view</li>
+                    <li>Consider increasing refresh frequency if business requires fresher data</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Section 7: Exam Scenario Questions -->
+        <div class="section">
+            <h2>7. Exam Scenario Questions</h2>
+
+            <div class="scenario">
+                <div class="scenario-header">
+                    <span><span class="scenario-num">1</span><strong>Object Sharing Eligibility</strong></span>
+                </div>
+                <p class="question">A provider wants to share a view that joins three tables and applies row-level filtering. What must be true about this view for it to be shareable?</p>
+                <ol class="options">
+                    <li>The view must be created with the SECURE keyword</li>
+                    <li>The view must reference only external tables</li>
+                    <li>The view must have fewer than 1000 rows</li>
+                    <li>The underlying tables must all be in the same schema</li>
+                </ol>
+                <details>
+                    <summary>Show Answer</summary>
+                    <div class="answer-text"><strong>A.</strong> Only SECURE views can be shared. The SECURE keyword prevents the consumer from seeing the view definition (DDL), which is required for data sharing. Non-secure views expose their SQL definition and cannot be added to a share.</div>
+                </details>
+            </div>
+
+            <div class="scenario">
+                <div class="scenario-header">
+                    <span><span class="scenario-num">2</span><strong>Consumer Attempts DML</strong></span>
+                </div>
+                <p class="question">A consumer runs <code>INSERT INTO shared_db.public.customers VALUES (...)</code> on a table from a shared database. What happens?</p>
+                <ol class="options">
+                    <li>The insert succeeds but is only visible to the consumer</li>
+                    <li>The insert fails with an insufficient privileges error</li>
+                    <li>The insert succeeds and is visible to both provider and consumer</li>
+                    <li>The insert is queued for provider approval</li>
+                </ol>
+                <details>
+                    <summary>Show Answer</summary>
+                    <div class="answer-text"><strong>B.</strong> Shared databases are strictly read-only for consumers. Any DML operation (INSERT, UPDATE, DELETE, MERGE) will fail. Consumers can only run SELECT queries and certain metadata commands on shared objects.</div>
+                </details>
+            </div>
+
+            <div class="scenario">
+                <div class="scenario-header">
+                    <span><span class="scenario-num">3</span><strong>Reader Account Billing</strong></span>
+                </div>
+                <p class="question">Company A creates a reader account for Company B (which has no Snowflake account). Company B's analysts run queries using a warehouse in the reader account. Who is billed for the compute credits?</p>
+                <ol class="options">
+                    <li>Company B (the consumer/reader)</li>
+                    <li>Snowflake absorbs the cost</li>
+                    <li>Company A (the provider)</li>
+                    <li>The cost is split 50/50</li>
+                </ol>
+                <details>
+                    <summary>Show Answer</summary>
+                    <div class="answer-text"><strong>C.</strong> The provider (Company A) pays ALL compute costs for reader accounts. Reader account warehouses are billed to the provider's account. This is why resource monitors are critical for reader accounts.</div>
+                </details>
+            </div>
+
+            <div class="scenario">
+                <div class="scenario-header">
+                    <span><span class="scenario-num">4</span><strong>Cross-Region Sharing</strong></span>
+                </div>
+                <p class="question">A provider in AWS US-East-1 wants to share data with a consumer in AWS EU-West-1 using a direct share (not Marketplace). What is required?</p>
+                <ol class="options">
+                    <li>Nothing extra; direct sharing works across regions automatically</li>
+                    <li>The provider must replicate the database to EU-West-1 and create a share there</li>
+                    <li>The consumer must create a VPN connection to US-East-1</li>
+                    <li>Both accounts must upgrade to Business Critical edition</li>
+                </ol>
+                <details>
+                    <summary>Show Answer</summary>
+                    <div class="answer-text"><strong>B.</strong> Direct sharing (<code>CREATE SHARE</code>) only works within the same region. For cross-region sharing, the provider must replicate the database to the consumer's region and create a share from the replica. Alternatively, Marketplace listings with auto-fulfillment handle this automatically.</div>
+                </details>
+            </div>
+
+            <div class="scenario">
+                <div class="scenario-header">
+                    <span><span class="scenario-num">5</span><strong>DROP SHARE Impact</strong></span>
+                </div>
+                <p class="question">A provider accidentally runs <code>DROP SHARE marketing_share;</code>. Three consumer accounts had imported databases from this share. What happens to the consumers?</p>
+                <ol class="options">
+                    <li>Consumer databases remain but become read-only stale copies</li>
+                    <li>Consumer databases are immediately and automatically dropped</li>
+                    <li>Consumer databases remain for 24 hours then are dropped</li>
+                    <li>Consumers are notified and have 7 days to export data</li>
+                </ol>
+                <details>
+                    <summary>Show Answer</summary>
+                    <div class="answer-text"><strong>B.</strong> When a share is dropped, ALL consumer databases created from that share are immediately and automatically dropped. There is no grace period, no notification, and <code>UNDROP SHARE</code> is not supported. The provider must recreate the share and consumers must re-import.</div>
+                </details>
+            </div>
+
+            <div class="scenario">
+                <div class="scenario-header">
+                    <span><span class="scenario-num">6</span><strong>Clone Shared Database</strong></span>
+                </div>
+                <p class="question">A consumer wants to create a development copy of a shared database by running <code>CREATE DATABASE dev_copy CLONE shared_database;</code>. What is the result?</p>
+                <ol class="options">
+                    <li>The clone succeeds and creates a writable copy</li>
+                    <li>The clone succeeds but remains read-only</li>
+                    <li>The operation fails; shared databases cannot be cloned</li>
+                    <li>The clone succeeds only if the provider grants CLONE privilege</li>
+                </ol>
+                <details>
+                    <summary>Show Answer</summary>
+                    <div class="answer-text"><strong>C.</strong> Shared (imported) databases cannot be cloned. The CLONE operation will fail. To get a local copy, consumers must use <code>CREATE TABLE ... AS SELECT</code> to copy individual tables into their own database, or use <code>CREATE DATABASE ... AS SELECT</code> patterns.</div>
+                </details>
+            </div>
+
+            <div class="scenario">
+                <div class="scenario-header">
+                    <span><span class="scenario-num">7</span><strong>Re-Sharing Data</strong></span>
+                </div>
+                <p class="question">Consumer X receives data via a share from Provider P. Consumer X now wants to share that same data with another company (Consumer Y) by adding it to their own outbound share. Can they do this?</p>
+                <ol class="options">
+                    <li>Yes, if Consumer X has ACCOUNTADMIN role</li>
+                    <li>Yes, but only via a secure view on top of the shared data</li>
+                    <li>No, objects in an imported database cannot be added to an outbound share</li>
+                    <li>Yes, but only if Provider P explicitly grants re-sharing permission</li>
+                </ol>
+                <details>
+                    <summary>Show Answer</summary>
+                    <div class="answer-text"><strong>C.</strong> Data from imported (shared) databases cannot be re-shared. This is a hard limitation regardless of roles or permissions. If Consumer X needs to share derived data, they must copy it to a local table first (breaking the live link) and share from their own database.</div>
+                </details>
+            </div>
+
+            <div class="scenario">
+                <div class="scenario-header">
+                    <span><span class="scenario-num">8</span><strong>Sharing Non-Secure View</strong></span>
+                </div>
+                <p class="question">A provider runs: <code>GRANT SELECT ON VIEW analytics.public.revenue_summary TO SHARE data_share;</code> where <code>revenue_summary</code> is a regular (non-secure) view. What happens?</p>
+                <ol class="options">
+                    <li>The grant succeeds and consumers can query the view</li>
+                    <li>The grant fails with an error because only secure views can be shared</li>
+                    <li>The grant succeeds but the view definition is visible to consumers</li>
+                    <li>The grant succeeds only on Enterprise edition or higher</li>
+                </ol>
+                <details>
+                    <summary>Show Answer</summary>
+                    <div class="answer-text"><strong>B.</strong> Only SECURE views can be granted to a share. Attempting to grant a non-secure view to a share will produce an error. The provider must first run <code>ALTER VIEW revenue_summary SET SECURE;</code> before granting it to the share.</div>
+                </details>
+            </div>
+
+            <div class="scenario">
+                <div class="scenario-header">
+                    <span><span class="scenario-num">9</span><strong>Time Travel on Shared Data</strong></span>
+                </div>
+                <p class="question">A consumer wants to query yesterday's version of a shared table using: <code>SELECT * FROM shared_db.public.orders AT(OFFSET =&gt; -86400);</code>. What is the result?</p>
+                <ol class="options">
+                    <li>Returns data from 24 hours ago successfully</li>
+                    <li>Fails because Time Travel is not available on shared objects for consumers</li>
+                    <li>Returns current data with a warning about Time Travel limitations</li>
+                    <li>Works only if the provider has enabled Time Travel sharing</li>
+                </ol>
+                <details>
+                    <summary>Show Answer</summary>
+                    <div class="answer-text"><strong>B.</strong> Consumers cannot use Time Travel (AT/BEFORE clauses) on objects in shared databases. Only the current state of the data is accessible. Time Travel is controlled by and accessible only to the provider account that owns the data.</div>
+                </details>
+            </div>
+
+            <div class="scenario">
+                <div class="scenario-header">
+                    <span><span class="scenario-num">10</span><strong>Reader Account Capabilities</strong></span>
+                </div>
+                <p class="question">A provider has created a reader account. Which of the following can the reader account do?</p>
+                <ol class="options">
+                    <li>Access Snowflake Marketplace listings from other providers</li>
+                    <li>Load data from an external stage into a local table</li>
+                    <li>Query shared data using a warehouse created by the provider</li>
+                    <li>Create a share to provide data to another account</li>
+                </ol>
+                <details>
+                    <summary>Show Answer</summary>
+                    <div class="answer-text"><strong>C.</strong> Reader accounts can ONLY query data shared by the provider that created them, using warehouses that the provider has set up. They cannot access other providers' shares, load data, create shares, or use Marketplace. They are strictly limited consumption-only accounts.</div>
+                </details>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

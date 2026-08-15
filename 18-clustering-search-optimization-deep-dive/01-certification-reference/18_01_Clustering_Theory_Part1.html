@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>18.01 Clustering Theory Part 1 - Micro-Partitions & Clustering Fundamentals</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "18.01 Clustering Theory Part 1",
+  "description": "Micro-partitions, natural clustering, explicit clustering keys, and partition pruning fundamentals",
+  "author": "Snowflake Certification Prep",
+  "created": "2025-01-01",
+  "tags": ["clustering", "micro-partitions", "partition-pruning", "certification"],
+  "version": "1.0"
+}
+</script>
+<style>
+  :root {
+    --bg-primary: light-dark(#f0fdf4, #022c22);
+    --bg-secondary: light-dark(#dcfce7, #064e3b);
+    --bg-card: light-dark(#ffffff, #0f3d2e);
+    --text-primary: light-dark(#052e16, #ecfdf5);
+    --text-secondary: light-dark(#166534, #a7f3d0);
+    --accent: light-dark(#059669, #34d399);
+    --accent-dim: light-dark(#10b981, #6ee7b7);
+    --border: light-dark(#a7f3d0, #065f46);
+    --shadow: light-dark(rgba(5,150,105,0.1), rgba(0,0,0,0.3));
+    --code-bg: light-dark(#ecfdf5, #041f17);
+    --highlight: light-dark(#d1fae5, #064e3b);
+    --warning-bg: light-dark(#fef3c7, #451a03);
+    --warning-border: light-dark(#f59e0b, #d97706);
+    --warning-text: light-dark(#92400e, #fde68a);
+  }
+  html { color-scheme: light dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.7;
+    padding: 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 2rem;
+    color: var(--accent);
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 0.75rem;
+    margin-bottom: 2rem;
+  }
+  h2 {
+    font-size: 1.5rem;
+    color: var(--accent);
+    margin: 2rem 0 1rem;
+    padding-left: 0.75rem;
+    border-left: 4px solid var(--accent);
+  }
+  h3 {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    margin: 1.5rem 0 0.75rem;
+  }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1.25rem 0;
+    box-shadow: 0 2px 8px var(--shadow);
+  }
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.4;
+  }
+  code {
+    background: var(--code-bg);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-family: 'Courier New', monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 1rem 0;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+  th {
+    background: var(--bg-secondary);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  tr:nth-child(even) { background: var(--highlight); }
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  .feature-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .feature-item strong {
+    color: var(--accent);
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+  .limitation-item {
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+    color: var(--warning-text);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .limitation-item strong {
+    color: var(--warning-border);
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+  .badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 0.5rem;
+  }
+  .key-point {
+    background: var(--highlight);
+    border-left: 4px solid var(--accent);
+    padding: 1rem 1.25rem;
+    margin: 1rem 0;
+    border-radius: 0 8px 8px 0;
+  }
+  ul, ol { padding-left: 1.5rem; margin: 0.75rem 0; }
+  li { margin: 0.4rem 0; }
+  .toc {
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .toc a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .toc a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<h1>18.01 Clustering Theory Part 1: Micro-Partitions &amp; Clustering Fundamentals</h1>
+
+<div class="toc">
+  <h3>Table of Contents</h3>
+  <ol>
+    <li><a href="#micropartitions">Micro-Partitions Fundamentals</a></li>
+    <li><a href="#metadata">Metadata &amp; Pruning</a></li>
+    <li><a href="#natural">Natural Clustering</a></li>
+    <li><a href="#explicit">Explicit Clustering Keys</a></li>
+    <li><a href="#depth">Clustering Depth &amp; Ratio</a></li>
+    <li><a href="#when">When to Cluster</a></li>
+    <li><a href="#reclustering">Automatic Reclustering</a></li>
+    <li><a href="#features">15 Key Features</a></li>
+    <li><a href="#limitations">15 Limitations</a></li>
+  </ol>
+</div>
+
+<h2 id="micropartitions">1. Micro-Partitions Fundamentals</h2>
+
+<div class="card">
+  <h3>What Are Micro-Partitions?</h3>
+  <p>Micro-partitions are Snowflake's fundamental unit of data storage. Every table is automatically divided into micro-partitions during data ingestion, without any user intervention.</p>
+
+  <div class="key-point">
+    <strong>Definition:</strong> Micro-partitions are immutable, compressed, columnar storage units ranging from <strong>50 to 500 MB</strong> of uncompressed data each. They are Snowflake's equivalent of "blocks" but significantly more intelligent.
+  </div>
+
+  <h3>Core Characteristics</h3>
+  <table>
+    <tr><th>Property</th><th>Detail</th></tr>
+    <tr><td>Size Range</td><td>50–500 MB uncompressed (typically 16 MB compressed on disk)</td></tr>
+    <tr><td>Storage Format</td><td>Columnar (PAX-style hybrid)</td></tr>
+    <tr><td>Mutability</td><td>Immutable — DML creates new partitions</td></tr>
+    <tr><td>Compression</td><td>Automatic, per-column compression algorithms</td></tr>
+    <tr><td>Encryption</td><td>Always encrypted at rest (AES-256)</td></tr>
+    <tr><td>User Control</td><td>No manual partition management</td></tr>
+    <tr><td>Rows per Partition</td><td>Typically millions of rows (varies by row width)</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3>Micro-Partition Internal Structure</h3>
+  <div class="diagram">
+┌─────────────────────────────────────────────────────────┐
+│              MICRO-PARTITION (50-500 MB)                  │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐   │
+│  │ Col A   │  │ Col B   │  │ Col C   │  │ Col D   │   │
+│  │ (INT)   │  │(VARCHAR)│  │ (DATE)  │  │(DECIMAL)│   │
+│  │         │  │         │  │         │  │         │   │
+│  │ val1    │  │ val1    │  │ val1    │  │ val1    │   │
+│  │ val2    │  │ val2    │  │ val2    │  │ val2    │   │
+│  │ val3    │  │ val3    │  │ val3    │  │ val3    │   │
+│  │ ...     │  │ ...     │  │ ...     │  │ ...     │   │
+│  │ valN    │  │ valN    │  │ valN    │  │ valN    │   │
+│  └─────────┘  └─────────┘  └─────────┘  └─────────┘   │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ HEADER: metadata (min/max, null count, etc.)    │    │
+│  └─────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────┘</div>
+</div>
+
+<div class="card">
+  <h3>Why Columnar Storage Matters</h3>
+  <ul>
+    <li><strong>Column Pruning:</strong> Only columns referenced in a query are read from storage</li>
+    <li><strong>Better Compression:</strong> Similar data types compress much better together</li>
+    <li><strong>Vectorized Processing:</strong> Operations on columns can be SIMD-optimized</li>
+    <li><strong>Aggregate Efficiency:</strong> SUM/AVG/COUNT only read the target column</li>
+    <li><strong>Min/Max Tracking:</strong> Per-column statistics enable partition pruning</li>
+  </ul>
+</div>
+
+<h2 id="metadata">2. Metadata &amp; Partition Pruning</h2>
+
+<div class="card">
+  <h3>Metadata Tracked Per Micro-Partition</h3>
+  <p>Snowflake automatically maintains rich metadata for every micro-partition without any user configuration:</p>
+
+  <table>
+    <tr><th>Metadata Type</th><th>What's Tracked</th><th>Purpose</th></tr>
+    <tr><td>Range (Min/Max)</td><td>Min and max values for each column</td><td>Partition pruning on range predicates</td></tr>
+    <tr><td>Distinct Values</td><td>Number of distinct values per column</td><td>Cardinality estimation</td></tr>
+    <tr><td>NULL Count</td><td>Number of NULL values per column</td><td>NULL predicate optimization</td></tr>
+    <tr><td>Row Count</td><td>Total number of rows</td><td>Cost estimation</td></tr>
+    <tr><td>Size Information</td><td>Compressed and uncompressed sizes</td><td>I/O estimation</td></tr>
+  </table>
+
+  <div class="key-point">
+    <strong>Partition Pruning:</strong> Using min/max metadata, Snowflake can skip entire micro-partitions that cannot contain matching data. This is the primary performance optimization in Snowflake — <em>no user-defined indexes are needed</em>.
+  </div>
+</div>
+
+<div class="card">
+  <h3>Partition Pruning in Action</h3>
+  <div class="diagram">
+Query: SELECT * FROM orders WHERE order_date = '2024-06-15'
+
+Partition 1: order_date range [2024-01-01, 2024-03-31] → PRUNED ✗
+Partition 2: order_date range [2024-04-01, 2024-06-30] → SCANNED ✓
+Partition 3: order_date range [2024-07-01, 2024-09-30] → PRUNED ✗
+Partition 4: order_date range [2024-10-01, 2024-12-31] → PRUNED ✗
+
+Result: Only 1 of 4 partitions scanned = 75% pruning efficiency</div>
+</div>
+
+<h2 id="natural">3. Natural Clustering</h2>
+
+<div class="card">
+  <h3>What Is Natural Clustering?</h3>
+  <p>When data is loaded into Snowflake, it is stored in the order it arrives. This creates <strong>natural clustering</strong> — data loaded together tends to be in the same micro-partitions.</p>
+
+  <div class="key-point">
+    <strong>Key Insight:</strong> Tables loaded chronologically (e.g., event logs, transaction records) naturally cluster on their timestamp/date columns. This means queries filtering on date ranges get excellent partition pruning <em>without any explicit clustering key</em>.
+  </div>
+
+  <h3>When Natural Clustering Works Well</h3>
+  <ul>
+    <li>Data loaded in time order (append-only patterns)</li>
+    <li>Queries typically filter on the load-order column (date, timestamp)</li>
+    <li>Table is mostly INSERT operations (no heavy UPDATE/DELETE)</li>
+    <li>Sequential IDs that correlate with load order</li>
+  </ul>
+
+  <h3>When Natural Clustering Degrades</h3>
+  <ul>
+    <li>Heavy DML (UPDATE/DELETE) fragments the clustering</li>
+    <li>Data loaded from multiple sources in random order</li>
+    <li>Queries filter on columns unrelated to load order</li>
+    <li>Bulk loads from shuffled/randomized datasets</li>
+  </ul>
+</div>
+
+<h2 id="explicit">4. Explicit Clustering Keys</h2>
+
+<div class="card">
+  <h3>Defining a Clustering Key</h3>
+  <pre>-- Add clustering key to existing table
+ALTER TABLE orders CLUSTER BY (order_date, region);
+
+-- Create table with clustering key
+CREATE TABLE sales (
+    sale_id     INT,
+    sale_date   DATE,
+    region      VARCHAR(50),
+    amount      DECIMAL(10,2)
+) CLUSTER BY (sale_date, region);
+
+-- Clustering on expressions
+ALTER TABLE events CLUSTER BY (TO_DATE(event_timestamp), event_type);
+
+-- Drop clustering key
+ALTER TABLE orders DROP CLUSTERING KEY;</pre>
+
+  <h3>How Clustering Keys Work</h3>
+  <div class="diagram">
+Without Clustering Key (random distribution):
+┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+│ Part 1   │ │ Part 2   │ │ Part 3   │ │ Part 4   │
+│ US,EU,AP │ │ EU,AP,US │ │ AP,US,EU │ │ US,EU,AP │
+│ Jan-Dec  │ │ Jan-Dec  │ │ Jan-Dec  │ │ Jan-Dec  │
+└──────────┘ └──────────┘ └──────────┘ └──────────┘
+Query: region = 'US' → Must scan ALL 4 partitions
+
+With CLUSTER BY (region, sale_date):
+┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+│ Part 1   │ │ Part 2   │ │ Part 3   │ │ Part 4   │
+│ AP       │ │ EU       │ │ US       │ │ US       │
+│ Jan-Dec  │ │ Jan-Dec  │ │ Jan-Jun  │ │ Jul-Dec  │
+└──────────┘ └──────────┘ └──────────┘ └──────────┘
+Query: region = 'US' → Only scan Parts 3 &amp; 4 = 50% pruning</div>
+
+  <h3>Clustering Key Guidelines</h3>
+  <table>
+    <tr><th>Guideline</th><th>Explanation</th></tr>
+    <tr><td>Max 3-4 columns</td><td>More columns = diminishing returns and higher cost</td></tr>
+    <tr><td>Order matters</td><td>Put most selective (most filtered) column first</td></tr>
+    <tr><td>Low-to-medium cardinality preferred</td><td>High cardinality (unique IDs) is ineffective</td></tr>
+    <tr><td>Match query patterns</td><td>Choose columns used in WHERE clauses</td></tr>
+    <tr><td>Expressions allowed</td><td>Can cluster on TO_DATE(ts), MONTH(date), etc.</td></tr>
+    <tr><td>Only for large tables</td><td>Small tables (&lt;1TB) rarely benefit</td></tr>
+  </table>
+</div>
+
+<h2 id="depth">5. Clustering Depth &amp; Ratio</h2>
+
+<div class="card">
+  <h3>SYSTEM$CLUSTERING_INFORMATION</h3>
+  <pre>-- Check clustering quality
+SELECT SYSTEM$CLUSTERING_INFORMATION('orders', '(order_date, region)');
+
+-- Returns JSON like:
+{
+  "cluster_by_keys": "LINEAR(order_date, region)",
+  "total_partition_count": 1200,
+  "total_constant_partition_count": 850,
+  "average_overlaps": 2.5,
+  "average_depth": 1.8,
+  "partition_depth_histogram": {
+    "00000": 0,
+    "00001": 850,
+    "00002": 200,
+    "00003": 100,
+    "00004": 50,
+    "00005": 0
+  }
+}</pre>
+
+  <h3>Understanding the Metrics</h3>
+  <table>
+    <tr><th>Metric</th><th>Ideal Value</th><th>Meaning</th></tr>
+    <tr><td>average_overlaps</td><td>Close to 1.0</td><td>How many partitions overlap for a given value range</td></tr>
+    <tr><td>average_depth</td><td>Close to 1.0</td><td>Average number of overlapping partitions (lower = better)</td></tr>
+    <tr><td>total_constant_partition_count</td><td>High (close to total)</td><td>Partitions with no overlap for clustering key values</td></tr>
+    <tr><td>partition_depth_histogram</td><td>Concentrated at 00001</td><td>Distribution of partition overlap depths</td></tr>
+  </table>
+
+  <div class="key-point">
+    <strong>Clustering Ratio:</strong> <code>constant_partition_count / total_partition_count</code>. A ratio close to 1.0 means excellent clustering. A ratio below 0.5 suggests reclustering may help.
+  </div>
+
+  <div class="diagram">
+Clustering Depth Visualization:
+
+Depth 1 (Perfect): Each value in exactly 1 partition
+┌─────┐ ┌─────┐ ┌─────┐
+│ A-C │ │ D-F │ │ G-I │  ← No overlap
+└─────┘ └─────┘ └─────┘
+
+Depth 3 (Poor): Each value spans 3 partitions
+┌─────────────────┐
+│     A-I         │  ← Partition 1
+├─────────────────┤
+│     A-I         │  ← Partition 2
+├─────────────────┤
+│     A-I         │  ← Partition 3
+└─────────────────┘</div>
+</div>
+
+<h2 id="when">6. When to Cluster</h2>
+
+<div class="card">
+  <h3>Decision Framework</h3>
+
+  <div class="diagram">
+Should I Add a Clustering Key?
+
+                    ┌─────────────────────┐
+                    │ Table size &gt; 1 TB?   │
+                    └──────────┬──────────┘
+                         │ NO         │ YES
+                         ▼            ▼
+                    ┌─────────┐  ┌──────────────────┐
+                    │ Usually │  │ Known filter      │
+                    │ NOT     │  │ patterns on       │
+                    │ needed  │  │ specific columns? │
+                    └─────────┘  └────────┬─────────┘
+                                    │ NO       │ YES
+                                    ▼          ▼
+                               ┌─────────┐ ┌────────────────┐
+                               │ Not a   │ │ Natural clust.  │
+                               │ good    │ │ already good?   │
+                               │ fit     │ │ (Check depth)   │
+                               └─────────┘ └───────┬────────┘
+                                              │ YES    │ NO
+                                              ▼        ▼
+                                         ┌────────┐ ┌────────┐
+                                         │ Leave  │ │ ADD    │
+                                         │ as-is  │ │ CLUSTER│
+                                         └────────┘ │ KEY    │
+                                                    └────────┘</div>
+
+  <h3>Indicators You Need Clustering</h3>
+  <ul>
+    <li>Table is very large (>1 TB / millions of micro-partitions)</li>
+    <li>Queries consistently filter on specific non-date columns</li>
+    <li>Query Profile shows poor partition pruning (&lt;50% pruned)</li>
+    <li>High <code>average_depth</code> (>5) in SYSTEM$CLUSTERING_INFORMATION</li>
+    <li>Significant bytes scanned vs. bytes returned in queries</li>
+    <li>Table receives heavy DML that disrupts natural order</li>
+  </ul>
+
+  <h3>Indicators You DON'T Need Clustering</h3>
+  <ul>
+    <li>Table is small (&lt;1 TB) — pruning is already fast</li>
+    <li>Queries are full table scans (analytics/aggregations)</li>
+    <li>Natural clustering is already effective (depth near 1)</li>
+    <li>Query patterns are highly varied (no consistent filters)</li>
+    <li>Cost of reclustering outweighs performance benefit</li>
+  </ul>
+</div>
+
+<h2 id="reclustering">7. Automatic Reclustering</h2>
+
+<div class="card">
+  <h3>How Automatic Reclustering Works</h3>
+  <p>Once a clustering key is defined, Snowflake automatically maintains clustering through background reclustering operations.</p>
+
+  <table>
+    <tr><th>Aspect</th><th>Detail</th></tr>
+    <tr><td>Trigger</td><td>Automatic — runs when clustering degrades beyond threshold</td></tr>
+    <tr><td>Execution</td><td>Background service (no warehouse needed)</td></tr>
+    <tr><td>Cost Model</td><td>Serverless compute charged per-credit (like serverless tasks)</td></tr>
+    <tr><td>Billing</td><td>Charged to the table owner's account</td></tr>
+    <tr><td>Concurrency</td><td>Does NOT block DML or queries</td></tr>
+    <tr><td>Suspension</td><td><code>ALTER TABLE t SUSPEND RECLUSTER</code></td></tr>
+    <tr><td>Resumption</td><td><code>ALTER TABLE t RESUME RECLUSTER</code></td></tr>
+    <tr><td>Monitoring</td><td><code>AUTOMATIC_CLUSTERING_HISTORY</code> table function</td></tr>
+  </table>
+
+  <pre>-- Monitor reclustering costs
+SELECT * FROM TABLE(INFORMATION_SCHEMA.AUTOMATIC_CLUSTERING_HISTORY(
+    DATE_RANGE_START => DATEADD('day', -7, CURRENT_TIMESTAMP()),
+    TABLE_NAME => 'MY_TABLE'
+));
+
+-- Suspend reclustering to control costs
+ALTER TABLE my_table SUSPEND RECLUSTER;
+
+-- Resume reclustering
+ALTER TABLE my_table RESUME RECLUSTER;</pre>
+
+  <div class="key-point">
+    <strong>Cost Model:</strong> Reclustering is charged as serverless compute credits. High-churn tables (frequent INSERT/UPDATE/DELETE) will incur more reclustering costs. Monitor via <code>AUTOMATIC_CLUSTERING_HISTORY</code>.
+  </div>
+</div>
+
+<h2 id="features">8. 15 Key Features of Clustering</h2>
+
+<div class="feature-grid">
+  <div class="feature-item">
+    <strong>1. Automatic Micro-Partitioning</strong>
+    Data is automatically divided into 50-500MB partitions during ingestion with no user management.
+  </div>
+  <div class="feature-item">
+    <strong>2. Columnar Storage</strong>
+    Each micro-partition stores data column-by-column for efficient compression and selective column reads.
+  </div>
+  <div class="feature-item">
+    <strong>3. Rich Metadata</strong>
+    Min/max values, distinct counts, and NULL counts maintained per column per partition automatically.
+  </div>
+  <div class="feature-item">
+    <strong>4. Partition Pruning</strong>
+    Queries skip irrelevant partitions using metadata — no indexes needed.
+  </div>
+  <div class="feature-item">
+    <strong>5. Natural Clustering</strong>
+    Data loaded sequentially clusters naturally on load-order columns (e.g., timestamps).
+  </div>
+  <div class="feature-item">
+    <strong>6. Explicit Clustering Keys</strong>
+    CLUSTER BY defines preferred data organization for specific query patterns.
+  </div>
+  <div class="feature-item">
+    <strong>7. Expression-Based Clustering</strong>
+    Cluster on expressions like TO_DATE(ts), TRUNC(amount, -3), or SUBSTRING(id, 1, 4).
+  </div>
+  <div class="feature-item">
+    <strong>8. Multi-Column Clustering</strong>
+    Support up to 3-4 columns in a clustering key for compound filter patterns.
+  </div>
+  <div class="feature-item">
+    <strong>9. Automatic Reclustering</strong>
+    Background serverless process maintains clustering as DML modifies data.
+  </div>
+  <div class="feature-item">
+    <strong>10. Zero-Impact Reclustering</strong>
+    Reclustering runs concurrently without blocking queries or DML operations.
+  </div>
+  <div class="feature-item">
+    <strong>11. Clustering Metrics</strong>
+    SYSTEM$CLUSTERING_INFORMATION provides depth, overlap, and histogram data for analysis.
+  </div>
+  <div class="feature-item">
+    <strong>12. Recluster Suspension</strong>
+    Can suspend/resume automatic reclustering to control costs during specific periods.
+  </div>
+  <div class="feature-item">
+    <strong>13. Column Pruning</strong>
+    Queries only read columns referenced in the query — independent of clustering.
+  </div>
+  <div class="feature-item">
+    <strong>14. Immutable Partitions</strong>
+    Partitions are never modified in-place — DML creates new versions ensuring consistency.
+  </div>
+  <div class="feature-item">
+    <strong>15. Cost Monitoring</strong>
+    AUTOMATIC_CLUSTERING_HISTORY tracks credits consumed by reclustering operations.
+  </div>
+</div>
+
+<h2 id="limitations">9. 15 Limitations</h2>
+
+<div class="feature-grid">
+  <div class="limitation-item">
+    <strong>1. No User-Controlled Partitioning</strong>
+    Cannot manually define partition boundaries or partition schemes — Snowflake decides.
+  </div>
+  <div class="limitation-item">
+    <strong>2. Max ~4 Clustering Key Columns</strong>
+    Practical limit of 3-4 columns; more columns yield diminishing returns and higher costs.
+  </div>
+  <div class="limitation-item">
+    <strong>3. High Cardinality Ineffective</strong>
+    Unique/near-unique columns (UUIDs, email addresses) make poor clustering keys.
+  </div>
+  <div class="limitation-item">
+    <strong>4. Ongoing Reclustering Costs</strong>
+    Tables with heavy DML churn incur continuous serverless compute charges.
+  </div>
+  <div class="limitation-item">
+    <strong>5. Not Instant</strong>
+    Defining a clustering key doesn't immediately recluster — it happens gradually in background.
+  </div>
+  <div class="limitation-item">
+    <strong>6. Small Tables Don't Benefit</strong>
+    Tables under ~1TB rarely see meaningful improvement from explicit clustering.
+  </div>
+  <div class="limitation-item">
+    <strong>7. Single Clustering Key</strong>
+    A table can only have ONE clustering key definition at a time.
+  </div>
+  <div class="limitation-item">
+    <strong>8. Column Order Sensitivity</strong>
+    The order of columns in CLUSTER BY affects effectiveness — must match query patterns.
+  </div>
+  <div class="limitation-item">
+    <strong>9. DML Degrades Clustering</strong>
+    UPDATE/DELETE/MERGE operations create new partitions that may not be well-clustered.
+  </div>
+  <div class="limitation-item">
+    <strong>10. Cannot Cluster External Tables</strong>
+    External tables don't support clustering keys (data is outside Snowflake's control).
+  </div>
+  <div class="limitation-item">
+    <strong>11. No Real-Time Metrics</strong>
+    SYSTEM$CLUSTERING_INFORMATION is a point-in-time snapshot, not continuously updated.
+  </div>
+  <div class="limitation-item">
+    <strong>12. Storage Overhead During Reclustering</strong>
+    Reclustering temporarily creates additional partitions (old ones retained in Time Travel).
+  </div>
+  <div class="limitation-item">
+    <strong>13. Not a Replacement for Good Schema Design</strong>
+    Clustering cannot compensate for fundamentally poor data modeling or query design.
+  </div>
+  <div class="limitation-item">
+    <strong>14. Limited Predicate Types</strong>
+    Partition pruning works best with equality/range predicates; LIKE, functions on columns less effective.
+  </div>
+  <div class="limitation-item">
+    <strong>15. Materialized View Clustering</strong>
+    Materialized views have independent clustering from base tables and separate maintenance costs.
+  </div>
+</div>
+
+<div class="card" style="margin-top: 2rem; text-align: center;">
+  <p><strong>Next:</strong> <a href="18_02_Clustering_Theory_Part2.html" style="color: var(--accent);">Part 2 — Search Optimization Service, Query Acceleration Service &amp; Query Profile Analysis →</a></p>
+</div>
+
+</body>
+</html>

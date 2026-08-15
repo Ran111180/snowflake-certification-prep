@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>19.02 Semi-Structured Data Theory Part 2 - Advanced Techniques</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Snowflake certification study guide - Advanced semi-structured data techniques including LATERAL FLATTEN, RECURSIVE flatten, construction functions, aggregation, and performance considerations",
+    "sections": [
+      { "id": "lateral-flatten", "title": "LATERAL FLATTEN", "dataSources": [], "producerNotes": "Core FLATTEN mechanics and syntax" },
+      { "id": "recursive-flatten", "title": "RECURSIVE Flatten", "dataSources": [], "producerNotes": "Recursive traversal of nested structures" },
+      { "id": "construction-functions", "title": "Construction Functions", "dataSources": [], "producerNotes": "OBJECT_CONSTRUCT, ARRAY_CONSTRUCT and related" },
+      { "id": "aggregation-functions", "title": "Aggregation Functions", "dataSources": [], "producerNotes": "ARRAY_AGG, OBJECT_AGG" },
+      { "id": "array-functions", "title": "Array Manipulation", "dataSources": [], "producerNotes": "ARRAY_SLICE, ARRAY_SIZE, etc." },
+      { "id": "nested-patterns", "title": "Nested Access Patterns", "dataSources": [], "producerNotes": "Complex traversal patterns" },
+      { "id": "performance", "title": "Performance Considerations", "dataSources": [], "producerNotes": "VARIANT scanning vs materialized columns" },
+      { "id": "best-practices", "title": "Best Practices", "dataSources": [], "producerNotes": "Production patterns" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+      max-width: 920px; margin: 0 auto; padding: 32px 24px;
+      color: light-dark(#1e293b, #e2e8f0);
+      background: light-dark(#ffffff, #0f172a);
+      line-height: 1.7;
+    }
+    h1 { color: light-dark(#0e7490, #67e8f9); border-bottom: 3px solid light-dark(#0e7490, #67e8f9); padding-bottom: 12px; margin-bottom: 8px; }
+    h2 { color: light-dark(#0891b2, #22d3ee); margin-top: 48px; border-left: 4px solid light-dark(#0891b2, #22d3ee); padding-left: 12px; }
+    h3 { color: light-dark(#0e7490, #a5f3fc); margin-top: 28px; }
+    code {
+      background: light-dark(#ecfeff, #164e63);
+      color: light-dark(#155e75, #a5f3fc);
+      padding: 2px 6px; border-radius: 4px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.9em;
+    }
+    pre {
+      background: light-dark(#f0fdfa, #0c4a6e);
+      border: 1px solid light-dark(#a5f3fc, #155e75);
+      border-radius: 8px; padding: 16px;
+      overflow-x: auto; font-size: 0.88em;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: light-dark(#0f172a, #e0f2fe); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { border: 1px solid light-dark(#a5f3fc, #164e63); padding: 10px 14px; text-align: left; }
+    th { background: light-dark(#ecfeff, #0c4a6e); font-weight: 600; color: light-dark(#0e7490, #67e8f9); }
+    tr:nth-child(even) { background: light-dark(#f0fdfa, #082f49); }
+    .card {
+      background: light-dark(#ecfeff, #0c4a6e);
+      border: 1px solid light-dark(#a5f3fc, #155e75);
+      border-radius: 10px; padding: 20px; margin: 20px 0;
+    }
+    .card-title { font-weight: 700; color: light-dark(#0e7490, #67e8f9); margin-bottom: 8px; font-size: 1.05em; }
+    .important {
+      background: light-dark(#fff7ed, #431407);
+      border-left: 4px solid light-dark(#f97316, #fb923c);
+      padding: 12px 16px; margin: 16px 0; border-radius: 0 8px 8px 0;
+    }
+    .important strong { color: light-dark(#c2410c, #fdba74); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+    @media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
+    .subtitle { color: light-dark(#64748b, #94a3b8); font-size: 1.05em; margin-top: 0; }
+    .tip {
+      background: light-dark(#ecfdf5, #022c22);
+      border-left: 4px solid light-dark(#10b981, #34d399);
+      padding: 12px 16px; margin: 16px 0; border-radius: 0 8px 8px 0;
+    }
+    .tip strong { color: light-dark(#059669, #6ee7b7); }
+  </style>
+</head>
+<body>
+
+  <h1>19.02 Semi-Structured Data Theory - Part 2</h1>
+  <p class="subtitle">Advanced: LATERAL FLATTEN, RECURSIVE, Construction, Aggregation, and Performance</p>
+
+  <h2 id="lateral-flatten">LATERAL FLATTEN</h2>
+
+  <div class="card">
+    <div class="card-title">What is FLATTEN?</div>
+    <p>FLATTEN is a table function that produces a lateral view of a VARIANT, OBJECT, or ARRAY column. It "explodes" each element into a separate row, similar to UNNEST in other databases. Combined with LATERAL, it correlates each flattened row back to its parent row.</p>
+  </div>
+
+  <h3>FLATTEN Syntax</h3>
+  <pre><code>SELECT *
+FROM table_name t,
+  LATERAL FLATTEN(
+    INPUT => t.variant_column,      -- Required: the value to flatten
+    PATH => 'path.to.array',        -- Optional: path within INPUT to flatten
+    OUTER => FALSE,                 -- Optional: if TRUE, include rows where input is NULL/empty
+    RECURSIVE => FALSE,             -- Optional: if TRUE, recursively flatten all nested elements
+    MODE => 'BOTH'                  -- Optional: OBJECT, ARRAY, or BOTH
+  ) f;</code></pre>
+
+  <h3>FLATTEN Output Columns</h3>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>SEQ</code></td><td>INTEGER</td><td>Sequence number - unique per input row</td></tr>
+      <tr><td><code>KEY</code></td><td>VARCHAR</td><td>Key name (for objects) or NULL (for arrays)</td></tr>
+      <tr><td><code>PATH</code></td><td>VARCHAR</td><td>Path to this element from the root</td></tr>
+      <tr><td><code>INDEX</code></td><td>INTEGER</td><td>Array index (0-based) or NULL (for objects)</td></tr>
+      <tr><td><code>VALUE</code></td><td>VARIANT</td><td>The element value at this position</td></tr>
+      <tr><td><code>THIS</code></td><td>VARIANT</td><td>The element being flattened (parent array/object)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Flattening Arrays</h3>
+  <pre><code>-- Sample data
+CREATE OR REPLACE TABLE orders AS
+SELECT PARSE_JSON(column1) AS order_data FROM VALUES
+('{"id":1, "items":["laptop","mouse","keyboard"]}'),
+('{"id":2, "items":["monitor","cable"]}');
+
+-- Flatten the items array
+SELECT
+    order_data:id::INT AS order_id,
+    f.INDEX AS item_index,
+    f.VALUE::STRING AS item_name
+FROM orders,
+  LATERAL FLATTEN(INPUT => order_data:items) f;
+
+-- Result:
+-- order_id | item_index | item_name
+-- 1        | 0          | laptop
+-- 1        | 1          | mouse
+-- 1        | 2          | keyboard
+-- 2        | 0          | monitor
+-- 2        | 1          | cable</code></pre>
+
+  <h3>Flattening Objects</h3>
+  <pre><code>-- Flatten object keys into rows
+CREATE OR REPLACE TABLE configs AS
+SELECT PARSE_JSON('{"timeout":30,"retries":3,"verbose":true}') AS settings;
+
+SELECT
+    f.KEY AS setting_name,
+    f.VALUE AS setting_value,
+    TYPEOF(f.VALUE) AS value_type
+FROM configs,
+  LATERAL FLATTEN(INPUT => settings) f;
+
+-- Result:
+-- setting_name | setting_value | value_type
+-- retries      | 3             | INTEGER
+-- timeout      | 30            | INTEGER
+-- verbose      | true          | BOOLEAN</code></pre>
+
+  <h3>OUTER => TRUE</h3>
+  <pre><code>-- Without OUTER: rows with NULL/empty arrays are excluded
+-- With OUTER => TRUE: they produce one row with NULLs
+
+SELECT
+    order_data:id::INT AS order_id,
+    f.VALUE::STRING AS item_name
+FROM orders,
+  LATERAL FLATTEN(INPUT => order_data:items, OUTER => TRUE) f;
+
+-- If an order has items: [] (empty array), OUTER => TRUE
+-- still produces a row with item_name = NULL</code></pre>
+
+  <div class="important">
+    <strong>Exam Alert:</strong> By default (<code>OUTER => FALSE</code>), FLATTEN excludes rows where the input is NULL or an empty array. Use <code>OUTER => TRUE</code> to preserve those rows (like a LEFT JOIN). This is a common exam question!
+  </div>
+
+  <h3>Flattening Nested Arrays of Objects</h3>
+  <pre><code>-- Complex nested structure
+CREATE OR REPLACE TABLE orders_v2 AS
+SELECT PARSE_JSON(column1) AS data FROM VALUES
+('{
+  "order_id": 101,
+  "customer": "Alice",
+  "items": [
+    {"product": "Laptop", "qty": 1, "price": 999.99},
+    {"product": "Mouse", "qty": 2, "price": 29.99}
+  ]
+}');
+
+-- Flatten and access nested object fields
+SELECT
+    data:order_id::INT AS order_id,
+    data:customer::STRING AS customer,
+    f.VALUE:product::STRING AS product,
+    f.VALUE:qty::INT AS quantity,
+    f.VALUE:price::FLOAT AS price
+FROM orders_v2,
+  LATERAL FLATTEN(INPUT => data:items) f;</code></pre>
+
+  <h3>Multiple FLATTEN (Nested Arrays)</h3>
+  <pre><code>-- Double-nested structure
+CREATE OR REPLACE TABLE departments AS
+SELECT PARSE_JSON(column1) AS dept FROM VALUES
+('{
+  "name": "Engineering",
+  "teams": [
+    {"team": "Backend", "members": ["Alice", "Bob"]},
+    {"team": "Frontend", "members": ["Carol", "Dave", "Eve"]}
+  ]
+}');
+
+-- Flatten teams, then flatten members within each team
+SELECT
+    dept:name::STRING AS department,
+    t.VALUE:team::STRING AS team_name,
+    m.VALUE::STRING AS member_name
+FROM departments,
+  LATERAL FLATTEN(INPUT => dept:teams) t,
+  LATERAL FLATTEN(INPUT => t.VALUE:members) m;</code></pre>
+
+  <h2 id="recursive-flatten">RECURSIVE Flatten</h2>
+
+  <pre><code>-- RECURSIVE => TRUE flattens ALL nested levels automatically
+CREATE OR REPLACE TABLE nested_data AS
+SELECT PARSE_JSON('{
+  "a": 1,
+  "b": {"c": 2, "d": {"e": 3}},
+  "f": [10, 20]
+}') AS data;
+
+-- Recursive flatten shows every leaf value
+SELECT
+    f.PATH AS full_path,
+    f.KEY AS key_name,
+    f.VALUE AS leaf_value,
+    TYPEOF(f.VALUE) AS value_type
+FROM nested_data,
+  LATERAL FLATTEN(INPUT => data, RECURSIVE => TRUE) f
+WHERE TYPEOF(f.VALUE) NOT IN ('OBJECT', 'ARRAY');
+
+-- Result:
+-- full_path | key_name | leaf_value | value_type
+-- a         | a        | 1          | INTEGER
+-- b.c       | c        | 2          | INTEGER
+-- b.d.e     | e        | 3          | INTEGER
+-- f[0]      | NULL     | 10         | INTEGER
+-- f[1]      | NULL     | 20         | INTEGER</code></pre>
+
+  <div class="important">
+    <strong>Exam Alert:</strong> <code>RECURSIVE => TRUE</code> traverses the entire nested structure. Without filtering, it produces rows for intermediate objects/arrays too. Filter with <code>WHERE TYPEOF(f.VALUE) NOT IN ('OBJECT','ARRAY')</code> to get only leaf values.
+  </div>
+
+  <h3>MODE Parameter</h3>
+  <pre><code>-- MODE controls what gets flattened
+-- MODE => 'BOTH' (default): flatten both arrays and objects
+-- MODE => 'ARRAY': only flatten arrays
+-- MODE => 'OBJECT': only flatten objects
+
+SELECT f.KEY, f.VALUE
+FROM nested_data,
+  LATERAL FLATTEN(INPUT => data, RECURSIVE => TRUE, MODE => 'OBJECT') f;
+-- Only object key-value pairs, arrays are treated as leaf values</code></pre>
+
+  <h2 id="construction-functions">Construction Functions</h2>
+
+  <h3>OBJECT_CONSTRUCT</h3>
+  <pre><code>-- Build an object from key-value pairs
+SELECT OBJECT_CONSTRUCT(
+    'name', 'Alice',
+    'age', 30,
+    'tags', ARRAY_CONSTRUCT('admin', 'user')
+);
+-- {"age":30,"name":"Alice","tags":["admin","user"]}
+
+-- OBJECT_CONSTRUCT automatically omits NULL values!
+SELECT OBJECT_CONSTRUCT(
+    'a', 1,
+    'b', NULL,
+    'c', 3
+);
+-- {"a":1,"c":3}   (b is omitted because value is NULL)
+
+-- Use OBJECT_CONSTRUCT_KEEP_NULL to preserve NULLs
+SELECT OBJECT_CONSTRUCT_KEEP_NULL(
+    'a', 1,
+    'b', NULL,
+    'c', 3
+);
+-- {"a":1,"b":null,"c":3}
+
+-- Build object from columns (star syntax)
+SELECT OBJECT_CONSTRUCT(*) FROM (
+    SELECT 'Alice' AS name, 30 AS age, 'Seattle' AS city
+);
+-- {"AGE":30,"CITY":"Seattle","NAME":"Alice"}</code></pre>
+
+  <h3>ARRAY_CONSTRUCT</h3>
+  <pre><code>-- Build arrays
+SELECT ARRAY_CONSTRUCT(1, 2, 3, 4, 5);           -- [1,2,3,4,5]
+SELECT ARRAY_CONSTRUCT('a', 'b', 'c');            -- ["a","b","c"]
+SELECT ARRAY_CONSTRUCT(1, 'two', TRUE, NULL);     -- [1,"two",true,undefined]
+
+-- ARRAY_CONSTRUCT_COMPACT: excludes NULLs
+SELECT ARRAY_CONSTRUCT_COMPACT(1, NULL, 3, NULL, 5);  -- [1,3,5]</code></pre>
+
+  <h3>OBJECT_INSERT, OBJECT_DELETE</h3>
+  <pre><code>-- OBJECT_INSERT: add or update a key
+SELECT OBJECT_INSERT(
+    PARSE_JSON('{"a":1,"b":2}'),
+    'c',           -- key to insert
+    3              -- value
+);
+-- {"a":1,"b":2,"c":3}
+
+-- Update existing key (4th arg = TRUE means update if exists)
+SELECT OBJECT_INSERT(
+    PARSE_JSON('{"a":1,"b":2}'),
+    'a',           -- existing key
+    99,            -- new value
+    TRUE           -- allow update
+);
+-- {"a":99,"b":2}
+
+-- OBJECT_DELETE: remove keys
+SELECT OBJECT_DELETE(
+    PARSE_JSON('{"a":1,"b":2,"c":3}'),
+    'b', 'c'      -- keys to remove
+);
+-- {"a":1}</code></pre>
+
+  <h2 id="aggregation-functions">Aggregation Functions</h2>
+
+  <h3>ARRAY_AGG</h3>
+  <pre><code>-- Aggregate rows into an array
+SELECT department, ARRAY_AGG(employee_name) AS members
+FROM employees
+GROUP BY department;
+-- Engineering | ["Alice","Bob","Carol"]
+-- Sales      | ["Dave","Eve"]
+
+-- With DISTINCT
+SELECT ARRAY_AGG(DISTINCT category) AS unique_categories
+FROM products;
+
+-- With ordering (WITHIN GROUP)
+SELECT department,
+    ARRAY_AGG(employee_name) WITHIN GROUP (ORDER BY hire_date) AS members_by_seniority
+FROM employees
+GROUP BY department;</code></pre>
+
+  <h3>OBJECT_AGG</h3>
+  <pre><code>-- Aggregate key-value pairs into an object
+SELECT OBJECT_AGG(setting_name, setting_value) AS all_settings
+FROM app_settings;
+-- {"timeout":"30","retries":"3","verbose":"true"}
+
+-- Build lookup object
+SELECT OBJECT_AGG(country_code, country_name) AS code_to_name
+FROM countries;
+-- {"US":"United States","GB":"United Kingdom",...}
+
+-- Per-group object aggregation
+SELECT category,
+    OBJECT_AGG(product_name, price::VARIANT) AS price_lookup
+FROM products
+GROUP BY category;</code></pre>
+
+  <div class="important">
+    <strong>Exam Alert:</strong> <code>OBJECT_AGG</code> requires the key to be a string and the value to be VARIANT. Cast non-VARIANT values explicitly: <code>OBJECT_AGG(key, value::VARIANT)</code>.
+  </div>
+
+  <h2 id="array-functions">Array Manipulation Functions</h2>
+
+  <h3>ARRAY_SIZE and ARRAY_CONTAINS</h3>
+  <pre><code>-- ARRAY_SIZE: count of elements
+SELECT ARRAY_SIZE(PARSE_JSON('[1,2,3,4,5]'));       -- 5
+SELECT ARRAY_SIZE(PARSE_JSON('[]'));                 -- 0
+SELECT ARRAY_SIZE(NULL);                            -- NULL
+
+-- ARRAY_CONTAINS: check membership
+SELECT ARRAY_CONTAINS('admin'::VARIANT, PARSE_JSON('["admin","user"]'));  -- TRUE
+SELECT ARRAY_CONTAINS(42::VARIANT, PARSE_JSON('[1,2,3]'));               -- FALSE
+
+-- Note: first arg is the value (VARIANT), second is the array</code></pre>
+
+  <h3>ARRAY_SLICE</h3>
+  <pre><code>-- ARRAY_SLICE(array, from, to)
+-- from: inclusive start index (0-based)
+-- to: exclusive end index
+SELECT ARRAY_SLICE(PARSE_JSON('[10,20,30,40,50]'), 1, 3);
+-- [20,30]  (indices 1 and 2)
+
+SELECT ARRAY_SLICE(PARSE_JSON('[10,20,30,40,50]'), 0, 2);
+-- [10,20]  (first 2 elements)
+
+-- Negative indices count from end
+SELECT ARRAY_SLICE(PARSE_JSON('[10,20,30,40,50]'), -2, 5);
+-- [40,50]  (last 2 elements)</code></pre>
+
+  <h3>ARRAY_APPEND, ARRAY_PREPEND, ARRAY_INSERT</h3>
+  <pre><code>-- ARRAY_APPEND: add to end
+SELECT ARRAY_APPEND(PARSE_JSON('[1,2,3]'), 4);      -- [1,2,3,4]
+
+-- ARRAY_PREPEND: add to beginning
+SELECT ARRAY_PREPEND(PARSE_JSON('[2,3,4]'), 1);     -- [1,2,3,4]
+
+-- ARRAY_INSERT: insert at specific position
+SELECT ARRAY_INSERT(PARSE_JSON('[1,2,4,5]'), 2, 3); -- [1,2,3,4,5]
+-- Inserts value 3 at index 2</code></pre>
+
+  <h3>ARRAY_CAT, ARRAY_COMPACT, ARRAY_DISTINCT</h3>
+  <pre><code>-- ARRAY_CAT: concatenate two arrays
+SELECT ARRAY_CAT(
+    PARSE_JSON('[1,2,3]'),
+    PARSE_JSON('[4,5,6]')
+);  -- [1,2,3,4,5,6]
+
+-- ARRAY_COMPACT: remove NULLs/undefined
+SELECT ARRAY_COMPACT(PARSE_JSON('[1,null,2,null,3]'));
+-- [1,2,3]
+
+-- ARRAY_DISTINCT: remove duplicates
+SELECT ARRAY_DISTINCT(PARSE_JSON('[1,2,2,3,3,3]'));
+-- [1,2,3]</code></pre>
+
+  <h3>ARRAYS_OVERLAP and ARRAY_INTERSECTION</h3>
+  <pre><code>-- ARRAYS_OVERLAP: check if any elements in common
+SELECT ARRAYS_OVERLAP(
+    PARSE_JSON('[1,2,3]'),
+    PARSE_JSON('[3,4,5]')
+);  -- TRUE
+
+-- ARRAY_INTERSECTION: elements in both arrays
+SELECT ARRAY_INTERSECTION(
+    PARSE_JSON('[1,2,3,4]'),
+    PARSE_JSON('[3,4,5,6]')
+);  -- [3,4]</code></pre>
+
+  <h2 id="nested-patterns">Nested Access Patterns</h2>
+
+  <h3>GET_PATH for Dynamic Access</h3>
+  <pre><code>-- GET_PATH navigates a dot-separated path
+SELECT GET_PATH(
+    PARSE_JSON('{"a":{"b":{"c":"deep_value"}}}'),
+    'a.b.c'
+);  -- "deep_value"
+
+-- Useful for parameterized queries
+SET path_var = 'address.city';
+SELECT GET_PATH(data, $path_var) FROM customers;
+
+-- Array access in path
+SELECT GET_PATH(
+    PARSE_JSON('{"items":[{"name":"first"},{"name":"second"}]}'),
+    'items[1].name'
+);  -- "second"</code></pre>
+
+  <h3>Complex Nested Pattern: Array of Arrays</h3>
+  <pre><code>-- Matrix / 2D array
+CREATE OR REPLACE TABLE matrices AS
+SELECT PARSE_JSON('{"matrix":[[1,2,3],[4,5,6],[7,8,9]]}') AS data;
+
+-- Access specific cell: row 1, col 2 (0-indexed)
+SELECT data:matrix[1][2]::INT;  -- 6
+
+-- Flatten 2D array to individual cells
+SELECT
+    row_idx.INDEX AS row_num,
+    cell.INDEX AS col_num,
+    cell.VALUE::INT AS cell_value
+FROM matrices,
+  LATERAL FLATTEN(INPUT => data:matrix) row_idx,
+  LATERAL FLATTEN(INPUT => row_idx.VALUE) cell;</code></pre>
+
+  <h3>Combining FLATTEN with JOINs</h3>
+  <pre><code>-- Flatten and join to a reference table
+CREATE OR REPLACE TABLE orders AS
+SELECT PARSE_JSON(column1) AS data FROM VALUES
+('{"id":1,"product_ids":[101,102,103]}'),
+('{"id":2,"product_ids":[102,104]}');
+
+CREATE OR REPLACE TABLE products AS
+SELECT * FROM VALUES
+(101, 'Laptop'), (102, 'Mouse'), (103, 'Keyboard'), (104, 'Monitor')
+AS t(product_id, product_name);
+
+-- Flatten then JOIN
+SELECT
+    o.data:id::INT AS order_id,
+    p.product_name
+FROM orders o,
+  LATERAL FLATTEN(INPUT => o.data:product_ids) f
+JOIN products p ON f.VALUE::INT = p.product_id;</code></pre>
+
+  <h3>Conditional Flattening</h3>
+  <pre><code>-- Only flatten when array is not empty
+SELECT
+    data:id::INT AS id,
+    COALESCE(f.VALUE::STRING, 'NO_TAGS') AS tag
+FROM my_table,
+  LATERAL FLATTEN(INPUT => data:tags, OUTER => TRUE) f;
+
+-- Filter within FLATTEN results
+SELECT
+    data:customer::STRING AS customer,
+    f.VALUE:product::STRING AS product,
+    f.VALUE:amount::FLOAT AS amount
+FROM orders,
+  LATERAL FLATTEN(INPUT => data:line_items) f
+WHERE f.VALUE:amount::FLOAT > 100;</code></pre>
+
+  <h2 id="performance">Performance Considerations</h2>
+
+  <h3>VARIANT Column Scanning vs Materialized Columns</h3>
+
+  <div class="card">
+    <div class="card-title">The Performance Tradeoff</div>
+    <p>Snowflake automatically optimizes VARIANT columns by detecting repeated paths and storing them in a columnar sub-structure. However, for frequently queried paths, explicitly materializing columns provides better performance.</p>
+  </div>
+
+  <table>
+    <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Pure VARIANT</strong></td>
+        <td>Flexible schema; no DDL changes for new fields; fast ingestion</td>
+        <td>Full scan of VARIANT for less-common paths; no explicit clustering; type casting at query time</td>
+      </tr>
+      <tr>
+        <td><strong>Materialized/Virtual Columns</strong></td>
+        <td>Typed; supports clustering keys; better pruning; faster aggregations</td>
+        <td>DDL changes needed; storage overhead; schema must be known upfront</td>
+      </tr>
+      <tr>
+        <td><strong>Hybrid (VARIANT + key columns)</strong></td>
+        <td>Best of both; frequently queried fields are fast; rare fields still accessible</td>
+        <td>Some redundancy; need to maintain extraction logic</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Materialized Column Pattern</h3>
+  <pre><code>-- Hybrid table: VARIANT for raw + typed columns for frequent access
+CREATE TABLE events_optimized (
+    event_id INTEGER AUTOINCREMENT,
+    raw_data VARIANT,
+    -- Materialized columns extracted from VARIANT
+    event_type STRING AS (raw_data:event_type::STRING),
+    user_id INTEGER AS (raw_data:user_id::INTEGER),
+    event_date DATE AS (raw_data:timestamp::DATE)
+);
+
+-- Now you can cluster on the typed columns
+ALTER TABLE events_optimized CLUSTER BY (event_date, event_type);</code></pre>
+
+  <div class="important">
+    <strong>Exam Alert:</strong> Snowflake creates internal "virtual columns" automatically for commonly accessed VARIANT paths, but explicit materialized/computed columns give you control over clustering, allow explicit data types, and provide consistently better query performance for those paths.
+  </div>
+
+  <h3>FLATTEN Performance Tips</h3>
+  <pre><code>-- BAD: Flatten in a subquery then filter (processes all rows)
+SELECT * FROM (
+    SELECT data:id::INT AS id, f.VALUE::STRING AS tag
+    FROM big_table, LATERAL FLATTEN(INPUT => data:tags) f
+)
+WHERE id = 12345;
+
+-- GOOD: Filter first, then flatten (fewer rows to explode)
+SELECT data:id::INT AS id, f.VALUE::STRING AS tag
+FROM big_table, LATERAL FLATTEN(INPUT => data:tags) f
+WHERE data:id::INT = 12345;
+
+-- GOOD: Use PATH parameter instead of chaining
+-- Instead of: FLATTEN(INPUT => data:level1:level2:array)
+-- Use: FLATTEN(INPUT => data, PATH => 'level1.level2.array')</code></pre>
+
+  <h2 id="best-practices">Best Practices</h2>
+
+  <h3>Loading Best Practices</h3>
+  <div class="card">
+    <ul>
+      <li><strong>Use STRIP_OUTER_ARRAY = TRUE</strong> for JSON files with array wrappers</li>
+      <li><strong>Validate before loading:</strong> Use <code>VALIDATION_MODE = 'RETURN_ERRORS'</code> in COPY INTO</li>
+      <li><strong>Size your files:</strong> 100-250 MB compressed is optimal for parallel loading</li>
+      <li><strong>Extract on load:</strong> Use COPY INTO with transformations to extract typed columns during ingestion</li>
+      <li><strong>MATCH_BY_COLUMN_NAME:</strong> Use for Parquet/Avro when target table has matching column names</li>
+    </ul>
+  </div>
+
+  <h3>Querying Best Practices</h3>
+  <div class="card">
+    <ul>
+      <li><strong>Always cast:</strong> Use <code>::TYPE</code> on VARIANT path expressions for correct comparison/sort behavior</li>
+      <li><strong>Use OUTER => TRUE</strong> when you need to preserve rows with empty/NULL arrays (LEFT JOIN behavior)</li>
+      <li><strong>Filter before FLATTEN:</strong> Reduce row count before exploding arrays</li>
+      <li><strong>Avoid RECURSIVE on large data:</strong> Use explicit paths for known structures</li>
+      <li><strong>Prefer GET_PATH over deep dot chains:</strong> <code>GET_PATH(data, 'a.b.c')</code> is more readable and allows parameterization</li>
+    </ul>
+  </div>
+
+  <h3>Schema Design Best Practices</h3>
+  <div class="card">
+    <ul>
+      <li><strong>Hybrid approach:</strong> Store raw VARIANT + extract frequently queried paths as typed columns</li>
+      <li><strong>Cluster on extracted columns:</strong> Use typed/materialized columns for clustering keys</li>
+      <li><strong>Separate concern tables:</strong> Don't store unrelated semi-structured data in one VARIANT column</li>
+      <li><strong>Consider array size:</strong> Very large arrays (1000+ elements) in a single value can slow FLATTEN operations</li>
+      <li><strong>Use views for abstraction:</strong> Create views that extract and type common paths for end users</li>
+    </ul>
+  </div>
+
+  <h3>NULL Handling Best Practices</h3>
+  <pre><code>-- Pattern: Safely handle both SQL NULL and JSON null
+SELECT
+    data:name::STRING AS name,         -- JSON null -> SQL NULL via cast
+    NVL(data:score::INT, 0) AS score,  -- Default for missing/null
+    CASE
+        WHEN data:status IS NULL THEN 'MISSING_KEY'
+        WHEN IS_NULL_VALUE(data:status) THEN 'EXPLICIT_NULL'
+        ELSE data:status::STRING
+    END AS status_detail
+FROM my_table;</code></pre>
+
+  <div class="tip">
+    <strong>Pro Tip:</strong> Create a reusable view that handles all the casting and NULL logic, so downstream consumers don't need to understand VARIANT access patterns.
+  </div>
+
+  <h2>Complete Function Reference</h2>
+
+  <table>
+    <thead><tr><th>Category</th><th>Function</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>Flatten</td><td><code>FLATTEN()</code></td><td>Explode array/object to rows</td></tr>
+      <tr><td>Construct</td><td><code>OBJECT_CONSTRUCT()</code></td><td>Build object from key-value pairs</td></tr>
+      <tr><td>Construct</td><td><code>OBJECT_CONSTRUCT_KEEP_NULL()</code></td><td>Build object preserving NULLs</td></tr>
+      <tr><td>Construct</td><td><code>ARRAY_CONSTRUCT()</code></td><td>Build array from values</td></tr>
+      <tr><td>Construct</td><td><code>ARRAY_CONSTRUCT_COMPACT()</code></td><td>Build array excluding NULLs</td></tr>
+      <tr><td>Modify</td><td><code>OBJECT_INSERT()</code></td><td>Add/update key in object</td></tr>
+      <tr><td>Modify</td><td><code>OBJECT_DELETE()</code></td><td>Remove keys from object</td></tr>
+      <tr><td>Modify</td><td><code>ARRAY_APPEND()</code></td><td>Add element to end</td></tr>
+      <tr><td>Modify</td><td><code>ARRAY_PREPEND()</code></td><td>Add element to beginning</td></tr>
+      <tr><td>Modify</td><td><code>ARRAY_INSERT()</code></td><td>Insert at position</td></tr>
+      <tr><td>Modify</td><td><code>ARRAY_CAT()</code></td><td>Concatenate arrays</td></tr>
+      <tr><td>Query</td><td><code>ARRAY_SIZE()</code></td><td>Count of elements</td></tr>
+      <tr><td>Query</td><td><code>ARRAY_CONTAINS()</code></td><td>Check membership</td></tr>
+      <tr><td>Query</td><td><code>ARRAY_SLICE()</code></td><td>Sub-array extraction</td></tr>
+      <tr><td>Query</td><td><code>ARRAY_POSITION()</code></td><td>Find index of element</td></tr>
+      <tr><td>Query</td><td><code>ARRAYS_OVERLAP()</code></td><td>Check common elements</td></tr>
+      <tr><td>Query</td><td><code>ARRAY_INTERSECTION()</code></td><td>Common elements</td></tr>
+      <tr><td>Query</td><td><code>ARRAY_DISTINCT()</code></td><td>Unique elements</td></tr>
+      <tr><td>Query</td><td><code>ARRAY_COMPACT()</code></td><td>Remove nulls</td></tr>
+      <tr><td>Aggregate</td><td><code>ARRAY_AGG()</code></td><td>Rows to array</td></tr>
+      <tr><td>Aggregate</td><td><code>OBJECT_AGG()</code></td><td>Rows to object</td></tr>
+      <tr><td>Navigate</td><td><code>GET()</code></td><td>Access by key/index</td></tr>
+      <tr><td>Navigate</td><td><code>GET_PATH()</code></td><td>Access by path string</td></tr>
+      <tr><td>Convert</td><td><code>OBJECT_KEYS()</code></td><td>Array of key names</td></tr>
+      <tr><td>Convert</td><td><code>ARRAY_TO_STRING()</code></td><td>Array to delimited string</td></tr>
+      <tr><td>Convert</td><td><code>SPLIT()</code></td><td>String to array by delimiter</td></tr>
+      <tr><td>Convert</td><td><code>STRTOK_TO_ARRAY()</code></td><td>Tokenize to array</td></tr>
+    </tbody>
+  </table>
+
+</body>
+</html>

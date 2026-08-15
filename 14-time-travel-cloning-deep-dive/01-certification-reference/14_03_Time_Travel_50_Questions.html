@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Time Travel, Fail-safe &amp; Cloning - 50 Questions</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Time Travel, Fail-safe & Cloning - 50 Questions",
+  "domain": "Snowflake Certification Prep",
+  "topic": "14 - Time Travel, Cloning Deep Dive",
+  "subtopic": "Time Travel Syntax, Fail-safe, UNDROP, Zero-Copy Cloning, Storage, Retention",
+  "questionCount": 50,
+  "format": "multiple-choice",
+  "generated": "2026-08-15"
+}
+</script>
+<style>
+:root {
+  --bg: light-dark(#f8f6fc, #1a1025);
+  --card-bg: light-dark(#ffffff, #2a1f3d);
+  --text: light-dark(#2d2040, #e8e0f4);
+  --text-muted: light-dark(#6b5b7e, #a89bbe);
+  --primary: light-dark(#7c3aed, #a78bfa);
+  --primary-dark: light-dark(#5b21b6, #7c3aed);
+  --border: light-dark(#e2d9f3, #3d2e56);
+  --option-bg: light-dark(#f3edff, #2f2347);
+  --option-hover: light-dark(#ede5ff, #3d2e5a);
+  --correct-bg: light-dark(#d1fae5, #064e3b);
+  --correct-border: light-dark(#10b981, #34d399);
+  --wrong-bg: light-dark(#fee2e2, #4c0519);
+  --wrong-border: light-dark(#ef4444, #f87171);
+  --score-bg: light-dark(#7c3aed, #4c1d95);
+  --explanation-bg: light-dark(#f5f0ff, #261a3d);
+}
+color-scheme: light dark;
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  padding-bottom: 80px;
+}
+.score-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--score-bg);
+  color: #fff;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  box-shadow: 0 2px 12px rgba(124,58,237,0.3);
+}
+.score-bar .stats { display: flex; gap: 20px; font-size: 0.95rem; }
+.score-bar .stats span { font-weight: 600; }
+.score-bar .correct-count { color: #a7f3d0; }
+.score-bar .wrong-count { color: #fca5a5; }
+.score-bar .pct { color: #e9d5ff; }
+.reset-btn {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.3);
+  padding: 8px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+.reset-btn:hover { background: rgba(255,255,255,0.25); }
+.container { max-width: 880px; margin: 0 auto; padding: 24px 16px; }
+h1 {
+  text-align: center;
+  font-size: 1.8rem;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+.subtitle { text-align: center; color: var(--text-muted); margin-bottom: 32px; font-size: 0.95rem; }
+.question-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+  transition: border-color 0.3s;
+}
+.question-card.answered-correct { border-color: var(--correct-border); }
+.question-card.answered-wrong { border-color: var(--wrong-border); }
+.q-header { display: flex; gap: 10px; margin-bottom: 14px; }
+.q-num {
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  min-width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.q-text { font-weight: 600; font-size: 1.02rem; }
+.options { display: flex; flex-direction: column; gap: 8px; }
+.option {
+  background: var(--option-bg);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.93rem;
+}
+.option:hover:not(.disabled) { background: var(--option-hover); border-color: var(--primary); }
+.option.disabled { cursor: default; }
+.option.correct { background: var(--correct-bg); border-color: var(--correct-border); }
+.option.wrong { background: var(--wrong-bg); border-color: var(--wrong-border); }
+.explanation {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: var(--explanation-bg);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  display: none;
+  border-left: 3px solid var(--primary);
+}
+.explanation.show { display: block; }
+</style>
+</head>
+<body>
+<div class="score-bar">
+  <div class="stats">
+    <span class="correct-count">Correct: 0</span>
+    <span class="wrong-count">Wrong: 0</span>
+    <span class="pct">0%</span>
+  </div>
+  <button class="reset-btn" id="resetBtn">Reset Quiz</button>
+</div>
+<div class="container">
+<h1>Time Travel, Fail-safe &amp; Cloning</h1>
+<p class="subtitle">50 Questions &bull; Snowflake Certification Prep</p>
+<div id="quiz"></div>
+</div>
+<script>
+const questions=[
+{q:"Which SQL clause retrieves data from a table as it existed at a specific timestamp?",o:["AT (TIMESTAMP => ...)","BEFORE (TIMESTAMP => ...)","AS OF (TIMESTAMP => ...)","HISTORY (TIMESTAMP => ...)"],a:0,e:"The AT clause with TIMESTAMP parameter returns data as it existed at the specified point in time."},
+{q:"What is the maximum Time Travel retention period for permanent tables in the Enterprise edition?",o:["1 day","7 days","45 days","90 days"],a:3,e:"Enterprise edition (and higher) supports up to 90 days of Time Travel for permanent tables."},
+{q:"What is the maximum Time Travel retention period in the Standard edition?",o:["0 days","1 day","7 days","14 days"],a:1,e:"Standard edition supports a maximum of 1 day (0 or 1) of Time Travel retention."},
+{q:"What is the fail-safe period for permanent tables?",o:["1 day","7 days","14 days","30 days"],a:1,e:"Fail-safe provides an additional 7-day period after Time Travel expires during which data may be recoverable by Snowflake support."},
+{q:"Which table type has NO fail-safe period?",o:["Permanent tables","Transient tables","External tables","Materialized views"],a:1,e:"Transient tables and temporary tables have 0 days of fail-safe, reducing storage costs but eliminating the safety net."},
+{q:"What is the BEFORE clause used for in Time Travel queries?",o:["To retrieve data before a specific statement executed","To set retention period before creating a table","To check data before fail-safe begins","To restore data before it was cloned"],a:0,e:"BEFORE (STATEMENT => 'query_id') returns data as it existed immediately before the specified statement executed."},
+{q:"Which parameter controls the Time Travel retention period for a table?",o:["TIME_TRAVEL_DAYS","DATA_RETENTION_TIME_IN_DAYS","RETENTION_PERIOD","TRAVEL_RETENTION_DAYS"],a:1,e:"DATA_RETENTION_TIME_IN_DAYS is the parameter that controls how many days of Time Travel history are maintained."},
+{q:"What happens when you UNDROP a table?",o:["It restores from fail-safe","It restores the most recently dropped version from Time Travel","It creates a clone of the last version","It triggers a data recovery request to Snowflake support"],a:1,e:"UNDROP restores the most recently dropped table from Time Travel. If the table was dropped within the retention period, it can be recovered."},
+{q:"Can you UNDROP a table if a new table with the same name already exists?",o:["Yes, the new table is automatically renamed","No, you must rename or drop the existing table first","Yes, both tables coexist with version numbers","No, UNDROP is permanently blocked"],a:1,e:"If a table with the same name exists, UNDROP will fail. You must rename or drop the current table before running UNDROP."},
+{q:"What does zero-copy cloning mean in Snowflake?",o:["Data is compressed to zero bytes during cloning","No physical data is copied; clone shares micro-partitions with source until modified","Data is replicated to zero-cost storage","The clone operation takes zero time"],a:1,e:"Zero-copy cloning creates metadata pointers to existing micro-partitions. No data is physically duplicated until changes are made to either the source or clone."},
+{q:"Which SQL command creates a zero-copy clone of a table?",o:["CREATE TABLE t2 COPY FROM t1","CREATE TABLE t2 CLONE t1","CREATE TABLE t2 AS SELECT * FROM t1","CLONE TABLE t1 INTO t2"],a:1,e:"CREATE TABLE ... CLONE is the correct syntax. CTAS (CREATE TABLE AS SELECT) creates a full physical copy, not a zero-copy clone."},
+{q:"When does a clone start incurring additional storage costs?",o:["Immediately upon creation","When the clone is queried","When data in the clone or source is modified","After 24 hours"],a:2,e:"Storage costs begin when micro-partitions diverge. Modified or added partitions in either the clone or source are stored independently."},
+{q:"Can you clone a database in Snowflake?",o:["No, only tables can be cloned","Yes, but only empty databases","Yes, all objects within the database are cloned","Yes, but only tables and views are included"],a:2,e:"CREATE DATABASE ... CLONE clones the entire database including schemas, tables, views, stages, file formats, sequences, and other objects."},
+{q:"What happens to privileges (grants) when you clone a database or schema?",o:["All grants are cloned automatically","Grants are not cloned; they must be re-applied","Only OWNERSHIP is cloned","Grants are cloned only for tables"],a:1,e:"By default, grants are NOT cloned. You must use COPY GRANTS or manually re-apply them. The exception is when cloning a database/schema, child object grants are preserved for the container."},
+{q:"Which AT sub-clause uses a query ID to travel back in time?",o:["AT (QUERY_ID => '...')","AT (STATEMENT => '...')","AT (OFFSET => ...)","AT (TRANSACTION => '...')"],a:1,e:"AT (STATEMENT => 'query_id') uses a specific query/statement ID to retrieve data as it existed at that point. Note: The parameter name is STATEMENT, not QUERY_ID."},
+{q:"What does AT (OFFSET => -300) mean?",o:["Go back 300 seconds from the current time","Go back 300 minutes from the current time","Go forward 300 seconds","Go back 300 milliseconds"],a:0,e:"OFFSET uses seconds. A negative value like -300 means 300 seconds (5 minutes) before the current time."},
+{q:"What is the Time Travel retention for temporary tables?",o:["0 or 1 day (regardless of edition)","Up to 90 days in Enterprise","7 days in all editions","Same as permanent tables"],a:0,e:"Temporary tables support only 0 or 1 day of Time Travel regardless of the Snowflake edition, similar to transient tables."},
+{q:"Which object types support zero-copy cloning?",o:["Only tables","Tables and schemas","Tables, schemas, and databases","All Snowflake objects including stages and pipes"],a:2,e:"Zero-copy cloning is supported for tables, schemas, and databases (and their contained objects). Stages, tasks, streams, and pipes within schemas are also cloned."},
+{q:"What is the fail-safe period for temporary tables?",o:["7 days","1 day","0 days","Same as permanent tables"],a:2,e:"Temporary tables have 0 days of fail-safe. They only exist for the duration of the session and have minimal data protection."},
+{q:"Can you set DATA_RETENTION_TIME_IN_DAYS to 0?",o:["No, minimum is 1 day","Yes, but only for transient and temporary tables","Yes, for any table type in any edition","Yes, for any table in Enterprise edition only"],a:1,e:"Setting retention to 0 is allowed for transient and temporary tables. Permanent tables in Enterprise+ have a minimum of 0 but it effectively disables Time Travel."},
+{q:"Who can recover data from fail-safe?",o:["Any user with ACCOUNTADMIN role","Only Snowflake support on a best-effort basis","The table owner role","Any user with SELECT privilege on the table"],a:1,e:"Fail-safe is managed exclusively by Snowflake. Data recovery from fail-safe requires contacting Snowflake support and is performed on a best-effort basis."},
+{q:"What is the total data protection window for a permanent table in Enterprise edition with 90-day retention?",o:["90 days","97 days","83 days","7 days"],a:1,e:"Total protection = Time Travel (90 days) + Fail-safe (7 days) = 97 days maximum."},
+{q:"Can you clone a table at a specific point in time?",o:["No, clones always reflect current state","Yes, using CREATE TABLE ... CLONE ... AT (...)","Yes, but only with BEFORE clause","Yes, but only within the last 24 hours"],a:1,e:"You can combine CLONE with Time Travel: CREATE TABLE t2 CLONE t1 AT (TIMESTAMP => ...) to clone a table as it existed at a past point."},
+{q:"What happens to streams on a table when the table is cloned?",o:["Streams are cloned with their current offset","Streams are not cloned","Streams are cloned but reset to the current position","Streams become invalid on the clone"],a:1,e:"Streams are not included when cloning a table. You must recreate streams on the cloned table if needed."},
+{q:"Which statement about UNDROP is correct?",o:["UNDROP works for tables, schemas, and databases","UNDROP only works for tables","UNDROP only works within fail-safe","UNDROP requires ACCOUNTADMIN role"],a:0,e:"UNDROP is supported for tables, schemas, and databases, restoring the most recently dropped version within the Time Travel retention period."},
+{q:"What is the minimum DATA_RETENTION_TIME_IN_DAYS for a permanent table in Enterprise edition?",o:["0 days","1 day","7 days","14 days"],a:0,e:"In Enterprise edition, permanent tables can be set to 0 days retention (disabling Time Travel) up to 90 days maximum."},
+{q:"When cloning a schema, which objects are NOT cloned?",o:["Tables","Views","External tables' underlying data","Sequences"],a:2,e:"While external table definitions are cloned, the underlying data in external storage is not cloned since Snowflake doesn't own it. The metadata references are preserved."},
+{q:"How does Time Travel storage cost work?",o:["Charged only for changed micro-partitions","Charged for the full table size for each retained day","No additional cost; included in base storage","Charged per query that uses Time Travel"],a:0,e:"Time Travel storage is charged for the micro-partitions that have been modified or deleted. Only the changed data contributes to Time Travel storage costs."},
+{q:"What happens if you drop and recreate a table within the retention period?",o:["The old table's Time Travel data is lost immediately","The old table moves to UNDROP history and is recoverable","Both versions exist simultaneously","The recreation fails because the name is reserved"],a:1,e:"The dropped table enters the Time Travel history. You can UNDROP it by first renaming the newly created table, then running UNDROP TABLE."},
+{q:"Which syntax retrieves a table's historical data before a specific transaction committed?",o:["AT (TIMESTAMP => txn_time)","BEFORE (TIMESTAMP => txn_time)","AT (TRANSACTION => 'txn_id')","BEFORE (STATEMENT => 'query_id')"],a:3,e:"BEFORE (STATEMENT => 'query_id') returns data immediately before that statement executed. For transaction-level, you'd reference the specific statement."},
+{q:"Can you extend the retention period of a table after data has already fallen off Time Travel?",o:["Yes, and it retroactively recovers the lost history","Yes, but only for future changes going forward","No, retention cannot be altered after table creation","No, but you can request fail-safe recovery"],a:1,e:"You can ALTER TABLE to increase DATA_RETENTION_TIME_IN_DAYS, but it only applies going forward. Data already past the old retention window is not recovered."},
+{q:"What privilege is needed to clone a table?",o:["OWNERSHIP on the source table","SELECT on the source table","CREATE TABLE on the target schema and SELECT on the source","CLONE privilege on the source table"],a:2,e:"Cloning requires CREATE TABLE privilege on the target schema plus SELECT privilege on the source table."},
+{q:"What is the default DATA_RETENTION_TIME_IN_DAYS for a newly created permanent table?",o:["0 days","1 day","7 days","90 days"],a:1,e:"The default retention period is 1 day for all table types unless explicitly set to a different value."},
+{q:"How does cloning interact with clustering keys?",o:["Clustering keys are not preserved in clones","Clustering keys are preserved but auto-clustering is disabled","Clustering keys and auto-clustering settings are both preserved","Clustering keys are preserved; reclustering starts automatically"],a:2,e:"When cloning a table, clustering keys and the automatic clustering configuration are preserved in the clone."},
+{q:"Can you UNDROP a table that was dropped more than 90 days ago (Enterprise edition)?",o:["Yes, fail-safe covers the gap","No, once Time Travel expires the table cannot be recovered with UNDROP","Yes, if the account has extended retention","No, unless you contact Snowflake support"],a:1,e:"UNDROP only works within the Time Travel retention period. Once that expires, UNDROP cannot recover the table. Fail-safe does not support UNDROP."},
+{q:"What is the storage overhead for a freshly cloned table with no modifications?",o:["50% of original table size","Same as original table","Nearly zero additional storage","Double the original storage for redundancy"],a:2,e:"A fresh clone uses virtually no additional storage because it shares the same micro-partitions with the source via metadata pointers."},
+{q:"Which edition supports 90-day Time Travel?",o:["Standard only","Enterprise and higher","Business Critical only","All editions"],a:1,e:"Enterprise edition and higher (Business Critical, VPS) support up to 90 days of Time Travel retention."},
+{q:"What happens to Time Travel data when a transient table is dropped?",o:["It is retained for 7 days in fail-safe","It is retained for the configured retention period (0 or 1 day)","It is immediately purged","It is moved to permanent storage"],a:1,e:"Transient tables retain Time Travel data for their configured period (0 or 1 day) after being dropped. There is no fail-safe period."},
+{q:"Can you run DML on a Time Travel query result?",o:["Yes, INSERT INTO ... SELECT from AT query is valid","No, Time Travel results are read-only snapshots that cannot be used in DML","Yes, but only with MERGE statements","No, you must clone first"],a:0,e:"You can use Time Travel queries as a source in DML. For example: INSERT INTO t1 SELECT * FROM t1 AT(OFFSET => -3600) WHERE ... to restore specific rows."},
+{q:"What happens to a clone's Time Travel history?",o:["It inherits the source table's full history","It starts with no history; Time Travel begins from the clone creation time","It shares history with the source until they diverge","It gets a compressed version of the source's history"],a:1,e:"A clone starts fresh with no Time Travel history of its own. Its Time Travel clock begins at the moment of clone creation."},
+{q:"Which parameter level takes precedence for DATA_RETENTION_TIME_IN_DAYS?",o:["Account > Database > Schema > Table","Table > Schema > Database > Account","They must all match","Only table-level setting matters"],a:1,e:"Object-level settings override container-level settings. A table's explicit retention overrides schema, which overrides database, which overrides account defaults."},
+{q:"What is the relationship between streams and Time Travel retention?",o:["Streams have their own independent retention","A stream becomes stale if its offset falls outside the source table's Time Travel retention","Streams bypass Time Travel entirely","Streams automatically extend the table's retention period"],a:1,e:"If the data change tracked by a stream's offset ages beyond the table's Time Travel retention, the stream becomes stale and cannot be consumed."},
+{q:"How can you prevent stream staleness?",o:["Set a higher DATA_RETENTION_TIME_IN_DAYS on the source table","Consume the stream more frequently","Recreate the stream periodically","Both A and B are valid strategies"],a:3,e:"Both increasing the table's retention period and consuming the stream regularly (before the offset expires) help prevent staleness."},
+{q:"Can you clone a shared database (from a data share)?",o:["Yes, with all data included","Yes, but only the structure without data","No, shared databases cannot be cloned","Yes, but only tables with SELECT granted"],a:2,e:"Databases created from shares cannot be cloned. You would need to replicate or copy the data into your own database first."},
+{q:"What is the CLONE syntax for a schema?",o:["CREATE SCHEMA s2 CLONE s1","CLONE SCHEMA s1 TO s2","CREATE SCHEMA s2 COPY s1","CREATE SCHEMA s2 FROM CLONE s1"],a:0,e:"The syntax is CREATE SCHEMA schema_name CLONE source_schema, following the same pattern as table and database cloning."},
+{q:"Which of these is NOT a valid Time Travel reference?",o:["AT (TIMESTAMP => '2024-01-01 10:00:00')","BEFORE (STATEMENT => '01abc-query-id')","AT (OFFSET => -600)","AT (SNAPSHOT => 'snap_id')"],a:3,e:"There is no SNAPSHOT sub-clause in Time Travel. Valid sub-clauses are TIMESTAMP, STATEMENT, and OFFSET for AT; TIMESTAMP and STATEMENT for BEFORE."},
+{q:"What is the fail-safe storage cost implication?",o:["Fail-safe storage is free","Fail-safe storage is billed at the same rate as active storage","Fail-safe storage is billed at a reduced rate","Fail-safe storage is billed at double the active rate"],a:1,e:"Fail-safe storage is charged at the standard storage rate. This means permanent tables with long retention can incur significant storage costs from both Time Travel and fail-safe."},
+{q:"Can you UNDROP a schema?",o:["No, only tables support UNDROP","Yes, using UNDROP SCHEMA schema_name","Yes, but only in Enterprise edition","Yes, but only if it contained no tables"],a:1,e:"UNDROP SCHEMA works similarly to UNDROP TABLE. It restores the most recently dropped schema along with its contents within the retention period."},
+{q:"When you clone a database, what happens to the clone's objects' privileges?",o:["All privileges from the source are automatically inherited","No privileges are cloned; only OWNERSHIP is set to the role that performed the clone","Object-level grants within the database are preserved","Privileges are cloned only for the database, not child objects"],a:2,e:"When cloning a database or schema, privileges on child objects (tables, views, etc.) are preserved. The database/schema-level grants themselves are not copied."},
+{q:"What does the IGNORE EDITION CHECK option do in relation to Time Travel?",o:["Allows Standard edition to use 90-day retention temporarily","Bypasses retention limits during account migration","Allows creating objects with retention settings that exceed the edition's capabilities","Disables Time Travel for specific queries"],a:2,e:"IGNORE EDITION CHECK can be used when migrating data or during development, allowing retention settings beyond what the edition normally permits. However, the actual retention enforcement still follows edition limits."},
+{q:"Which scenario correctly describes Time Travel storage consumption?",o:["A table with 100GB that has 5GB of daily changes uses ~5GB/day of Time Travel storage","A table with 100GB always uses 100GB/day of Time Travel storage","Time Travel storage equals the table size multiplied by retention days","Time Travel storage is only counted when queries reference historical data"],a:0,e:"Time Travel stores only the changed (old) micro-partitions. If 5GB changes daily, approximately 5GB per day is added to Time Travel storage, not the full table size."},
+{q:"What is the behavior when cloning a table that has a column with a DEFAULT sequence?",o:["The clone references the same sequence as the source","The clone gets its own independent copy of the sequence","The clone loses the DEFAULT expression","The sequence is shared but values diverge"],a:0,e:"The cloned table references the same sequence object. Both source and clone will draw from the same sequence unless you alter the clone to use a different one."}
+];
+
+const quiz=document.getElementById("quiz");
+let correct=0,wrong=0,answered=0;
+
+function render(){
+  quiz.innerHTML="";
+  questions.forEach((item,i)=>{
+    const card=document.createElement("div");
+    card.className="question-card";
+    card.dataset.index=i;
+    card.innerHTML=`<div class="q-header"><span class="q-num">${i+1}</span><span class="q-text">${item.q}</span></div><div class="options">${item.o.map((opt,oi)=>`<div class="option" data-qi="${i}" data-oi="${oi}">${opt}</div>`).join("")}</div><div class="explanation">${item.e}</div>`;
+    quiz.appendChild(card);
+  });
+}
+
+function updateScore(){
+  document.querySelector(".correct-count").textContent=`Correct: ${correct}`;
+  document.querySelector(".wrong-count").textContent=`Wrong: ${wrong}`;
+  const pct=answered?Math.round((correct/answered)*100):0;
+  document.querySelector(".pct").textContent=`${pct}% (${answered}/50)`;
+}
+
+quiz.addEventListener("click",function(ev){
+  const opt=ev.target.closest(".option");
+  if(!opt||opt.classList.contains("disabled"))return;
+  const qi=parseInt(opt.dataset.qi);
+  const oi=parseInt(opt.dataset.oi);
+  const card=opt.closest(".question-card");
+  const options=card.querySelectorAll(".option");
+  const explanation=card.querySelector(".explanation");
+
+  options.forEach(o=>o.classList.add("disabled"));
+
+  if(oi===questions[qi].a){
+    opt.classList.add("correct");
+    card.classList.add("answered-correct");
+    correct++;
+  } else {
+    opt.classList.add("wrong");
+    options[questions[qi].a].classList.add("correct");
+    card.classList.add("answered-wrong");
+    wrong++;
+  }
+  answered++;
+  explanation.classList.add("show");
+  updateScore();
+});
+
+document.getElementById("resetBtn").addEventListener("click",function(){
+  correct=0;wrong=0;answered=0;
+  updateScore();
+  render();
+});
+
+render();
+updateScore();
+</script>
+</body>
+</html>

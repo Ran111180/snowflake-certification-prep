@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>17.03 RBAC - 50 Practice Questions</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "50 interactive multiple-choice questions on Snowflake RBAC and Access Control for certification preparation",
+    "sections": [
+      { "id": "quiz-section", "title": "50 RBAC Questions", "dataSources": [], "producerNotes": "Interactive quiz with score tracking, green/red feedback, reset functionality" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+      max-width: 920px; margin: 0 auto; padding: 24px;
+      color: light-dark(#1f2937, #e5e7eb);
+      background: light-dark(#ffffff, #0f1117);
+      line-height: 1.7;
+    }
+    h1 { color: light-dark(#9f1239, #fb7185); border-bottom: 3px solid light-dark(#e11d48, #fb7185); padding-bottom: 10px; }
+    .score-bar {
+      position: sticky; top: 0; z-index: 100;
+      background: light-dark(#fff1f2, #1c1017);
+      border: 1px solid light-dark(#fecdd3, #4c1d2e);
+      border-radius: 8px; padding: 12px 20px; margin: 16px 0;
+      display: flex; justify-content: space-between; align-items: center;
+      box-shadow: 0 2px 8px light-dark(rgba(225,29,72,0.1), rgba(0,0,0,0.3));
+    }
+    .score-text { font-size: 1.1em; font-weight: 600; color: light-dark(#9f1239, #fb7185); }
+    .reset-btn {
+      background: light-dark(#e11d48, #9f1239); color: white;
+      border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;
+      font-weight: 600; font-size: 0.9em;
+    }
+    .reset-btn:hover { background: light-dark(#be123c, #e11d48); }
+    .question-card {
+      background: light-dark(#fff1f2, #1c1017);
+      border: 1px solid light-dark(#fecdd3, #4c1d2e);
+      border-radius: 8px; padding: 20px; margin: 20px 0;
+    }
+    .question-num { font-weight: 700; color: light-dark(#e11d48, #fb7185); margin-bottom: 8px; }
+    .question-text { font-size: 1.05em; margin-bottom: 14px; font-weight: 500; }
+    .options { list-style: none; padding: 0; }
+    .options li {
+      padding: 10px 14px; margin: 6px 0; border-radius: 6px; cursor: pointer;
+      border: 1px solid light-dark(#fecdd3, #4c1d2e);
+      background: light-dark(#ffffff, #0f1117);
+      transition: background 0.2s;
+    }
+    .options li:hover { background: light-dark(#ffe4e6, #2a0e1e); }
+    .options li.correct { background: light-dark(#dcfce7, #052e16); border-color: light-dark(#16a34a, #22c55e); color: light-dark(#166534, #86efac); }
+    .options li.incorrect { background: light-dark(#fef2f2, #2c0b0b); border-color: light-dark(#ef4444, #dc2626); color: light-dark(#991b1b, #fca5a5); }
+    .options li.disabled { pointer-events: none; opacity: 0.85; }
+    .explanation {
+      display: none; margin-top: 12px; padding: 12px;
+      background: light-dark(#f0fdf4, #052e16); border-radius: 6px;
+      border-left: 4px solid light-dark(#16a34a, #22c55e);
+      font-size: 0.95em;
+    }
+    .explanation.show { display: block; }
+    code {
+      background: light-dark(#ffe4e6, #2a0e1e); padding: 2px 5px; border-radius: 3px;
+      font-family: 'Cascadia Code', monospace; font-size: 0.88em;
+      color: light-dark(#9f1239, #fda4af);
+    }
+    .nav-links { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 16px; border-top: 1px solid light-dark(#fecdd3, #4c1d2e); }
+    .nav-links a { color: light-dark(#e11d48, #fb7185); text-decoration: none; font-weight: 500; }
+  </style>
+</head>
+<body>
+
+  <h1 id="quiz-section">17.03 RBAC & Access Control - 50 Questions</h1>
+
+  <div class="score-bar">
+    <span class="score-text">Score: <span id="score">0</span> / <span id="total">0</span> (<span id="pct">0</span>%)</span>
+    <button class="reset-btn" id="resetBtn">Reset Quiz</button>
+  </div>
+
+  <div id="quiz-container"></div>
+
+  <div class="nav-links">
+    <a href="17_02_RBAC_Theory_Part2.html">&larr; Previous: Theory Part 2</a>
+    <a href="17_04_RBAC_Edge_Cases.html">Next: Edge Cases &rarr;</a>
+  </div>
+
+  <script>
+    var questions = [
+      { q: "Which system-defined role in Snowflake encapsulates ALL other system roles?", o: ["SYSADMIN", "SECURITYADMIN", "ACCOUNTADMIN", "ORGADMIN"], a: 2, e: "ACCOUNTADMIN is the top-level role that encapsulates both SYSADMIN and SECURITYADMIN (which includes USERADMIN)." },
+      { q: "Which role has the MANAGE GRANTS privilege by default?", o: ["ACCOUNTADMIN only", "SECURITYADMIN", "SYSADMIN", "USERADMIN"], a: 1, e: "SECURITYADMIN has the MANAGE GRANTS privilege, allowing it to modify any grant in the account." },
+      { q: "What is the recommended best practice for custom roles in the hierarchy?", o: ["Grant them directly to ACCOUNTADMIN", "Grant them to SECURITYADMIN", "Grant them to SYSADMIN (directly or indirectly)", "Leave them standalone"], a: 2, e: "Custom roles should be granted to SYSADMIN so that system administrators can manage all objects created by those roles." },
+      { q: "Which role is automatically granted to EVERY user and EVERY role?", o: ["USERADMIN", "SYSADMIN", "PUBLIC", "ACCOUNTADMIN"], a: 2, e: "PUBLIC is automatically granted to all users and all roles and cannot be revoked." },
+      { q: "To query a table, what is the minimum set of privileges needed?", o: ["SELECT on table only", "USAGE on database + SELECT on table", "USAGE on database + USAGE on schema + SELECT on table", "USAGE on warehouse + USAGE on database + USAGE on schema + SELECT on table"], a: 3, e: "The full access chain requires: USAGE on warehouse + USAGE on database + USAGE on schema + SELECT on table." },
+      { q: "What happens to existing objects when you create a FUTURE grant?", o: ["They automatically receive the privilege", "They are not affected", "They are re-granted after 24 hours", "They must be refreshed"], a: 1, e: "FUTURE grants only apply to objects created AFTER the grant is established. Existing objects need separate GRANT ON ALL statements." },
+      { q: "Which statement is TRUE about Snowflake's RBAC model?", o: ["It supports DENY statements", "It uses attribute-based access control", "It has no DENY - only GRANT and REVOKE", "It supports time-based temporary grants natively"], a: 2, e: "Snowflake has NO DENY statement. Access is controlled exclusively through GRANT and REVOKE." },
+      { q: "How many roles can own a single object at the same time?", o: ["Unlimited", "Up to 3", "Exactly 1", "At least 2"], a: 2, e: "Every securable object has exactly ONE owner role at any time. Ownership can be transferred but not shared." },
+      { q: "What does WITH GRANT OPTION allow the grantee to do?", o: ["Modify the object", "Grant the same privilege to other roles", "Revoke the privilege from the grantor", "Create copies of the object"], a: 1, e: "WITH GRANT OPTION allows the grantee to re-grant that same privilege to other roles." },
+      { q: "Which privilege is needed on a warehouse to execute queries?", o: ["OPERATE", "MODIFY", "USAGE", "MONITOR"], a: 2, e: "USAGE on a warehouse allows the role to submit queries for execution on that warehouse." },
+      { q: "USERADMIN can do which of the following?", o: ["Create warehouses", "Create users and roles", "Grant privileges on tables", "Manage network policies"], a: 1, e: "USERADMIN has CREATE USER and CREATE ROLE privileges. It cannot manage objects or grant object-level privileges." },
+      { q: "What happens when you REVOKE SELECT with CASCADE?", o: ["Only the direct grantee loses the privilege", "The grantee and anyone they re-granted to also lose it", "All roles in the account lose SELECT", "The table is dropped"], a: 1, e: "CASCADE revokes the privilege from the specified role AND from any roles that received the privilege via re-granting (WITH GRANT OPTION chain)." },
+      { q: "In a managed access schema, who can grant privileges on objects?", o: ["The object owner", "Any role with SELECT", "Only the schema owner or a role with MANAGE GRANTS", "Any SYSADMIN user"], a: 2, e: "In a managed access schema, only the schema owner or a role with the global MANAGE GRANTS privilege can grant access to objects." },
+      { q: "Which is TRUE about database roles?", o: ["They can hold warehouse USAGE privilege", "They can be granted directly to users", "They can only hold privileges within their database", "They can access objects across databases"], a: 2, e: "Database roles are scoped to a single database and can only hold privileges on objects within that database." },
+      { q: "What is the effect of USE SECONDARY ROLES ALL?", o: ["Creates new secondary roles", "Activates all granted roles simultaneously for privilege union", "Switches to a different primary role", "Grants all system roles to the user"], a: 1, e: "USE SECONDARY ROLES ALL activates all of a user's granted roles as secondary, providing the union of all their privileges." },
+      { q: "When schema-level and database-level FUTURE grants conflict for the same object type and role, which wins?", o: ["Database-level always wins", "Schema-level overrides database-level", "Both apply simultaneously", "The most recent one wins"], a: 1, e: "Schema-level FUTURE grants override database-level FUTURE grants for the same object type and target role." },
+      { q: "Which operation requires ACCOUNTADMIN?", o: ["Creating a table", "Creating a resource monitor", "Creating a custom role", "Granting SELECT on a table"], a: 1, e: "Resource monitors can only be created by ACCOUNTADMIN. They monitor credit usage and can suspend warehouses." },
+      { q: "What privilege is needed to create a table in a schema?", o: ["CREATE TABLE on the schema", "INSERT on the schema", "OWNERSHIP on the database", "USAGE on the table"], a: 0, e: "The CREATE TABLE privilege on the schema is required to create new tables within that schema." },
+      { q: "A network policy is applied to both the account and a user. Which takes precedence?", o: ["Account-level policy", "User-level policy takes precedence", "Both are evaluated together (union)", "The most restrictive one"], a: 1, e: "User-level network policies take precedence over account-level network policies." },
+      { q: "Which authentication method is recommended for service accounts?", o: ["Password only", "Password + MFA", "Key-pair authentication", "SSO/SAML"], a: 2, e: "Key-pair authentication is recommended for service accounts as it avoids password exposure and supports rotation." },
+      { q: "What does GRANT OWNERSHIP ... COPY CURRENT GRANTS do?", o: ["Copies the role's other grants", "Preserves all existing privilege grants on the object during transfer", "Creates a copy of the object", "Grants ownership to multiple roles"], a: 1, e: "COPY CURRENT GRANTS preserves all existing privilege grants on the object when transferring ownership to a new role." },
+      { q: "Can you create a circular role hierarchy (Role A → Role B → Role A)?", o: ["Yes, it enables shared privileges", "Yes, but only for system roles", "No, Snowflake prevents circular grants", "Yes, but it requires ACCOUNTADMIN"], a: 2, e: "Snowflake prevents circular role grants. You will get an error if you try to create a cycle in the role hierarchy." },
+      { q: "Which privilege allows starting and stopping a warehouse?", o: ["USAGE", "OPERATE", "MODIFY", "MONITOR"], a: 1, e: "OPERATE allows starting, stopping, suspending, and resuming a warehouse." },
+      { q: "What is the IMPORTED PRIVILEGES privilege used for?", o: ["Importing data from files", "Accessing objects in a shared database", "Importing roles from another account", "Loading external functions"], a: 1, e: "IMPORTED PRIVILEGES is granted on a shared database to allow a role to access all objects in that shared database." },
+      { q: "Which is NOT a valid table privilege in Snowflake?", o: ["SELECT", "TRUNCATE", "EXECUTE", "DELETE"], a: 2, e: "EXECUTE is not a table privilege. It applies to stored procedures. Valid table privileges include SELECT, INSERT, UPDATE, DELETE, TRUNCATE, and REFERENCES." },
+      { q: "How do you enable managed access on an existing schema?", o: ["ALTER SCHEMA ... ENABLE MANAGED ACCESS", "CREATE SCHEMA ... WITH MANAGED ACCESS", "GRANT MANAGED ACCESS ON SCHEMA ...", "SET MANAGED_ACCESS = TRUE on schema"], a: 0, e: "ALTER SCHEMA schema_name ENABLE MANAGED ACCESS converts an existing schema to a managed access schema." },
+      { q: "Which role can revoke privileges granted by ACCOUNTADMIN?", o: ["Only ACCOUNTADMIN itself", "SECURITYADMIN (via MANAGE GRANTS)", "SYSADMIN", "No role can do this"], a: 1, e: "SECURITYADMIN has MANAGE GRANTS which allows it to modify or revoke ANY grant in the account, including those made by ACCOUNTADMIN." },
+      { q: "What happens to objects owned by a role when that role is dropped?", o: ["Objects are dropped too", "Ownership transfers to PUBLIC", "The DROP fails unless ownership is transferred first", "Objects become ownerless"], a: 2, e: "You cannot drop a role that owns objects. You must first transfer ownership of all objects to another role using GRANT OWNERSHIP." },
+      { q: "Which of these can a database role be granted to?", o: ["A user directly", "Another database role in a different database", "An account-level role", "A share only"], a: 2, e: "Database roles can be granted to account-level roles or other database roles within the same database. They cannot be directly granted to users." },
+      { q: "What does SHOW GRANTS TO ROLE analyst_role display?", o: ["Which users have the analyst_role", "What privileges analyst_role has", "Who granted the analyst_role", "What objects analyst_role owns"], a: 1, e: "SHOW GRANTS TO ROLE shows all privileges that have been granted to the specified role." },
+      { q: "Can a user have multiple roles active simultaneously?", o: ["No, only one role at a time", "Yes, via USE SECONDARY ROLES ALL", "Yes, all roles are always active", "Only in Enterprise Edition"], a: 1, e: "With USE SECONDARY ROLES ALL, a user can activate all granted roles simultaneously, getting the union of all their privileges." },
+      { q: "Which is the correct order of privilege evaluation for table access?", o: ["Schema → Database → Warehouse → Table", "Warehouse → Database → Schema → Table", "Table → Schema → Database → Warehouse", "Database → Warehouse → Schema → Table"], a: 1, e: "The access chain is: Warehouse USAGE → Database USAGE → Schema USAGE → Object privilege (e.g., SELECT on table)." },
+      { q: "What MFA provider does Snowflake use natively?", o: ["Google Authenticator", "Microsoft Authenticator", "Duo Security", "Authy"], a: 2, e: "Snowflake uses Duo Security for native MFA, delivering push notifications to enrolled devices." },
+      { q: "A FUTURE GRANT on tables in schema S is set. You clone schema S. Do the FUTURE grants apply in the cloned schema?", o: ["Yes, FUTURE grants are cloned too", "No, FUTURE grants are NOT cloned", "Only if the clone is in the same database", "Only for the first 24 hours"], a: 1, e: "FUTURE grants are NOT cloned. The cloned schema needs its own FUTURE grants to be established separately." },
+      { q: "Which privilege allows changing warehouse size?", o: ["OPERATE", "USAGE", "MODIFY", "OWNERSHIP only"], a: 2, e: "MODIFY allows changing warehouse properties including size, auto-suspend time, and other settings." },
+      { q: "What happens if no network policy is set on an account?", o: ["No one can connect", "Only internal IPs can connect", "All IP addresses are allowed", "Only ACCOUNTADMIN can connect"], a: 2, e: "If no network policy is configured, all IP addresses are allowed to connect to the Snowflake account." },
+      { q: "Which command shows FUTURE grants defined in a schema?", o: ["SHOW GRANTS IN SCHEMA", "SHOW FUTURE GRANTS IN SCHEMA schema_name", "DESCRIBE SCHEMA", "LIST GRANTS FUTURE schema_name"], a: 1, e: "SHOW FUTURE GRANTS IN SCHEMA schema_name displays all FUTURE grants configured for that schema." },
+      { q: "In key-pair authentication, how many public keys can be active for a user?", o: ["Only 1", "Up to 2 (for rotation)", "Up to 5", "Unlimited"], a: 1, e: "Snowflake supports up to 2 active public keys per user (RSA_PUBLIC_KEY and RSA_PUBLIC_KEY_2) to enable seamless key rotation." },
+      { q: "What is the PRIMARY role used for when secondary roles are active?", o: ["Nothing - it is ignored", "Determines object ownership for CREATE statements", "Only for billing purposes", "It becomes read-only"], a: 1, e: "When secondary roles are active, the primary role determines ownership of newly created objects. The session uses the union of all role privileges." },
+      { q: "Which is TRUE about the PUBLIC role?", o: ["It can be dropped by ACCOUNTADMIN", "Privileges can be revoked FROM PUBLIC", "It cannot be revoked from any user", "It must be explicitly granted to new users"], a: 2, e: "PUBLIC cannot be revoked from any user or role. It is permanently and implicitly granted to everyone. However, you CAN revoke privileges that were granted TO the PUBLIC role." },
+      { q: "What type of OAuth does Snowflake's built-in OAuth server provide?", o: ["External OAuth", "Snowflake OAuth (native)", "OpenID Connect only", "SAML-based OAuth"], a: 1, e: "Snowflake OAuth is the built-in OAuth server for custom client applications. External OAuth integrates with third-party providers like Azure AD or Okta." },
+      { q: "You grant SELECT to role A WITH GRANT OPTION. Role A grants SELECT to role B. You revoke SELECT from role A without CASCADE. What happens to role B?", o: ["Role B keeps SELECT", "Role B loses SELECT", "Role B gets an error on next query", "The revoke fails"], a: 0, e: "Without CASCADE, only Role A loses the privilege. Role B retains the SELECT privilege that was granted to it." },
+      { q: "Which object privilege means full control including ability to DROP the object?", o: ["ALL PRIVILEGES", "FULL_CONTROL", "OWNERSHIP", "MANAGE"], a: 2, e: "OWNERSHIP provides full control over an object, including the ability to drop it, alter it, and grant privileges on it to other roles." },
+      { q: "What is SCIM used for in Snowflake?", o: ["Creating shares", "Automated user and group provisioning from IdP", "Managing warehouse sizes", "Encrypting data"], a: 1, e: "SCIM (System for Cross-domain Identity Management) automates user and group (role) provisioning and deprovisioning from an identity provider." },
+      { q: "Which statement about GRANT ROLE is correct?", o: ["A role can only be granted to one user", "A role can be granted to multiple users AND other roles", "Roles can only be granted by ACCOUNTADMIN", "Granting a role requires OWNERSHIP on that role"], a: 1, e: "A role can be granted to multiple users and to other roles. The granting role needs OWNERSHIP of the role being granted, or MANAGE GRANTS privilege." },
+      { q: "What is the minimum RSA key size for key-pair authentication?", o: ["1024-bit", "2048-bit", "4096-bit", "512-bit"], a: 1, e: "Snowflake requires a minimum 2048-bit RSA key for key-pair authentication." },
+      { q: "In Snowflake SAML SSO, Snowflake acts as the:", o: ["Identity Provider (IdP)", "Service Provider (SP)", "Authorization Server", "Token Issuer"], a: 1, e: "In SAML SSO configuration, Snowflake is the Service Provider (SP) and the customer's system (Okta, Azure AD, etc.) is the Identity Provider (IdP)." },
+      { q: "Which system role should you use for day-to-day warehouse and database management?", o: ["ACCOUNTADMIN", "SYSADMIN", "SECURITYADMIN", "USERADMIN"], a: 1, e: "SYSADMIN is designed for day-to-day object management (warehouses, databases). ACCOUNTADMIN should only be used when absolutely necessary." },
+      { q: "You create a table using ROLE A. Who owns the table?", o: ["The user who created it", "ROLE A", "SYSADMIN", "The schema owner"], a: 1, e: "Objects are owned by the ROLE that was active when the object was created, not by the user personally." },
+      { q: "What does GRANT ALL PRIVILEGES ON TABLE t TO ROLE r do?", o: ["Grants OWNERSHIP", "Grants all privileges EXCEPT ownership", "Grants SELECT only", "Makes the role a co-owner"], a: 1, e: "GRANT ALL PRIVILEGES grants all available privileges on the object EXCEPT OWNERSHIP. Ownership must be transferred separately." }
+    ];
+
+    var score = 0;
+    var answered = 0;
+    var container = document.getElementById('quiz-container');
+
+    function render() {
+      container.innerHTML = '';
+      questions.forEach(function(item, idx) {
+        var card = document.createElement('div');
+        card.className = 'question-card';
+        card.id = 'q' + idx;
+        var optionsHtml = '';
+        item.o.forEach(function(opt, oi) {
+          optionsHtml += '<li data-q="' + idx + '" data-o="' + oi + '">' + String.fromCharCode(65 + oi) + '. ' + opt + '</li>';
+        });
+        card.innerHTML = '<div class="question-num">Question ' + (idx + 1) + ' of 50</div>' +
+          '<div class="question-text">' + item.q + '</div>' +
+          '<ul class="options">' + optionsHtml + '</ul>' +
+          '<div class="explanation" id="exp' + idx + '">' + item.e + '</div>';
+        container.appendChild(card);
+      });
+      attachListeners();
+    }
+
+    function attachListeners() {
+      var items = document.querySelectorAll('.options li');
+      items.forEach(function(li) {
+        li.addEventListener('click', function() {
+          var qIdx = parseInt(this.getAttribute('data-q'));
+          var oIdx = parseInt(this.getAttribute('data-o'));
+          var siblings = this.parentElement.querySelectorAll('li');
+          if (siblings[0].classList.contains('disabled')) return;
+          answered++;
+          var correct = questions[qIdx].a === oIdx;
+          if (correct) { score++; this.classList.add('correct'); }
+          else { this.classList.add('incorrect'); siblings[questions[qIdx].a].classList.add('correct'); }
+          siblings.forEach(function(s) { s.classList.add('disabled'); });
+          document.getElementById('exp' + qIdx).classList.add('show');
+          updateScore();
+        });
+      });
+    }
+
+    function updateScore() {
+      document.getElementById('score').textContent = score;
+      document.getElementById('total').textContent = answered;
+      document.getElementById('pct').textContent = answered > 0 ? Math.round(score / answered * 100) : 0;
+    }
+
+    document.getElementById('resetBtn').addEventListener('click', function() {
+      score = 0; answered = 0; updateScore(); render();
+    });
+
+    render();
+  </script>
+
+</body>
+</html>

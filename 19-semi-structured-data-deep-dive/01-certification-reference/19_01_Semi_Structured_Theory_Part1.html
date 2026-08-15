@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>19.01 Semi-Structured Data Theory Part 1 - Fundamentals</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Snowflake certification study guide - Semi-Structured Data fundamentals covering VARIANT, OBJECT, ARRAY types, access patterns, parsing functions, and loading semi-structured data",
+    "sections": [
+      { "id": "variant-type", "title": "VARIANT Data Type", "dataSources": [], "producerNotes": "Core reference for VARIANT type characteristics" },
+      { "id": "object-array", "title": "OBJECT and ARRAY Types", "dataSources": [], "producerNotes": "Companion types to VARIANT" },
+      { "id": "access-patterns", "title": "Access Patterns", "dataSources": [], "producerNotes": "Dot notation and bracket notation" },
+      { "id": "parsing-functions", "title": "Parsing Functions", "dataSources": [], "producerNotes": "PARSE_JSON, TRY_PARSE_JSON, casting, TYPEOF" },
+      { "id": "loading-semi-structured", "title": "Loading Semi-Structured Data", "dataSources": [], "producerNotes": "JSON, XML, Avro, Parquet loading patterns" },
+      { "id": "features", "title": "15 Key Features", "dataSources": [], "producerNotes": "Feature summary for certification" },
+      { "id": "limitations", "title": "15 Key Limitations", "dataSources": [], "producerNotes": "Limitation summary for certification" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+      max-width: 920px; margin: 0 auto; padding: 32px 24px;
+      color: light-dark(#1e293b, #e2e8f0);
+      background: light-dark(#ffffff, #0f172a);
+      line-height: 1.7;
+    }
+    h1 { color: light-dark(#0e7490, #67e8f9); border-bottom: 3px solid light-dark(#0e7490, #67e8f9); padding-bottom: 12px; margin-bottom: 8px; }
+    h2 { color: light-dark(#0891b2, #22d3ee); margin-top: 48px; border-left: 4px solid light-dark(#0891b2, #22d3ee); padding-left: 12px; }
+    h3 { color: light-dark(#0e7490, #a5f3fc); margin-top: 28px; }
+    a { color: light-dark(#0891b2, #67e8f9); }
+    code {
+      background: light-dark(#ecfeff, #164e63);
+      color: light-dark(#155e75, #a5f3fc);
+      padding: 2px 6px; border-radius: 4px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.9em;
+    }
+    pre {
+      background: light-dark(#f0fdfa, #0c4a6e);
+      border: 1px solid light-dark(#a5f3fc, #155e75);
+      border-radius: 8px; padding: 16px;
+      overflow-x: auto; font-size: 0.88em;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: light-dark(#0f172a, #e0f2fe); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { border: 1px solid light-dark(#a5f3fc, #164e63); padding: 10px 14px; text-align: left; }
+    th { background: light-dark(#ecfeff, #0c4a6e); font-weight: 600; color: light-dark(#0e7490, #67e8f9); }
+    tr:nth-child(even) { background: light-dark(#f0fdfa, #082f49); }
+    .card {
+      background: light-dark(#ecfeff, #0c4a6e);
+      border: 1px solid light-dark(#a5f3fc, #155e75);
+      border-radius: 10px; padding: 20px; margin: 20px 0;
+    }
+    .card-title { font-weight: 700; color: light-dark(#0e7490, #67e8f9); margin-bottom: 8px; font-size: 1.05em; }
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.78em; font-weight: 600;
+      background: light-dark(#06b6d4, #0e7490); color: white; margin-right: 6px;
+    }
+    .important {
+      background: light-dark(#fff7ed, #431407);
+      border-left: 4px solid light-dark(#f97316, #fb923c);
+      padding: 12px 16px; margin: 16px 0; border-radius: 0 8px 8px 0;
+    }
+    .important strong { color: light-dark(#c2410c, #fdba74); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+    @media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
+    .feature-list { list-style: none; padding: 0; }
+    .feature-list li { padding: 8px 0; border-bottom: 1px solid light-dark(#e0f2fe, #164e63); }
+    .feature-list li::before { content: "✓ "; color: light-dark(#0891b2, #22d3ee); font-weight: bold; }
+    .limit-list { list-style: none; padding: 0; }
+    .limit-list li { padding: 8px 0; border-bottom: 1px solid light-dark(#e0f2fe, #164e63); }
+    .limit-list li::before { content: "⚠ "; color: light-dark(#d97706, #fbbf24); }
+    .subtitle { color: light-dark(#64748b, #94a3b8); font-size: 1.05em; margin-top: 0; }
+  </style>
+</head>
+<body>
+
+  <h1>19.01 Semi-Structured Data Theory - Part 1</h1>
+  <p class="subtitle">Fundamentals: VARIANT, OBJECT, ARRAY, Access Patterns, Parsing, and Loading</p>
+
+  <h2 id="variant-type">VARIANT Data Type</h2>
+
+  <div class="card">
+    <div class="card-title">What is VARIANT?</div>
+    <p>VARIANT is Snowflake's universal semi-structured data type that can store any value: a JSON object, an array, a scalar (string, number, boolean), or NULL. It is stored internally in an efficient columnar format optimized for both storage and query performance.</p>
+  </div>
+
+  <h3>Key Characteristics</h3>
+  <table>
+    <thead><tr><th>Property</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr><td>Maximum size per value</td><td>16 MB (compressed)</td></tr>
+      <tr><td>Internal storage</td><td>Columnar format with metadata for frequent paths</td></tr>
+      <tr><td>NULL representation</td><td>SQL NULL (absent key) vs JSON null (explicit null value in document)</td></tr>
+      <tr><td>Type flexibility</td><td>Can hold objects, arrays, strings, numbers, booleans, dates, timestamps, binary</td></tr>
+      <tr><td>Schema</td><td>Schema-on-read - no predefined structure required</td></tr>
+      <tr><td>Compression</td><td>Automatic columnar compression applied</td></tr>
+      <tr><td>Micro-partition optimization</td><td>Snowflake auto-detects repeated paths and optimizes storage</td></tr>
+    </tbody>
+  </table>
+
+  <div class="important">
+    <strong>Exam Alert:</strong> VARIANT stores data in a proprietary columnar format, NOT as plain text JSON. Snowflake automatically extracts and optimizes frequently accessed paths for columnar scanning.
+  </div>
+
+  <h3>Declaring VARIANT Columns</h3>
+  <pre><code>-- Simple table with VARIANT column
+CREATE TABLE events (
+    event_id INTEGER AUTOINCREMENT,
+    event_time TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
+    payload VARIANT  -- Stores any semi-structured data
+);
+
+-- VARIANT in CTAS
+CREATE TABLE parsed_logs AS
+SELECT PARSE_JSON(raw_json) AS data
+FROM raw_logs;</code></pre>
+
+  <h2 id="object-array">OBJECT and ARRAY Types</h2>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">OBJECT</div>
+      <p>A collection of key-value pairs (like a JSON object / dictionary). Keys are always strings; values can be any VARIANT-compatible type.</p>
+      <pre><code>-- Construct an OBJECT
+SELECT OBJECT_CONSTRUCT(
+  'name', 'Alice',
+  'age', 30,
+  'active', TRUE
+) AS obj;</code></pre>
+    </div>
+    <div class="card">
+      <div class="card-title">ARRAY</div>
+      <p>An ordered sequence of values (like a JSON array / list). Elements can be any VARIANT-compatible type including nested objects and arrays.</p>
+      <pre><code>-- Construct an ARRAY
+SELECT ARRAY_CONSTRUCT(
+  'red', 'green', 'blue'
+) AS colors;</code></pre>
+    </div>
+  </div>
+
+  <h3>Type Comparison</h3>
+  <table>
+    <thead><tr><th>Type</th><th>Contains</th><th>Access By</th><th>Constructor</th></tr></thead>
+    <tbody>
+      <tr><td><code>VARIANT</code></td><td>Any single value (scalar, object, or array)</td><td>Depends on content</td><td><code>PARSE_JSON()</code>, <code>TO_VARIANT()</code></td></tr>
+      <tr><td><code>OBJECT</code></td><td>Key-value pairs (unordered)</td><td>Key name (string)</td><td><code>OBJECT_CONSTRUCT()</code></td></tr>
+      <tr><td><code>ARRAY</code></td><td>Ordered elements (0-indexed)</td><td>Numeric index</td><td><code>ARRAY_CONSTRUCT()</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="important">
+    <strong>Exam Alert:</strong> OBJECT, ARRAY, and VARIANT are three distinct data types in Snowflake, but VARIANT can <em>contain</em> either an object or an array. When you declare a column as VARIANT, it can store any of them.
+  </div>
+
+  <h2 id="access-patterns">Access Patterns</h2>
+
+  <h3>Dot Notation</h3>
+  <p>The most common way to access nested elements. Keys are case-insensitive when using dot notation (Snowflake converts to uppercase internally).</p>
+  <pre><code>-- Given: payload = {"name": "Alice", "address": {"city": "Seattle"}}
+SELECT
+    payload:name,                    -- Top-level key
+    payload:address.city,            -- Nested key
+    payload:address.city::STRING     -- Cast to STRING
+FROM events;</code></pre>
+
+  <div class="important">
+    <strong>Critical Exam Point:</strong> Dot notation traversal uses <strong>colon (:)</strong> for the first level, then <strong>dot (.)</strong> for deeper levels. Example: <code>col:key1.key2.key3</code>. The colon separates the column name from the path.
+  </div>
+
+  <h3>Bracket Notation</h3>
+  <p>Required for case-sensitive keys, keys with spaces/special characters, and array index access.</p>
+  <pre><code>-- Case-sensitive access (preserves exact key casing)
+SELECT
+    payload['Name'],                 -- Exact case match
+    payload['first name'],           -- Key with space
+    payload['items'][0],             -- First array element
+    payload['items'][0]['price']     -- Nested in array element
+FROM events;</code></pre>
+
+  <h3>Access Notation Comparison</h3>
+  <table>
+    <thead><tr><th>Notation</th><th>Syntax</th><th>Case Sensitivity</th><th>Use Case</th></tr></thead>
+    <tbody>
+      <tr><td>Colon (first level)</td><td><code>col:key</code></td><td>Case-insensitive</td><td>Top-level key access</td></tr>
+      <tr><td>Dot (nested)</td><td><code>col:key.subkey</code></td><td>Case-insensitive</td><td>Nested traversal</td></tr>
+      <tr><td>Bracket (string)</td><td><code>col['Key']</code></td><td>Case-sensitive</td><td>Special chars, exact case</td></tr>
+      <tr><td>Bracket (index)</td><td><code>col[0]</code></td><td>N/A</td><td>Array element access</td></tr>
+    </tbody>
+  </table>
+
+  <div class="important">
+    <strong>Exam Alert:</strong> When using dot notation, Snowflake matches keys <strong>case-insensitively</strong>. If your JSON has mixed-case keys like <code>"Name"</code> and <code>"name"</code>, you MUST use bracket notation with quotes to distinguish them: <code>col['Name']</code> vs <code>col['name']</code>.
+  </div>
+
+  <h3>GET and GET_PATH Functions</h3>
+  <pre><code>-- GET function - access by key or index
+SELECT GET(payload, 'name') FROM events;        -- By key
+SELECT GET(payload, 0) FROM events;             -- By index (if array)
+
+-- GET_PATH - navigate a path expression
+SELECT GET_PATH(payload, 'address.city') FROM events;
+-- Equivalent to payload:address.city
+
+-- Useful when path is dynamic
+SELECT GET_PATH(payload, path_column) FROM events;</code></pre>
+
+  <h2 id="parsing-functions">Parsing Functions</h2>
+
+  <h3>PARSE_JSON</h3>
+  <pre><code>-- Converts a JSON string to VARIANT
+SELECT PARSE_JSON('{"name": "Alice", "age": 30}') AS data;
+
+-- Error if invalid JSON
+SELECT PARSE_JSON('not valid json');  -- ERROR!
+
+-- Common pattern: parse column
+SELECT PARSE_JSON(json_text_column) AS structured_data
+FROM raw_table;</code></pre>
+
+  <h3>TRY_PARSE_JSON</h3>
+  <pre><code>-- Returns NULL instead of error on invalid JSON
+SELECT TRY_PARSE_JSON('{"valid": true}');    -- Returns VARIANT
+SELECT TRY_PARSE_JSON('invalid json');       -- Returns NULL (no error)
+
+-- Safe parsing pattern
+SELECT
+    raw_text,
+    TRY_PARSE_JSON(raw_text) AS parsed,
+    CASE WHEN TRY_PARSE_JSON(raw_text) IS NULL
+         THEN 'INVALID' ELSE 'VALID' END AS status
+FROM raw_data;</code></pre>
+
+  <h3>Type Casting with ::</h3>
+  <pre><code>-- Cast VARIANT elements to specific types
+SELECT
+    payload:name::STRING AS name,
+    payload:age::INTEGER AS age,
+    payload:salary::FLOAT AS salary,
+    payload:active::BOOLEAN AS is_active,
+    payload:hire_date::DATE AS hire_date,
+    payload:created_at::TIMESTAMP AS created
+FROM events;</code></pre>
+
+  <div class="important">
+    <strong>Exam Alert:</strong> Without casting, VARIANT elements return as VARIANT type (shown with quotes in results). You must cast with <code>::</code> to get native Snowflake types for comparisons, aggregations, and JOINs.
+  </div>
+
+  <h3>TYPEOF Function</h3>
+  <pre><code>-- Returns the JSON type stored in a VARIANT value
+SELECT
+    TYPEOF(PARSE_JSON('"hello"')),              -- VARCHAR
+    TYPEOF(PARSE_JSON('42')),                   -- INTEGER
+    TYPEOF(PARSE_JSON('3.14')),                 -- DECIMAL
+    TYPEOF(PARSE_JSON('true')),                 -- BOOLEAN
+    TYPEOF(PARSE_JSON('null')),                 -- NULL_VALUE
+    TYPEOF(PARSE_JSON('[1,2,3]')),              -- ARRAY
+    TYPEOF(PARSE_JSON('{"a":1}')),              -- OBJECT
+    TYPEOF(NULL);                               -- NULL (SQL NULL, not JSON null)</code></pre>
+
+  <table>
+    <thead><tr><th>TYPEOF Result</th><th>Meaning</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td><code>NULL_VALUE</code></td><td>JSON null literal</td><td><code>PARSE_JSON('null')</code></td></tr>
+      <tr><td><code>BOOLEAN</code></td><td>true or false</td><td><code>PARSE_JSON('true')</code></td></tr>
+      <tr><td><code>INTEGER</code></td><td>Whole number</td><td><code>PARSE_JSON('42')</code></td></tr>
+      <tr><td><code>DECIMAL</code></td><td>Floating-point number</td><td><code>PARSE_JSON('3.14')</code></td></tr>
+      <tr><td><code>VARCHAR</code></td><td>String value</td><td><code>PARSE_JSON('"hi"')</code></td></tr>
+      <tr><td><code>ARRAY</code></td><td>JSON array</td><td><code>PARSE_JSON('[1,2]')</code></td></tr>
+      <tr><td><code>OBJECT</code></td><td>JSON object</td><td><code>PARSE_JSON('{"a":1}')</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Additional Conversion Functions</h3>
+  <pre><code>-- TO_VARIANT: convert scalar to VARIANT
+SELECT TO_VARIANT(42), TO_VARIANT('hello'), TO_VARIANT(CURRENT_DATE());
+
+-- TO_JSON: convert VARIANT back to JSON string
+SELECT TO_JSON(PARSE_JSON('{"a":1}'));  -- '{"a":1}'
+
+-- TO_OBJECT: convert to OBJECT type
+SELECT TO_OBJECT(PARSE_JSON('{"x":1}'));
+
+-- TO_ARRAY: convert to ARRAY type
+SELECT TO_ARRAY(PARSE_JSON('[1,2,3]'));
+
+-- AS_INTEGER, AS_DOUBLE, etc. - extract typed value
+SELECT AS_INTEGER(PARSE_JSON('42'));     -- 42 (INTEGER)
+SELECT AS_DOUBLE(PARSE_JSON('3.14'));   -- 3.14 (DOUBLE)</code></pre>
+
+  <h2 id="loading-semi-structured">Loading Semi-Structured Data</h2>
+
+  <h3>Loading JSON</h3>
+  <pre><code>-- File format for JSON
+CREATE OR REPLACE FILE FORMAT json_format
+    TYPE = 'JSON'
+    STRIP_OUTER_ARRAY = TRUE          -- Remove outer [] if file is array of objects
+    STRIP_NULL_VALUES = FALSE         -- Keep explicit nulls
+    IGNORE_UTF8_ERRORS = FALSE
+    ALLOW_DUPLICATE = FALSE
+    ENABLE_OCTAL = FALSE
+    COMPRESSION = AUTO;
+
+-- COPY INTO with JSON
+COPY INTO events (payload)
+FROM @my_stage/data/
+FILE_FORMAT = (FORMAT_NAME = json_format)
+MATCH_BY_COLUMN_NAME = NONE;</code></pre>
+
+  <h3>Loading XML</h3>
+  <pre><code>-- File format for XML
+CREATE OR REPLACE FILE FORMAT xml_format
+    TYPE = 'XML'
+    STRIP_OUTER_ELEMENT = FALSE
+    DISABLE_SNOWFLAKE_DATA = FALSE
+    DISABLE_AUTO_CONVERT = FALSE;
+
+-- XML is loaded as VARIANT with special structure
+-- Access with $ notation for attributes, @ for element content
+COPY INTO xml_table (xml_data)
+FROM @my_stage/data.xml
+FILE_FORMAT = (FORMAT_NAME = xml_format);</code></pre>
+
+  <h3>Loading Avro</h3>
+  <pre><code>-- File format for Avro
+CREATE OR REPLACE FILE FORMAT avro_format
+    TYPE = 'AVRO'
+    COMPRESSION = AUTO
+    TRIM_SPACE = FALSE;
+
+-- Avro loaded as VARIANT (schema embedded in file)
+COPY INTO avro_table (data)
+FROM @my_stage/data.avro
+FILE_FORMAT = (FORMAT_NAME = avro_format);</code></pre>
+
+  <h3>Loading Parquet</h3>
+  <pre><code>-- File format for Parquet
+CREATE OR REPLACE FILE FORMAT parquet_format
+    TYPE = 'PARQUET'
+    COMPRESSION = AUTO
+    BINARY_AS_TEXT = TRUE;
+
+-- Option 1: Load entire row as single VARIANT
+COPY INTO parquet_raw (data)
+FROM @my_stage/data.parquet
+FILE_FORMAT = (FORMAT_NAME = parquet_format);
+
+-- Option 2: Load with column mapping (Parquet has schema)
+COPY INTO structured_table (id, name, amount)
+FROM (
+    SELECT
+        $1:id::INTEGER,
+        $1:name::STRING,
+        $1:amount::DECIMAL(10,2)
+    FROM @my_stage/data.parquet
+)
+FILE_FORMAT = (FORMAT_NAME = parquet_format);</code></pre>
+
+  <h3>COPY INTO with Semi-Structured Transformations</h3>
+  <pre><code>-- Transform during load
+COPY INTO target_table (user_id, user_name, email, raw_data)
+FROM (
+    SELECT
+        $1:userId::INTEGER,
+        $1:name::STRING,
+        $1:contact.email::STRING,
+        $1
+    FROM @my_stage/users/
+)
+FILE_FORMAT = (TYPE = 'JSON' STRIP_OUTER_ARRAY = TRUE);
+
+-- Using MATCH_BY_COLUMN_NAME for Parquet/Avro
+COPY INTO typed_table
+FROM @my_stage/data.parquet
+FILE_FORMAT = (TYPE = 'PARQUET')
+MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;</code></pre>
+
+  <div class="important">
+    <strong>Exam Alert:</strong> <code>STRIP_OUTER_ARRAY = TRUE</code> is essential when your JSON file contains an array of objects (e.g., <code>[{...}, {...}, {...}]</code>). It strips the outer brackets so each object becomes a separate row. Without it, the entire array loads as a single VARIANT value in one row.
+  </div>
+
+  <h2 id="features">15 Key Features of Semi-Structured Data in Snowflake</h2>
+
+  <ul class="feature-list">
+    <li><strong>Schema-on-read:</strong> No predefined schema required - structure is interpreted at query time</li>
+    <li><strong>Native VARIANT type:</strong> First-class data type with full SQL support, not a text blob</li>
+    <li><strong>Columnar optimization:</strong> Snowflake auto-detects repeated paths and stores them in optimized columnar format</li>
+    <li><strong>Multi-format support:</strong> Natively handles JSON, Avro, ORC, Parquet, and XML</li>
+    <li><strong>Dot/bracket notation:</strong> Intuitive path-based access syntax without requiring FLATTEN for simple access</li>
+    <li><strong>Automatic type detection:</strong> TYPEOF function reveals the stored type; automatic casting available</li>
+    <li><strong>LATERAL FLATTEN:</strong> Powerful explosion of arrays/objects into rows with full JOIN semantics</li>
+    <li><strong>RECURSIVE flatten:</strong> Automatically traverses all nested levels without manual path specification</li>
+    <li><strong>PARSE_JSON / TRY_PARSE_JSON:</strong> Safe parsing with error-tolerant option for data pipelines</li>
+    <li><strong>Mixed types in arrays:</strong> Arrays can contain heterogeneous types (strings, numbers, objects)</li>
+    <li><strong>COPY INTO transformation:</strong> Extract and type fields during load, not just after</li>
+    <li><strong>Query optimization:</strong> Pruning and predicate pushdown work on VARIANT path expressions</li>
+    <li><strong>OBJECT_CONSTRUCT / ARRAY_CONSTRUCT:</strong> Build semi-structured output from relational data</li>
+    <li><strong>Materialized columns:</strong> Define virtual columns from VARIANT paths for better performance</li>
+    <li><strong>MATCH_BY_COLUMN_NAME:</strong> Auto-map Parquet/Avro columns to table columns during load</li>
+  </ul>
+
+  <h2 id="limitations">15 Key Limitations of Semi-Structured Data in Snowflake</h2>
+
+  <ul class="limit-list">
+    <li><strong>16 MB max per VARIANT value:</strong> Single VARIANT cell cannot exceed 16 MB compressed</li>
+    <li><strong>No native indexing on paths:</strong> Cannot create secondary indexes on specific VARIANT paths</li>
+    <li><strong>Case sensitivity confusion:</strong> Dot notation is case-insensitive but JSON keys are case-sensitive - requires bracket notation for exact matching</li>
+    <li><strong>NULL ambiguity:</strong> SQL NULL (key missing) and JSON null (key present with null value) are different but easily confused</li>
+    <li><strong>No schema enforcement:</strong> VARIANT accepts any structure - no constraint to ensure consistent shape across rows</li>
+    <li><strong>Casting required for typed operations:</strong> Must explicitly cast (::) to use in JOINs, WHERE, aggregations, or get proper sort order</li>
+    <li><strong>XML limitations:</strong> XML support is less intuitive than JSON - special attribute/element notation required</li>
+    <li><strong>No partial updates:</strong> Cannot update a single key within a VARIANT - must replace the entire value</li>
+    <li><strong>FLATTEN performance:</strong> Deeply nested FLATTEN operations can be expensive on large datasets</li>
+    <li><strong>Search optimization limitations:</strong> Search Optimization Service has limited support for VARIANT paths</li>
+    <li><strong>Clustering limitations:</strong> Cannot cluster directly on a VARIANT sub-path (must use a virtual/materialized column)</li>
+    <li><strong>No VARIANT in clustering keys directly:</strong> Must extract to a typed expression for clustering</li>
+    <li><strong>Type coercion surprises:</strong> Numbers stored as strings require explicit casting; automatic coercion rules differ from regular columns</li>
+    <li><strong>ORDER BY on VARIANT:</strong> Ordering VARIANT values uses string comparison unless cast to the desired type</li>
+    <li><strong>STRIP_OUTER_ARRAY confusion:</strong> Forgetting this option loads entire JSON array as one row instead of multiple rows</li>
+  </ul>
+
+  <h2>Quick Reference: Function Summary</h2>
+
+  <table>
+    <thead><tr><th>Function</th><th>Purpose</th><th>Returns</th></tr></thead>
+    <tbody>
+      <tr><td><code>PARSE_JSON(str)</code></td><td>Parse JSON string to VARIANT</td><td>VARIANT (errors on invalid)</td></tr>
+      <tr><td><code>TRY_PARSE_JSON(str)</code></td><td>Safe parse JSON string</td><td>VARIANT or NULL</td></tr>
+      <tr><td><code>TO_JSON(variant)</code></td><td>Convert VARIANT to JSON string</td><td>VARCHAR</td></tr>
+      <tr><td><code>TO_VARIANT(expr)</code></td><td>Convert any scalar to VARIANT</td><td>VARIANT</td></tr>
+      <tr><td><code>TYPEOF(variant)</code></td><td>Get JSON type name</td><td>VARCHAR</td></tr>
+      <tr><td><code>OBJECT_CONSTRUCT(k,v,...)</code></td><td>Build an object</td><td>OBJECT</td></tr>
+      <tr><td><code>ARRAY_CONSTRUCT(v,...)</code></td><td>Build an array</td><td>ARRAY</td></tr>
+      <tr><td><code>GET(v, key_or_idx)</code></td><td>Access element</td><td>VARIANT</td></tr>
+      <tr><td><code>GET_PATH(v, path)</code></td><td>Access nested path</td><td>VARIANT</td></tr>
+      <tr><td><code>STRIP_NULL_VALUE(v)</code></td><td>Convert JSON null to SQL NULL</td><td>VARIANT or NULL</td></tr>
+      <tr><td><code>IS_NULL_VALUE(v)</code></td><td>Check if value is JSON null</td><td>BOOLEAN</td></tr>
+      <tr><td><code>AS_INTEGER(v)</code></td><td>Extract as integer</td><td>INTEGER</td></tr>
+      <tr><td><code>AS_DOUBLE(v)</code></td><td>Extract as double</td><td>DOUBLE</td></tr>
+      <tr><td><code>AS_VARCHAR(v)</code></td><td>Extract as string</td><td>VARCHAR</td></tr>
+      <tr><td><code>CHECK_JSON(str)</code></td><td>Validate JSON string</td><td>NULL if valid, error msg if not</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Key Differences: SQL NULL vs JSON null</h2>
+
+  <div class="card">
+    <pre><code>-- Setup
+SELECT PARSE_JSON('{"a": null, "b": 1}') AS data;
+
+-- SQL NULL: key does not exist
+SELECT data:c IS NULL;           -- TRUE (key 'c' missing = SQL NULL)
+
+-- JSON null: key exists with null value
+SELECT data:a IS NULL;           -- FALSE! (it's JSON null, not SQL NULL)
+SELECT IS_NULL_VALUE(data:a);    -- TRUE (it IS JSON null)
+SELECT TYPEOF(data:a);           -- 'NULL_VALUE'
+
+-- To treat JSON null as SQL NULL:
+SELECT STRIP_NULL_VALUE(data:a) IS NULL;  -- TRUE
+-- Or cast: data:a::STRING returns NULL for JSON null</code></pre>
+  </div>
+
+  <div class="important">
+    <strong>Critical Exam Point:</strong> This is one of the most commonly tested concepts. <code>IS NULL</code> returns FALSE for JSON null values! Use <code>IS_NULL_VALUE()</code> to check for JSON nulls, or use <code>::STRING</code> casting which converts JSON null to SQL NULL.
+  </div>
+
+</body>
+</html>

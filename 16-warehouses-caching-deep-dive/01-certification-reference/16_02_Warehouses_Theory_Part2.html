@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warehouses & Caching - Advanced | Snowflake Certification Reference</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Warehouses & Caching - Advanced",
+  "subject": "Snowflake Certification Prep",
+  "topic": "16-warehouses-caching-deep-dive",
+  "subtopic": "01-certification-reference",
+  "part": 2,
+  "version": "1.0",
+  "created": "2026-08-15",
+  "sections": [
+    "Query Acceleration Service (QAS)",
+    "Resource Monitors",
+    "Warehouse Parameters",
+    "Cost Optimization Strategies",
+    "RBAC for Warehouses",
+    "Monitoring and Observability",
+    "Production Best Practices"
+  ],
+  "certification_relevance": ["SnowPro Core", "SnowPro Advanced: Architect", "SnowPro Advanced: Administrator"],
+  "difficulty": "Advanced"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#fffaf5, #12100d);
+  --bg-secondary: light-dark(#ffffff, #1c1814);
+  --bg-tertiary: light-dark(#fef5ed, #221c14);
+  --text-primary: light-dark(#1a1209, #f0e6d8);
+  --text-secondary: light-dark(#5c4a32, #bfa882);
+  --text-muted: light-dark(#7a6548, #8a7a60);
+  --accent-orange: light-dark(#c2620a, #f09030);
+  --accent-amber: light-dark(#92400e, #f59e0b);
+  --accent-orange-bg: light-dark(#fef3e2, #2a1c08);
+  --accent-amber-bg: light-dark(#fffbeb, #1a1508);
+  --border-color: light-dark(#e8dcc8, #3a2e1e);
+  --border-accent: light-dark(#d4a86a, #5a4020);
+  --code-bg: light-dark(#fdf6ee, #16120e);
+  --code-text: light-dark(#c2620a, #f0a050);
+  --callout-info-bg: light-dark(#fef3e2, #221808);
+  --callout-info-border: light-dark(#c2620a, #a05a10);
+  --callout-warn-bg: light-dark(#fef9e7, #1e1a08);
+  --callout-warn-border: light-dark(#d4860a, #c49020);
+  --callout-exam-bg: light-dark(#fef5ed, #1e1408);
+  --callout-exam-border: light-dark(#92400e, #b86e20);
+  --callout-success-bg: light-dark(#f0fdf4, #0f2818);
+  --callout-success-border: light-dark(#16a34a, #22a856);
+  --table-header-bg: light-dark(#c2620a, #6b3a08);
+  --table-header-text: #ffffff;
+  --table-row-alt: light-dark(#fef9f2, #18140e);
+  --shadow: light-dark(0 2px 12px rgba(194,98,10,0.08), 0 2px 12px rgba(0,0,0,0.3));
+  --tag-orange-bg: light-dark(#fed7aa, #3a2008);
+  --tag-orange-text: light-dark(#9a3412, #fb923c);
+  --tag-amber-bg: light-dark(#fef3c7, #2a1e08);
+  --tag-amber-text: light-dark(#92400e, #fbbf24);
+}
+
+:root { color-scheme: light dark; }
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--accent-orange), var(--accent-amber));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--border-color);
+}
+
+h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-orange);
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--border-accent);
+}
+
+h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--accent-amber);
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+p { margin-bottom: 1rem; color: var(--text-primary); }
+
+ul, ol {
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+li { margin-bottom: 0.4rem; color: var(--text-primary); }
+
+code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.88rem;
+  background: var(--code-bg);
+  color: var(--code-text);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.25rem;
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+thead th {
+  background: var(--table-header-bg);
+  color: var(--table-header-text);
+  padding: 0.85rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+tbody td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.9rem;
+  vertical-align: top;
+}
+
+tbody tr:nth-child(even) { background: var(--table-row-alt); }
+tbody tr:hover { background: var(--accent-orange-bg); }
+
+.callout {
+  border-left: 4px solid;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.callout-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.callout-info {
+  background: var(--callout-info-bg);
+  border-color: var(--callout-info-border);
+}
+.callout-info .callout-title { color: var(--accent-orange); }
+
+.callout-warn {
+  background: var(--callout-warn-bg);
+  border-color: var(--callout-warn-border);
+}
+.callout-warn .callout-title { color: light-dark(#d4860a, #f0a830); }
+
+.callout-exam {
+  background: var(--callout-exam-bg);
+  border-color: var(--callout-exam-border);
+}
+.callout-exam .callout-title { color: var(--accent-amber); }
+
+.callout-success {
+  background: var(--callout-success-bg);
+  border-color: var(--callout-success-border);
+}
+.callout-success .callout-title { color: light-dark(#16a34a, #22a856); }
+
+.tag {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-right: 0.4rem;
+}
+
+.tag-orange { background: var(--tag-orange-bg); color: var(--tag-orange-text); }
+.tag-amber { background: var(--tag-amber-bg); color: var(--tag-amber-text); }
+
+.section-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 1.75rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow);
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .two-col { grid-template-columns: 1fr; }
+  body { padding: 1rem; }
+  h1 { font-size: 1.7rem; }
+}
+
+.diagram-box {
+  background: var(--bg-tertiary);
+  border: 1px dashed var(--border-accent);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-family: 'SF Mono', monospace;
+  font-size: 0.85rem;
+  line-height: 1.8;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.toc {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.toc-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--accent-orange);
+  margin-bottom: 0.75rem;
+}
+
+.toc ol {
+  list-style: none;
+  counter-reset: toc-counter;
+  padding-left: 0;
+}
+
+.toc li {
+  counter-increment: toc-counter;
+  padding: 0.3rem 0;
+}
+
+.toc li::before {
+  content: counter(toc-counter) ". ";
+  color: var(--accent-amber);
+  font-weight: 700;
+}
+</style>
+</head>
+<body>
+
+<h1>Warehouses & Caching - Advanced</h1>
+<p class="subtitle">QAS, Resource Monitors, Parameters, Cost Optimization, RBAC, Monitoring & Best Practices</p>
+
+<div class="toc">
+  <div class="toc-title">Table of Contents</div>
+  <ol>
+    <li>Query Acceleration Service (QAS)</li>
+    <li>Resource Monitors</li>
+    <li>Warehouse Parameters</li>
+    <li>Cost Optimization Strategies</li>
+    <li>RBAC for Warehouses</li>
+    <li>Monitoring & Observability</li>
+    <li>Production Best Practices</li>
+  </ol>
+</div>
+
+<!-- Section 1: QAS -->
+<div class="section-card">
+  <h2>1. Query Acceleration Service (QAS)</h2>
+  <p>QAS offloads portions of eligible queries to shared compute resources managed by Snowflake, reducing the impact of outlier queries on warehouse performance. Available in <span class="tag tag-orange">Enterprise Edition+</span>.</p>
+
+  <h3>How It Works</h3>
+  <ul>
+    <li>QAS identifies query operations that can benefit from additional compute (large scans with selective filters)</li>
+    <li>It transparently offloads those scan-heavy operations to serverless compute</li>
+    <li>The warehouse and QAS work in parallel — the warehouse handles the rest of the query</li>
+    <li>No data movement — QAS reads directly from Snowflake's shared storage layer</li>
+  </ul>
+
+  <h3>SCALE_FACTOR</h3>
+  <ul>
+    <li>Controls the maximum amount of serverless compute QAS can use</li>
+    <li>Range: 0 (disabled) to 100</li>
+    <li>Represents a multiplier relative to warehouse size</li>
+    <li>Example: SCALE_FACTOR = 8 on a Medium warehouse means QAS can use up to 8x the warehouse compute</li>
+    <li>Higher SCALE_FACTOR = more acceleration potential but higher cost</li>
+  </ul>
+
+  <h3>Eligible Queries</h3>
+  <table>
+    <thead>
+      <tr><th>Eligible</th><th>Not Eligible</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Queries with large scans + selective filters</td><td>Queries that are already fast</td></tr>
+      <tr><td>Queries with LIKE/ILIKE on strings</td><td>INSERT/UPDATE/DELETE (DML)</td></tr>
+      <tr><td>Queries with IN clauses on high-cardinality columns</td><td>Queries dominated by joins (not scan-bound)</td></tr>
+      <tr><td>Aggregations over large datasets with filters</td><td>Queries with small result sets that scan little data</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-exam">
+    <div class="callout-title">Exam Tip</div>
+    <p>QAS is best for "outlier" queries — those occasional ad-hoc queries that scan significantly more data than typical workload queries. It does NOT help with concurrency (that's multi-cluster) or DML operations.</p>
+  </div>
+
+  <pre><code>-- Enable QAS on a warehouse
+ALTER WAREHOUSE analytics_wh SET
+  ENABLE_QUERY_ACCELERATION = TRUE
+  QUERY_ACCELERATION_MAX_SCALE_FACTOR = 8;
+
+-- Check QAS eligibility for past queries
+SELECT query_id, eligible_query_acceleration_time
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_ACCELERATION_ELIGIBLE
+WHERE warehouse_name = 'ANALYTICS_WH'
+ORDER BY eligible_query_acceleration_time DESC;</code></pre>
+
+  <div class="callout callout-info">
+    <div class="callout-title">Cost Model</div>
+    <p>QAS is billed on a serverless credit model — you pay only for the compute used during acceleration. The SCALE_FACTOR caps the maximum spend per query. Credits consumed appear in QUERY_ACCELERATION_HISTORY.</p>
+  </div>
+</div>
+
+<!-- Section 2: Resource Monitors -->
+<div class="section-card">
+  <h2>2. Resource Monitors</h2>
+  <p>Resource monitors track credit consumption and can notify or suspend warehouses when thresholds are reached.</p>
+
+  <h3>Key Concepts</h3>
+  <ul>
+    <li>Set at <strong>account level</strong> (all warehouses) or <strong>warehouse level</strong> (specific warehouses)</li>
+    <li>Define a <strong>credit quota</strong> for a monitoring interval (daily, weekly, monthly, yearly, or custom)</li>
+    <li>Support multiple trigger thresholds at different percentages</li>
+    <li>Only ACCOUNTADMIN can create resource monitors (by default)</li>
+  </ul>
+
+  <h3>Trigger Actions</h3>
+  <table>
+    <thead>
+      <tr><th>Action</th><th>Behavior</th><th>Impact</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>NOTIFY</strong></td>
+        <td>Sends notification (email) to account admins</td>
+        <td>No impact on queries — monitoring only</td>
+      </tr>
+      <tr>
+        <td><strong>NOTIFY &amp; SUSPEND</strong></td>
+        <td>Sends notification and suspends warehouse after current queries finish</td>
+        <td>Running queries complete, new queries blocked</td>
+      </tr>
+      <tr>
+        <td><strong>NOTIFY &amp; SUSPEND IMMEDIATELY</strong></td>
+        <td>Sends notification and immediately kills all running queries, then suspends</td>
+        <td>Running queries are cancelled immediately</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-warn">
+    <div class="callout-title">Important</div>
+    <p>SUSPEND IMMEDIATELY cancels running queries — this can cause data loading failures or incomplete results. Use with caution in production.</p>
+  </div>
+
+  <pre><code>-- Create a resource monitor
+CREATE RESOURCE MONITOR monthly_monitor
+  WITH CREDIT_QUOTA = 1000
+  FREQUENCY = MONTHLY
+  START_TIMESTAMP = IMMEDIATELY
+  TRIGGERS
+    ON 75 PERCENT DO NOTIFY
+    ON 90 PERCENT DO NOTIFY
+    ON 100 PERCENT DO SUSPEND
+    ON 110 PERCENT DO SUSPEND_IMMEDIATE;
+
+-- Assign to a warehouse
+ALTER WAREHOUSE analytics_wh SET RESOURCE_MONITOR = monthly_monitor;
+
+-- Assign at account level (all warehouses)
+ALTER ACCOUNT SET RESOURCE_MONITOR = monthly_monitor;</code></pre>
+
+  <div class="callout callout-exam">
+    <div class="callout-title">Exam Tip</div>
+    <p>Resource monitors track <strong>credit usage</strong>, not dollar cost. They include credits from warehouse compute AND cloud services (if exceeding 10% threshold). They do NOT track storage costs or serverless feature costs (like Snowpipe, QAS).</p>
+  </div>
+</div>
+
+<!-- Section 3: Warehouse Parameters -->
+<div class="section-card">
+  <h2>3. Warehouse Parameters</h2>
+
+  <table>
+    <thead>
+      <tr><th>Parameter</th><th>Level</th><th>Default</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>STATEMENT_TIMEOUT_IN_SECONDS</code></td>
+        <td>Account, Warehouse, Session</td>
+        <td>172800 (48 hrs)</td>
+        <td>Max execution time for a statement. Cancelled if exceeded.</td>
+      </tr>
+      <tr>
+        <td><code>STATEMENT_QUEUED_TIMEOUT_IN_SECONDS</code></td>
+        <td>Account, Warehouse, Session</td>
+        <td>0 (unlimited)</td>
+        <td>Max time a statement can wait in queue. Cancelled if exceeded.</td>
+      </tr>
+      <tr>
+        <td><code>MAX_CONCURRENCY_LEVEL</code></td>
+        <td>Warehouse</td>
+        <td>8</td>
+        <td>Max concurrent statements per cluster. Snowflake may lower dynamically.</td>
+      </tr>
+      <tr>
+        <td><code>AUTO_SUSPEND</code></td>
+        <td>Warehouse</td>
+        <td>600 (seconds)</td>
+        <td>Seconds of inactivity before warehouse suspends.</td>
+      </tr>
+      <tr>
+        <td><code>AUTO_RESUME</code></td>
+        <td>Warehouse</td>
+        <td>TRUE</td>
+        <td>Whether warehouse auto-starts on query submission.</td>
+      </tr>
+      <tr>
+        <td><code>WAREHOUSE_SIZE</code></td>
+        <td>Warehouse</td>
+        <td>X-Small</td>
+        <td>The T-shirt size (XS through 6XL).</td>
+      </tr>
+      <tr>
+        <td><code>WAREHOUSE_TYPE</code></td>
+        <td>Warehouse</td>
+        <td>STANDARD</td>
+        <td>STANDARD or SNOWPARK-OPTIMIZED.</td>
+      </tr>
+      <tr>
+        <td><code>SCALING_POLICY</code></td>
+        <td>Warehouse</td>
+        <td>STANDARD</td>
+        <td>STANDARD or ECONOMY for multi-cluster.</td>
+      </tr>
+      <tr>
+        <td><code>INITIALLY_SUSPENDED</code></td>
+        <td>Warehouse (CREATE only)</td>
+        <td>FALSE</td>
+        <td>If TRUE, warehouse is created in suspended state.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-info">
+    <div class="callout-title">Parameter Hierarchy</div>
+    <p>When a parameter is set at multiple levels, the most restrictive value wins. For timeouts: Account > Warehouse > Session (the lowest value takes effect). This means a session cannot override a shorter warehouse timeout with a longer one.</p>
+  </div>
+
+  <pre><code>-- Set statement timeout at warehouse level
+ALTER WAREHOUSE analytics_wh SET STATEMENT_TIMEOUT_IN_SECONDS = 3600;
+
+-- Set queue timeout
+ALTER WAREHOUSE analytics_wh SET STATEMENT_QUEUED_TIMEOUT_IN_SECONDS = 300;
+
+-- Set at session level (cannot exceed warehouse/account level)
+ALTER SESSION SET STATEMENT_TIMEOUT_IN_SECONDS = 1800;</code></pre>
+</div>
+
+<!-- Section 4: Cost Optimization -->
+<div class="section-card">
+  <h2>4. Cost Optimization Strategies</h2>
+
+  <h3>Auto-Suspend Tuning</h3>
+  <table>
+    <thead>
+      <tr><th>Workload Pattern</th><th>Recommended AUTO_SUSPEND</th><th>Rationale</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Ad-hoc / interactive analysts</td><td>300-600s (5-10 min)</td><td>Balance between cache retention and cost</td></tr>
+      <tr><td>Dashboard / BI tools (frequent queries)</td><td>600-900s (10-15 min)</td><td>Keep cache warm for repeated patterns</td></tr>
+      <tr><td>ETL / batch (bursty, infrequent)</td><td>60s (minimum)</td><td>Suspend fast — cache is less valuable</td></tr>
+      <tr><td>Dev / test (sporadic)</td><td>60s</td><td>Minimize idle costs</td></tr>
+      <tr><td>Continuous / streaming ingest</td><td>Never (or very long)</td><td>Always active, suspend/resume overhead adds up</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Right-Sizing Strategy</h3>
+  <ol>
+    <li>Start with X-Small or Small</li>
+    <li>Run representative workload; check QUERY_HISTORY for spilling and duration</li>
+    <li>If queries spill to remote storage, increase size</li>
+    <li>If queries are fast with no queuing, do NOT increase size</li>
+    <li>Monitor for 1-2 weeks; adjust based on patterns</li>
+  </ol>
+
+  <h3>Multi-Cluster Configuration for Cost</h3>
+  <ul>
+    <li><strong>Economy policy</strong> saves 20-40% credits vs Standard for tolerant workloads</li>
+    <li>Set <code>MIN_CLUSTER_COUNT = 1</code> to allow full scale-down during off-peak</li>
+    <li>Avoid Maximized mode (MIN=MAX) unless constant high concurrency is required</li>
+    <li>Use separate warehouses for different workload types (ETL vs BI vs ad-hoc)</li>
+  </ul>
+
+  <div class="callout callout-success">
+    <div class="callout-title">Best Practice</div>
+    <p>Workload isolation is the #1 cost optimization: give ETL, BI dashboards, and ad-hoc users their own warehouses. This prevents expensive ETL queries from blocking cheap BI queries (and vice versa) and allows independent sizing.</p>
+  </div>
+</div>
+
+<!-- Section 5: RBAC for Warehouses -->
+<div class="section-card">
+  <h2>5. RBAC for Warehouses</h2>
+
+  <table>
+    <thead>
+      <tr><th>Privilege</th><th>Allows</th><th>Typical Role</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>USAGE</strong></td>
+        <td>Execute queries using the warehouse</td>
+        <td>All query roles (analysts, devs)</td>
+      </tr>
+      <tr>
+        <td><strong>OPERATE</strong></td>
+        <td>Start, stop, suspend, resume the warehouse</td>
+        <td>Team leads, DBAs</td>
+      </tr>
+      <tr>
+        <td><strong>MONITOR</strong></td>
+        <td>View warehouse utilization metrics and queries</td>
+        <td>Monitoring / FinOps roles</td>
+      </tr>
+      <tr>
+        <td><strong>MODIFY</strong></td>
+        <td>Change warehouse properties (size, auto-suspend, etc.)</td>
+        <td>Admins, platform team</td>
+      </tr>
+      <tr>
+        <td><strong>CREATE WAREHOUSE</strong></td>
+        <td>Create new warehouses (granted on ACCOUNT, not warehouse)</td>
+        <td>SYSADMIN (default)</td>
+      </tr>
+      <tr>
+        <td><strong>OWNERSHIP</strong></td>
+        <td>Full control including DROP and GRANT</td>
+        <td>SYSADMIN (default owner)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-exam">
+    <div class="callout-title">Exam Tip</div>
+    <p>USAGE only lets you <em>use</em> the warehouse to run queries. It does NOT let you suspend/resume (OPERATE), change settings (MODIFY), or view metrics (MONITOR). These are distinct and commonly tested.</p>
+  </div>
+
+  <pre><code>-- Grant usage to analysts
+GRANT USAGE ON WAREHOUSE analytics_wh TO ROLE analyst_role;
+
+-- Grant operate to team leads (can suspend/resume)
+GRANT OPERATE ON WAREHOUSE analytics_wh TO ROLE team_lead;
+
+-- Grant monitor to FinOps
+GRANT MONITOR ON WAREHOUSE analytics_wh TO ROLE finops_role;
+
+-- Grant modify to platform admins
+GRANT MODIFY ON WAREHOUSE analytics_wh TO ROLE platform_admin;
+
+-- Grant ability to create warehouses
+GRANT CREATE WAREHOUSE ON ACCOUNT TO ROLE platform_admin;</code></pre>
+</div>
+
+<!-- Section 6: Monitoring -->
+<div class="section-card">
+  <h2>6. Monitoring & Observability</h2>
+
+  <h3>Key Views for Warehouse Monitoring</h3>
+  <table>
+    <thead>
+      <tr><th>View / Function</th><th>Location</th><th>Use Case</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>WAREHOUSE_METERING_HISTORY</code></td>
+        <td>ACCOUNT_USAGE / TABLE FUNCTION</td>
+        <td>Credit consumption per warehouse per hour</td>
+      </tr>
+      <tr>
+        <td><code>QUERY_HISTORY</code></td>
+        <td>ACCOUNT_USAGE / TABLE FUNCTION</td>
+        <td>Query performance, execution time, bytes scanned, queuing</td>
+      </tr>
+      <tr>
+        <td><code>WAREHOUSE_LOAD_HISTORY</code></td>
+        <td>ACCOUNT_USAGE / TABLE FUNCTION</td>
+        <td>Avg/peak running & queued queries per interval</td>
+      </tr>
+      <tr>
+        <td><code>WAREHOUSE_EVENTS_HISTORY</code></td>
+        <td>ACCOUNT_USAGE</td>
+        <td>Suspend/resume/resize events with timestamps</td>
+      </tr>
+      <tr>
+        <td><code>QUERY_ACCELERATION_HISTORY</code></td>
+        <td>ACCOUNT_USAGE</td>
+        <td>QAS credit usage and time saved</td>
+      </tr>
+      <tr>
+        <td><code>RESOURCE_MONITORS</code></td>
+        <td>INFORMATION_SCHEMA</td>
+        <td>Current resource monitor status and consumption</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <pre><code>-- Credit usage by warehouse (last 30 days)
+SELECT warehouse_name,
+       SUM(credits_used) AS total_credits,
+       SUM(credits_used_compute) AS compute_credits,
+       SUM(credits_used_cloud_services) AS cs_credits
+FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY
+WHERE start_time >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+GROUP BY warehouse_name
+ORDER BY total_credits DESC;
+
+-- Queries that spilled to disk (candidates for resize)
+SELECT query_id, warehouse_name, warehouse_size,
+       bytes_spilled_to_local_storage,
+       bytes_spilled_to_remote_storage,
+       total_elapsed_time/1000 AS elapsed_sec
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE bytes_spilled_to_remote_storage > 0
+  AND start_time >= DATEADD(day, -7, CURRENT_TIMESTAMP())
+ORDER BY bytes_spilled_to_remote_storage DESC
+LIMIT 20;
+
+-- Warehouse load (queuing analysis)
+SELECT warehouse_name, start_time,
+       avg_running, avg_queued,
+       avg_blocked
+FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_LOAD_HISTORY
+WHERE start_time >= DATEADD(day, -7, CURRENT_TIMESTAMP())
+  AND avg_queued > 0
+ORDER BY avg_queued DESC;</code></pre>
+
+  <div class="callout callout-info">
+    <div class="callout-title">Latency Note</div>
+    <p>ACCOUNT_USAGE views have up to 45-minute latency. For real-time monitoring, use the TABLE FUNCTION variants (e.g., <code>TABLE(INFORMATION_SCHEMA.WAREHOUSE_METERING_HISTORY(...))</code>) or the Snowsight Query History UI.</p>
+  </div>
+</div>
+
+<!-- Section 7: Production Best Practices -->
+<div class="section-card">
+  <h2>7. Production Best Practices</h2>
+
+  <h3>Warehouse Strategy</h3>
+  <ol>
+    <li><strong>Workload isolation</strong> — Separate warehouses for ETL, BI/dashboards, ad-hoc, and data science</li>
+    <li><strong>Right-size first, then multi-cluster</strong> — Ensure individual query performance is good before adding clusters</li>
+    <li><strong>Use INITIALLY_SUSPENDED = TRUE</strong> — Prevent accidental credit burn on warehouse creation</li>
+    <li><strong>Set STATEMENT_QUEUED_TIMEOUT</strong> — Prevent queries from waiting indefinitely in queue</li>
+    <li><strong>Set STATEMENT_TIMEOUT</strong> — Prevent runaway queries from consuming credits for hours</li>
+  </ol>
+
+  <h3>Cost Control</h3>
+  <ol>
+    <li><strong>Resource monitors on every warehouse</strong> — At minimum, NOTIFY at 80% and SUSPEND at 100%</li>
+    <li><strong>Aggressive auto-suspend for dev/test</strong> — 60 seconds is appropriate</li>
+    <li><strong>Monitor spilling</strong> — Remote spill indicates warehouse is too small for the query</li>
+    <li><strong>Review WAREHOUSE_METERING_HISTORY weekly</strong> — Identify idle or over-provisioned warehouses</li>
+    <li><strong>Use QAS instead of over-sizing</strong> — For occasional large queries, QAS is cheaper than permanently sizing up</li>
+  </ol>
+
+  <h3>Performance</h3>
+  <ol>
+    <li><strong>Keep cache warm</strong> — For BI workloads, use 10-15 min auto-suspend to retain SSD cache</li>
+    <li><strong>Leverage result cache</strong> — Ensure dashboards reuse identical queries where possible</li>
+    <li><strong>Avoid unnecessary SUSPEND/RESUME cycles</strong> — Each resume has 1-2s overhead + cold cache</li>
+    <li><strong>Monitor queuing</strong> — If avg_queued > 1 consistently, add multi-cluster or increase size</li>
+    <li><strong>Use Standard scaling policy</strong> — Unless you explicitly need to save credits at the cost of latency</li>
+  </ol>
+
+  <div class="callout callout-success">
+    <div class="callout-title">Production Checklist</div>
+    <ul>
+      <li>Every warehouse has a resource monitor</li>
+      <li>Statement timeout set (e.g., 3600s for ad-hoc, 7200s for ETL)</li>
+      <li>Queue timeout set (e.g., 300s for interactive workloads)</li>
+      <li>AUTO_RESUME = TRUE for all user-facing warehouses</li>
+      <li>INITIALLY_SUSPENDED = TRUE in all CREATE WAREHOUSE DDL</li>
+      <li>Weekly review of WAREHOUSE_METERING_HISTORY</li>
+      <li>QAS enabled for warehouses with outlier query patterns</li>
+    </ul>
+  </div>
+</div>
+
+</body>
+</html>

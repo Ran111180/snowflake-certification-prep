@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Data Sharing - Advanced | Snowflake Certification Reference</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Snowflake certification reference for advanced data sharing concepts including provider/consumer workflows, marketplace, cross-region sharing, RBAC, and monitoring",
+    "sections": [
+      { "id": "provider-workflow", "title": "Provider Workflow", "dataSources": [], "producerNotes": "Static certification content — no queries needed." },
+      { "id": "consumer-workflow", "title": "Consumer Workflow", "dataSources": [], "producerNotes": "Static certification content." },
+      { "id": "data-marketplace", "title": "Data Marketplace", "dataSources": [], "producerNotes": "Static certification content." },
+      { "id": "cross-region-cloud", "title": "Cross-Region/Cloud Sharing", "dataSources": [], "producerNotes": "Static certification content." },
+      { "id": "multi-account-patterns", "title": "Multi-Account Sharing Patterns", "dataSources": [], "producerNotes": "Static certification content." },
+      { "id": "rbac-sharing", "title": "RBAC for Sharing", "dataSources": [], "producerNotes": "Static certification content." },
+      { "id": "monitoring-shares", "title": "Monitoring Shares", "dataSources": [], "producerNotes": "Static certification content." },
+      { "id": "best-practices", "title": "Best Practices", "dataSources": [], "producerNotes": "Static certification content." }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      line-height: 1.7;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      color: light-dark(#1e293b, #e2e8f0);
+      background: light-dark(#f8fafc, #0f172a);
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 48px;
+      padding-bottom: 32px;
+      border-bottom: 3px solid light-dark(#3b82f6, #6366f1);
+    }
+    header h1 {
+      font-size: 2rem;
+      color: light-dark(#1e3a5f, #a5b4fc);
+      margin-bottom: 8px;
+    }
+    header .subtitle {
+      font-size: 1.1rem;
+      color: light-dark(#4338ca, #818cf8);
+      font-weight: 500;
+    }
+    header .meta {
+      margin-top: 12px;
+      font-size: 0.85rem;
+      color: light-dark(#64748b, #94a3b8);
+    }
+
+    nav {
+      background: light-dark(#eef2ff, #1e1b4b);
+      border: 1px solid light-dark(#c7d2fe, #312e81);
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin-bottom: 40px;
+    }
+    nav h2 {
+      font-size: 1rem;
+      color: light-dark(#3730a3, #a5b4fc);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    nav ol {
+      list-style: decimal;
+      padding-left: 20px;
+      columns: 2;
+      column-gap: 32px;
+    }
+    nav li { margin-bottom: 6px; }
+    nav a {
+      color: light-dark(#4338ca, #818cf8);
+      text-decoration: none;
+      font-size: 0.92rem;
+    }
+    nav a:hover { text-decoration: underline; }
+
+    section {
+      margin-bottom: 48px;
+      padding-top: 16px;
+    }
+    h2 {
+      font-size: 1.5rem;
+      color: light-dark(#1e3a5f, #a5b4fc);
+      border-bottom: 2px solid light-dark(#bfdbfe, #312e81);
+      padding-bottom: 8px;
+      margin-bottom: 20px;
+    }
+    h3 {
+      font-size: 1.15rem;
+      color: light-dark(#1e40af, #93c5fd);
+      margin: 20px 0 10px;
+    }
+    h4 {
+      font-size: 1rem;
+      color: light-dark(#3730a3, #a78bfa);
+      margin: 14px 0 8px;
+    }
+    p { margin-bottom: 12px; }
+    ul, ol { margin: 8px 0 16px 24px; }
+    li { margin-bottom: 6px; }
+
+    code {
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.88em;
+      background: light-dark(#e0e7ff, #1e1b4b);
+      color: light-dark(#3730a3, #c4b5fd);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    pre {
+      background: light-dark(#1e293b, #020617);
+      color: light-dark(#e2e8f0, #cbd5e1);
+      padding: 16px 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 12px 0 20px;
+      border: 1px solid light-dark(#334155, #1e293b);
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+    pre code {
+      background: none;
+      color: inherit;
+      padding: 0;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 16px 0 24px;
+      font-size: 0.9rem;
+    }
+    th, td {
+      border: 1px solid light-dark(#c7d2fe, #312e81);
+      padding: 10px 14px;
+      text-align: left;
+    }
+    th {
+      background: light-dark(#e0e7ff, #1e1b4b);
+      color: light-dark(#1e3a5f, #c4b5fd);
+      font-weight: 600;
+    }
+    tr:nth-child(even) td {
+      background: light-dark(#f1f5f9, #0f172a);
+    }
+
+    .callout {
+      background: light-dark(#eff6ff, #172554);
+      border-left: 4px solid light-dark(#3b82f6, #6366f1);
+      padding: 14px 18px;
+      border-radius: 0 6px 6px 0;
+      margin: 16px 0;
+      font-size: 0.92rem;
+    }
+    .callout-warn {
+      background: light-dark(#fef3c7, #451a03);
+      border-left-color: light-dark(#f59e0b, #fbbf24);
+    }
+    .callout strong {
+      color: light-dark(#1e40af, #93c5fd);
+    }
+    .callout-warn strong {
+      color: light-dark(#92400e, #fcd34d);
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: light-dark(#dbeafe, #312e81);
+      color: light-dark(#1e40af, #a5b4fc);
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    .flow-diagram {
+      background: light-dark(#f1f5f9, #0f172a);
+      border: 1px solid light-dark(#c7d2fe, #312e81);
+      border-radius: 8px;
+      padding: 20px;
+      margin: 16px 0;
+      text-align: center;
+      font-family: monospace;
+      font-size: 0.9rem;
+      line-height: 2;
+      color: light-dark(#1e293b, #e2e8f0);
+    }
+
+    footer {
+      margin-top: 60px;
+      padding-top: 24px;
+      border-top: 2px solid light-dark(#c7d2fe, #312e81);
+      text-align: center;
+      font-size: 0.82rem;
+      color: light-dark(#64748b, #64748b);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Data Sharing &mdash; Advanced</h1>
+  <div class="subtitle">Snowflake Certification Deep Dive (Part 2)</div>
+  <div class="meta">SnowPro Core &amp; Advanced | Section 15 | Last updated: 2026-08-15</div>
+</header>
+
+<nav>
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#provider-workflow">Provider Workflow</a></li>
+    <li><a href="#consumer-workflow">Consumer Workflow</a></li>
+    <li><a href="#data-marketplace">Data Marketplace</a></li>
+    <li><a href="#cross-region-cloud">Cross-Region/Cloud Sharing</a></li>
+    <li><a href="#multi-account-patterns">Multi-Account Sharing Patterns</a></li>
+    <li><a href="#rbac-sharing">RBAC for Sharing</a></li>
+    <li><a href="#monitoring-shares">Monitoring Shares</a></li>
+    <li><a href="#best-practices">Best Practices</a></li>
+  </ol>
+</nav>
+
+<!-- ============================================================ -->
+<section id="provider-workflow">
+  <h2>1. Provider Workflow</h2>
+  <p>The provider (data owner) creates and manages outbound shares. The complete lifecycle:</p>
+
+  <div class="flow-diagram">
+    CREATE SHARE &rarr; GRANT privileges on objects &rarr; ADD ACCOUNTS &rarr; Consumer creates DB FROM SHARE
+  </div>
+
+  <h3>Step-by-Step SQL</h3>
+  <pre><code>-- 1. Create the share
+CREATE SHARE sales_share
+  COMMENT = 'Q4 Sales Data for Partner Corp';
+
+-- 2. Grant usage on database and schema
+GRANT USAGE ON DATABASE analytics_db TO SHARE sales_share;
+GRANT USAGE ON SCHEMA analytics_db.public TO SHARE sales_share;
+
+-- 3. Grant SELECT on specific objects
+GRANT SELECT ON TABLE analytics_db.public.orders TO SHARE sales_share;
+GRANT SELECT ON VIEW analytics_db.public.orders_secure_vw TO SHARE sales_share;
+
+-- 4. Add consumer account(s)
+ALTER SHARE sales_share ADD ACCOUNTS = xy12345, ab67890;
+
+-- 5. (Optional) Add with SHARE_RESTRICTIONS override
+ALTER SHARE sales_share ADD ACCOUNTS = cd99999
+  SHARE_RESTRICTIONS = false;</code></pre>
+
+  <h3>Key Rules for Providers</h3>
+  <ul>
+    <li>Only <strong>secure views</strong>, <strong>secure UDFs</strong>, and <strong>secure UDTFs</strong> can be shared (not regular views)</li>
+    <li>Tables, external tables, and secure views are the primary shareable object types</li>
+    <li>You cannot share a <strong>transient</strong> or <strong>temporary</strong> table directly (wrap with a secure view)</li>
+    <li>Shares are <strong>read-only</strong> &mdash; consumers cannot write to shared objects</li>
+    <li>A share can include objects from <strong>only one database</strong></li>
+    <li>Each share is an independent unit &mdash; objects cannot belong to multiple shares unless added individually to each</li>
+  </ul>
+
+  <h3>Revoking/Removing Access</h3>
+  <pre><code>-- Remove specific account
+ALTER SHARE sales_share REMOVE ACCOUNTS = xy12345;
+
+-- Revoke object from share
+REVOKE SELECT ON TABLE analytics_db.public.orders FROM SHARE sales_share;
+
+-- Drop entire share
+DROP SHARE sales_share;</code></pre>
+
+  <div class="callout">
+    <strong>Exam Tip:</strong> Dropping a share instantly removes consumer access. The consumer's database created from the share becomes invalid and must be dropped.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="consumer-workflow">
+  <h2>2. Consumer Workflow</h2>
+  <p>Consumers create a local database from an inbound share and query shared data as if it were local.</p>
+
+  <h3>Viewing Available Shares</h3>
+  <pre><code>-- Show all inbound shares (from other accounts)
+SHOW SHARES;
+
+-- Filter to only inbound
+SHOW SHARES LIKE '%sales%';
+
+-- Describe share contents before creating DB
+DESC SHARE provider_org.provider_acct.sales_share;</code></pre>
+
+  <h3>Creating a Database from a Share</h3>
+  <pre><code>-- Create database from the share
+CREATE DATABASE partner_sales_db FROM SHARE provider_org.provider_acct.sales_share;
+
+-- Grant access to roles in consumer account
+GRANT IMPORTED PRIVILEGES ON DATABASE partner_sales_db TO ROLE analyst_role;</code></pre>
+
+  <h3>Querying Shared Data</h3>
+  <pre><code>-- Query as if it's a local table
+SELECT order_id, customer_name, amount
+FROM partner_sales_db.public.orders
+WHERE order_date >= '2026-01-01';
+
+-- Joins with local data are fully supported
+SELECT s.order_id, l.customer_segment
+FROM partner_sales_db.public.orders s
+JOIN local_db.public.customers l ON s.customer_id = l.id;</code></pre>
+
+  <h3>Consumer Constraints</h3>
+  <table>
+    <thead><tr><th>Action</th><th>Allowed?</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>SELECT from shared objects</td><td>Yes</td><td>Primary use case</td></tr>
+      <tr><td>CREATE VIEW on shared data</td><td>Yes</td><td>Local views referencing shared tables</td></tr>
+      <tr><td>INSERT/UPDATE/DELETE</td><td>No</td><td>Shares are strictly read-only</td></tr>
+      <tr><td>Clone shared objects</td><td>No</td><td>Cannot clone shared databases or tables</td></tr>
+      <tr><td>Time Travel on shared data</td><td>No</td><td>Not available for consumers</td></tr>
+      <tr><td>Create additional schemas in shared DB</td><td>No</td><td>The shared DB is read-only</td></tr>
+      <tr><td>Re-share to another account</td><td>No</td><td>Cannot share a share</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>Exam Tip:</strong> Use <code>GRANT IMPORTED PRIVILEGES</code> (not <code>GRANT SELECT</code>) to give roles access to a shared database. This is the only privilege type that applies to databases created from shares.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="data-marketplace">
+  <h2>3. Data Marketplace</h2>
+  <p>The Snowflake Marketplace is a platform for discovering, publishing, and consuming data listings.</p>
+
+  <h3>Listing Types</h3>
+  <table>
+    <thead><tr><th>Type</th><th>Visibility</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>Standard Listing</td><td>Public</td><td>Visible to all Snowflake accounts on the Marketplace</td></tr>
+      <tr><td>Personalized Listing</td><td>Targeted</td><td>Shared with specific accounts via private link</td></tr>
+      <tr><td>Free Listing</td><td>Public/Targeted</td><td>Instant access, no payment required</td></tr>
+      <tr><td>Paid Listing</td><td>Public/Targeted</td><td>Requires commercial agreement, usage-based or fixed pricing</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Publishing a Listing (Provider)</h3>
+  <ol>
+    <li>Create a share with the data products</li>
+    <li>Navigate to <strong>Data &gt; Provider Studio</strong> in Snowsight</li>
+    <li>Create a new listing:
+      <ul>
+        <li>Select the share as the data source</li>
+        <li>Add title, description, sample queries, and documentation</li>
+        <li>Choose listing visibility (public vs. targeted)</li>
+        <li>Set pricing (free or paid)</li>
+        <li>Configure auto-fulfillment regions (if cross-region)</li>
+      </ul>
+    </li>
+    <li>Submit for review (public listings require Snowflake approval)</li>
+  </ol>
+
+  <h3>Getting/Consuming a Listing (Consumer)</h3>
+  <ol>
+    <li>Browse Marketplace in Snowsight or search by category/provider</li>
+    <li>Click <strong>Get</strong> on a free listing (instant) or <strong>Request</strong> for paid</li>
+    <li>Snowflake creates a database from the listing's share automatically</li>
+    <li>Grant <code>IMPORTED PRIVILEGES</code> to roles that need access</li>
+    <li>Begin querying &mdash; data is live, not a copy</li>
+  </ol>
+
+  <h3>Key Marketplace Concepts</h3>
+  <ul>
+    <li><strong>No data movement</strong> &mdash; consumers access live data in provider's account (same region)</li>
+    <li><strong>Instant access</strong> for free listings; paid requires provider approval</li>
+    <li><strong>Usage-based billing</strong> possible for paid listings via Snowflake's billing integration</li>
+    <li><strong>Provider Studio</strong> &mdash; the UI for managing listings, analytics, and fulfillment</li>
+    <li><strong>Data Exchange</strong> (legacy) &mdash; private, invite-only marketplace for groups of accounts</li>
+  </ul>
+
+  <div class="callout-warn callout">
+    <strong>Important:</strong> Public listings require Snowflake review. Personalized/private listings do not require review and are available immediately.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="cross-region-cloud">
+  <h2>4. Cross-Region/Cloud Sharing</h2>
+  <p>Snowflake's native sharing is <strong>same-region only</strong>. For cross-region or cross-cloud sharing, replication is required.</p>
+
+  <h3>How Cross-Region Sharing Works</h3>
+  <div class="flow-diagram">
+    Provider (us-east-1) &rarr; DATABASE REPLICATION &rarr; Secondary DB (eu-west-1) &rarr; Share served from secondary
+  </div>
+
+  <h3>Replication Requirements</h3>
+  <table>
+    <thead><tr><th>Requirement</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr><td>Business Critical Edition</td><td>Required for replication (or higher)</td></tr>
+      <tr><td>Replication enabled on account</td><td><code>ALTER ACCOUNT SET ENABLE_ACCOUNT_REPLICATION = TRUE;</code></td></tr>
+      <tr><td>Replication group or DB replication</td><td>Must replicate the DB containing shared objects</td></tr>
+      <tr><td>Network connectivity</td><td>Automatic between Snowflake regions</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Auto-Fulfillment</h3>
+  <p>For Marketplace listings, Snowflake supports <strong>auto-fulfillment</strong>, which automates replication:</p>
+  <ul>
+    <li>Provider configures which regions to serve from in Provider Studio</li>
+    <li>Snowflake automatically replicates data to those regions</li>
+    <li>Consumers in those regions get the listing served locally</li>
+    <li>Provider pays for replication storage and compute costs</li>
+    <li>Refresh frequency is configurable (e.g., daily, hourly)</li>
+  </ul>
+
+  <h3>Manual Cross-Region Setup</h3>
+  <pre><code>-- On PRIMARY account: enable replication
+ALTER DATABASE analytics_db ENABLE REPLICATION TO ACCOUNTS org.target_acct;
+
+-- On SECONDARY account: create replica
+CREATE DATABASE analytics_db AS REPLICA OF org.source_acct.analytics_db;
+
+-- Refresh the replica
+ALTER DATABASE analytics_db REFRESH;
+
+-- Create share on secondary account referencing replicated DB
+CREATE SHARE sales_share;
+GRANT USAGE ON DATABASE analytics_db TO SHARE sales_share;
+-- ... add objects and consumer accounts</code></pre>
+
+  <div class="callout">
+    <strong>Exam Tip:</strong> Cross-region sharing always incurs replication costs (storage + data transfer). The provider pays these costs, not the consumer.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="multi-account-patterns">
+  <h2>5. Multi-Account Sharing Patterns</h2>
+
+  <h3>Hub-and-Spoke Model</h3>
+  <p>A central account (hub) shares data with multiple consumer accounts (spokes):</p>
+  <div class="flow-diagram">
+    Spoke A &larr;&mdash; HUB ACCOUNT (provider) &mdash;&rarr; Spoke B<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&darr;<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Spoke C
+  </div>
+  <ul>
+    <li>Single source of truth in the hub</li>
+    <li>Each spoke gets its own share (or shared share with multiple accounts)</li>
+    <li>Common for organizations with regional subsidiaries or partner networks</li>
+  </ul>
+
+  <h3>Mesh Model</h3>
+  <p>Multiple accounts share bidirectionally:</p>
+  <ul>
+    <li>Each account is both a provider and a consumer</li>
+    <li>Requires separate shares for each direction</li>
+    <li>Complex RBAC requirements &mdash; each account manages its own shares</li>
+  </ul>
+
+  <h3>Reader Accounts</h3>
+  <p>For sharing with non-Snowflake customers:</p>
+  <pre><code>-- Create a managed (reader) account
+CREATE MANAGED ACCOUNT partner_reader
+  ADMIN_NAME = 'partner_admin'
+  ADMIN_PASSWORD = '***'
+  TYPE = READER;
+
+-- Add reader account to share
+ALTER SHARE sales_share ADD ACCOUNTS = &lt;reader_account_locator&gt;;</code></pre>
+
+  <table>
+    <thead><tr><th>Feature</th><th>Full Account</th><th>Reader Account</th></tr></thead>
+    <tbody>
+      <tr><td>Can load own data</td><td>Yes</td><td>No</td></tr>
+      <tr><td>Can create objects</td><td>Yes</td><td>Limited (views on shared data)</td></tr>
+      <tr><td>Compute costs paid by</td><td>Consumer</td><td>Provider</td></tr>
+      <tr><td>Can share data outbound</td><td>Yes</td><td>No</td></tr>
+      <tr><td>Managed by</td><td>Self</td><td>Provider account</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout-warn callout">
+    <strong>Cost Alert:</strong> Provider pays ALL compute costs for reader accounts. Monitor usage carefully with resource monitors.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="rbac-sharing">
+  <h2>6. RBAC for Sharing</h2>
+
+  <h3>Key Privileges</h3>
+  <table>
+    <thead><tr><th>Privilege</th><th>Scope</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>CREATE SHARE</code></td><td>Account</td><td>Create outbound shares (provider side)</td></tr>
+      <tr><td><code>IMPORT SHARE</code></td><td>Account</td><td>Create databases from inbound shares (consumer side)</td></tr>
+      <tr><td><code>OVERRIDE SHARE RESTRICTIONS</code></td><td>Account</td><td>Share with Business Critical to non-BC accounts</td></tr>
+      <tr><td><code>IMPORTED PRIVILEGES</code></td><td>Database</td><td>Grant all privileges on a shared database to a role</td></tr>
+      <tr><td><code>CREATE DATA EXCHANGE LISTING</code></td><td>Account</td><td>Publish listings to a data exchange</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Default Role Assignments</h3>
+  <pre><code>-- ACCOUNTADMIN has all sharing privileges by default
+
+-- Grant sharing ability to a custom role
+GRANT CREATE SHARE ON ACCOUNT TO ROLE data_provider_role;
+GRANT IMPORT SHARE ON ACCOUNT TO ROLE data_consumer_role;
+
+-- Override share restrictions (Business Critical → non-BC)
+GRANT OVERRIDE SHARE RESTRICTIONS ON ACCOUNT TO ROLE data_provider_role;</code></pre>
+
+  <h3>OVERRIDE SHARE RESTRICTIONS</h3>
+  <p>By default, Business Critical accounts <strong>cannot share with non-Business-Critical accounts</strong> (security guardrail). This privilege overrides that restriction:</p>
+  <ul>
+    <li>Required when a BC account needs to share with Standard/Enterprise accounts</li>
+    <li>The <code>SHARE_RESTRICTIONS</code> parameter on <code>ALTER SHARE ADD ACCOUNTS</code> must also be set to <code>false</code></li>
+    <li>Exam may test this as a scenario: "Why can't my BC account share with account X?"</li>
+  </ul>
+
+  <h3>Provider-Side RBAC Pattern</h3>
+  <pre><code>-- Recommended: Dedicated role for managing shares
+CREATE ROLE share_admin;
+GRANT CREATE SHARE ON ACCOUNT TO ROLE share_admin;
+GRANT USAGE ON DATABASE analytics_db TO ROLE share_admin;
+GRANT USAGE ON SCHEMA analytics_db.public TO ROLE share_admin;
+GRANT SELECT ON ALL TABLES IN SCHEMA analytics_db.public TO ROLE share_admin;
+
+-- Role hierarchy
+GRANT ROLE share_admin TO ROLE sysadmin;</code></pre>
+
+  <div class="callout">
+    <strong>Exam Tip:</strong> Only <code>ACCOUNTADMIN</code> has <code>IMPORT SHARE</code> by default. It must be explicitly granted to other roles for them to create databases from shares.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="monitoring-shares">
+  <h2>7. Monitoring Shares</h2>
+
+  <h3>SHOW Commands</h3>
+  <pre><code>-- All shares (outbound + inbound)
+SHOW SHARES;
+
+-- Outbound shares only
+SHOW SHARES LIKE '%sales%';
+
+-- Describe specific share (see objects included)
+DESC SHARE sales_share;
+
+-- Show grants to a share
+SHOW GRANTS TO SHARE sales_share;
+
+-- Show grants of a share (which accounts have access)
+SHOW GRANTS OF SHARE sales_share;</code></pre>
+
+  <h3>INFORMATION_SCHEMA Views</h3>
+  <table>
+    <thead><tr><th>View</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>APPLICABLE_ROLES</code></td><td>Roles with sharing-related privileges</td></tr>
+      <tr><td><code>OBJECT_PRIVILEGES</code></td><td>Privileges granted on shared objects</td></tr>
+    </tbody>
+  </table>
+
+  <h3>ACCOUNT_USAGE Views</h3>
+  <table>
+    <thead><tr><th>View</th><th>Purpose</th><th>Latency</th></tr></thead>
+    <tbody>
+      <tr><td><code>SNOWFLAKE.ACCOUNT_USAGE.SHARES</code></td><td>All shares (created, dropped, modified)</td><td>Up to 120 min</td></tr>
+      <tr><td><code>SNOWFLAKE.ACCOUNT_USAGE.DATA_TRANSFER_HISTORY</code></td><td>Replication transfers for cross-region shares</td><td>Up to 120 min</td></tr>
+      <tr><td><code>SNOWFLAKE.ACCOUNT_USAGE.REPLICATION_USAGE_HISTORY</code></td><td>Replication compute and cost</td><td>Up to 120 min</td></tr>
+      <tr><td><code>SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY</code></td><td>Who accessed shared objects</td><td>Up to 120 min</td></tr>
+      <tr><td><code>SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY</code></td><td>Queries run against shared objects</td><td>Up to 45 min</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Monitoring Queries</h3>
+  <pre><code>-- List all active outbound shares with consumer accounts
+SELECT share_name, created_on, database_name, comment
+FROM SNOWFLAKE.ACCOUNT_USAGE.SHARES
+WHERE deleted_on IS NULL;
+
+-- Replication costs for cross-region shares
+SELECT start_time, database_name, credits_used, bytes_transferred
+FROM SNOWFLAKE.ACCOUNT_USAGE.REPLICATION_USAGE_HISTORY
+WHERE start_time >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+ORDER BY start_time DESC;
+
+-- Consumer query activity on shared data (provider side)
+-- Available only via READER_ACCOUNT_USAGE for reader accounts
+SELECT query_id, user_name, warehouse_name, execution_time
+FROM SNOWFLAKE.READER_ACCOUNT_USAGE.QUERY_HISTORY
+WHERE start_time >= DATEADD(day, -7, CURRENT_TIMESTAMP());</code></pre>
+
+  <div class="callout">
+    <strong>Exam Tip:</strong> Providers can see metadata about <em>reader account</em> usage via <code>SNOWFLAKE.READER_ACCOUNT_USAGE</code>, but cannot see queries run by full consumer accounts.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="best-practices">
+  <h2>8. Best Practices</h2>
+
+  <h3>Governance</h3>
+  <ul>
+    <li><strong>Always use secure views</strong> &mdash; regular views expose their DDL to consumers, potentially leaking business logic</li>
+    <li>Apply <strong>row-level security</strong> via secure views with <code>CURRENT_ACCOUNT()</code> or <code>CURRENT_ROLE()</code></li>
+    <li>Document shared objects with <code>COMMENT</code> on shares and objects</li>
+    <li>Use <strong>column-level masking policies</strong> on underlying tables (applied before share)</li>
+    <li>Audit consumer access patterns via ACCOUNT_USAGE views</li>
+  </ul>
+
+  <h3>Secure Views &mdash; Required for Sharing</h3>
+  <pre><code>-- Regular view: DDL visible to consumers (NOT shareable)
+CREATE VIEW orders_vw AS SELECT * FROM orders;
+
+-- Secure view: DDL hidden, optimizer fence applied (shareable)
+CREATE SECURE VIEW orders_secure_vw AS
+SELECT order_id, customer_name, amount, order_date
+FROM orders
+WHERE region = 'NA';</code></pre>
+
+  <h3>Performance Considerations</h3>
+  <ul>
+    <li>Secure views disable certain optimizer pushdowns &mdash; design underlying queries carefully</li>
+    <li>Consumers use <strong>their own warehouses</strong> for compute &mdash; no provider cost for full accounts</li>
+    <li>Clustering keys on shared tables benefit consumer query performance</li>
+    <li>Avoid overly complex secure views (multi-level nesting) that slow consumer queries</li>
+    <li>Reader accounts use provider warehouses &mdash; set <strong>resource monitors</strong></li>
+  </ul>
+
+  <h3>Cost Management</h3>
+  <table>
+    <thead><tr><th>Cost Type</th><th>Paid By</th><th>Applies When</th></tr></thead>
+    <tbody>
+      <tr><td>Storage of shared data</td><td>Provider</td><td>Always (data stays in provider account)</td></tr>
+      <tr><td>Compute for queries</td><td>Consumer</td><td>Full accounts querying shared data</td></tr>
+      <tr><td>Compute for reader accounts</td><td>Provider</td><td>Reader accounts querying shared data</td></tr>
+      <tr><td>Replication (cross-region)</td><td>Provider</td><td>Cross-region/cloud sharing</td></tr>
+      <tr><td>Data transfer (egress)</td><td>Provider</td><td>Cross-cloud replication</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Security Best Practices</h3>
+  <ul>
+    <li>Never share base tables directly &mdash; wrap in secure views for column/row filtering</li>
+    <li>Periodically review <code>SHOW GRANTS OF SHARE</code> to verify consumer list</li>
+    <li>Use <code>SHARE_RESTRICTIONS</code> thoughtfully with Business Critical accounts</li>
+    <li>Implement <strong>data retention policies</strong> &mdash; shared data follows provider's Time Travel/Fail-safe settings</li>
+    <li>Separate share-management duties with a dedicated <code>SHARE_ADMIN</code> role</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Exam Tip:</strong> The provider bears NO compute cost for full consumer accounts querying shared data. Compute cost is only a provider concern for reader accounts and replication.
+  </div>
+</section>
+
+<footer>
+  <p>Snowflake Certification Prep &mdash; Data Sharing Advanced (Part 2)</p>
+  <p>Reference material for SnowPro Core &amp; SnowPro Advanced certifications</p>
+</footer>
+
+</body>
+</html>

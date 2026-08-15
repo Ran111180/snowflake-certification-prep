@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>22.01 Snowflake Architecture Deep Dive - Fundamentals</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Snowflake Architecture Deep Dive - Fundamentals",
+  "topic": "22-snowflake-architecture-deep-dive",
+  "part": 1,
+  "category": "certification-reference",
+  "difficulty": "intermediate",
+  "certificationArea": "Architecture",
+  "tags": ["architecture", "storage", "compute", "cloud-services", "editions"]
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#f8f9fa, #1a1d23);
+  --bg-secondary: light-dark(#ffffff, #22262e);
+  --bg-tertiary: light-dark(#f1f3f5, #2a2f38);
+  --text-primary: light-dark(#1a1d23, #e2e4e8);
+  --text-secondary: light-dark(#4a5568, #a0aab4);
+  --border-color: light-dark(#d1d5db, #3a3f48);
+  --accent: light-dark(#475569, #94a3b8);
+  --accent-bg: light-dark(#f1f5f9, #2d3748);
+  --highlight: light-dark(#334155, #e2e8f0);
+  --code-bg: light-dark(#f1f3f5, #2a2f38);
+  --success: light-dark(#16a34a, #4ade80);
+  --warning: light-dark(#d97706, #fbbf24);
+  --info: light-dark(#2563eb, #60a5fa);
+  --card-shadow: light-dark(0 1px 3px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.3));
+}
+html { color-scheme: light dark; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--highlight); }
+h2 { font-size: 1.4rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--highlight); border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; }
+h3 { font-size: 1.1rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: var(--accent); }
+.subtitle { color: var(--text-secondary); margin-bottom: 2rem; font-size: 1rem; }
+.card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--card-shadow);
+}
+.diagram {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  white-space: pre;
+  overflow-x: auto;
+  line-height: 1.4;
+}
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+th, td { padding: 0.6rem 0.8rem; text-align: left; border: 1px solid var(--border-color); }
+th { background: var(--bg-tertiary); font-weight: 600; color: var(--highlight); }
+tr:nth-child(even) { background: var(--bg-tertiary); }
+ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+li { margin-bottom: 0.4rem; }
+code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.9em; }
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.badge-exam { background: var(--accent-bg); color: var(--accent); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.feature-list { columns: 2; column-gap: 2rem; }
+@media (max-width: 768px) { .grid-2, .feature-list { grid-template-columns: 1fr; columns: 1; } }
+.callout { border-left: 4px solid var(--accent); padding: 1rem 1.5rem; margin: 1rem 0; background: var(--accent-bg); border-radius: 0 6px 6px 0; }
+.callout-warning { border-left-color: var(--warning); }
+.callout-info { border-left-color: var(--info); }
+</style>
+</head>
+<body>
+
+<h1>22.01 Snowflake Architecture - Fundamentals</h1>
+<p class="subtitle">Three-layer architecture, SaaS model, storage, compute, cloud services, editions</p>
+
+<h2>1. Snowflake SaaS Model</h2>
+<div class="card">
+<h3>Key Characteristics</h3>
+<ul>
+  <li><strong>True SaaS</strong> - No hardware to provision, no software to install, no infrastructure to manage</li>
+  <li><strong>Multi-tenant</strong> - Shared infrastructure with complete data isolation</li>
+  <li><strong>Pay-per-use</strong> - Billed for storage (per TB/month) and compute (per credit/second)</li>
+  <li><strong>Zero maintenance</strong> - Automatic upgrades, patches, and tuning</li>
+  <li><strong>Near-zero administration</strong> - No indexes, no partitioning keys, no vacuuming, no tuning knobs</li>
+</ul>
+<div class="callout">
+  <strong>Exam Tip:</strong> Snowflake is NOT a "hosted" version of existing software. It was built from scratch for the cloud, using a new SQL query engine (not based on Hadoop, Postgres, or any existing system).
+</div>
+</div>
+
+<h2>2. Three-Layer Architecture</h2>
+<div class="card">
+<h3>Multi-Cluster Shared Data Architecture</h3>
+<p>Snowflake combines elements of shared-disk and shared-nothing architectures:</p>
+<div class="diagram">
+┌─────────────────────────────────────────────────────────────────┐
+│                    CLOUD SERVICES LAYER                          │
+│  ┌──────────┐ ┌───────────┐ ┌──────────┐ ┌───────────────────┐ │
+│  │ Security │ │ Metadata  │ │  Query   │ │  Transaction Mgmt │ │
+│  │ & Auth   │ │  Store    │ │ Optimize │ │  & ACID Control   │ │
+│  └──────────┘ └───────────┘ └──────────┘ └───────────────────┘ │
+├─────────────────────────────────────────────────────────────────┤
+│                     COMPUTE LAYER                                │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
+│  │  Warehouse   │  │  Warehouse   │  │  Warehouse           │  │
+│  │  (X-Small)   │  │  (Large)     │  │  (Multi-Cluster)     │  │
+│  │  ┌──┐        │  │  ┌──┐┌──┐   │  │  ┌──┐┌──┐┌──┐┌──┐   │  │
+│  │  │VM│        │  │  │VM││VM│   │  │  │VM││VM││VM││VM│   │  │
+│  │  └──┘        │  │  └──┘└──┘   │  │  └──┘└──┘└──┘└──┘   │  │
+│  └──────────────┘  └──────────────┘  └──────────────────────┘  │
+├─────────────────────────────────────────────────────────────────┤
+│                     STORAGE LAYER                                │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  Cloud Storage (S3 / Azure Blob / GCS)                    │  │
+│  │  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐       │  │
+│  │  │ MP  │ │ MP  │ │ MP  │ │ MP  │ │ MP  │ │ MP  │       │  │
+│  │  │(col)│ │(col)│ │(col)│ │(col)│ │(col)│ │(col)│       │  │
+│  │  └─────┘ └─────┘ └─────┘ └─────┘ └─────┘ └─────┘       │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘</div>
+</div>
+
+<h2>3. Storage Layer</h2>
+<div class="card">
+<h3>Micro-Partitions</h3>
+<table>
+  <tr><th>Property</th><th>Detail</th></tr>
+  <tr><td>Size</td><td>50-500 MB of uncompressed data per micro-partition</td></tr>
+  <tr><td>Format</td><td>Columnar (each column stored independently)</td></tr>
+  <tr><td>Compression</td><td>Automatic, column-specific compression algorithms</td></tr>
+  <tr><td>Immutability</td><td>Once written, never modified (copy-on-write for updates)</td></tr>
+  <tr><td>Organization</td><td>Data stored in natural ingestion order (no explicit partitioning key)</td></tr>
+  <tr><td>Metadata</td><td>Min/max per column, distinct count, null count stored separately</td></tr>
+</table>
+
+<div class="callout-info callout">
+  <strong>Key Point:</strong> Snowflake automatically organizes data into micro-partitions. Users do NOT define partitioning keys (unlike Hive/Spark). Clustering keys can optionally be defined to influence ordering.
+</div>
+
+<h3>Storage Characteristics</h3>
+<ul>
+  <li>Data stored in the cloud provider's blob storage (S3, Azure Blob, GCS)</li>
+  <li>Managed entirely by Snowflake - users cannot directly access underlying files</li>
+  <li>Compressed typically 4-5x (varies by data type)</li>
+  <li>Billed monthly based on average compressed storage used</li>
+  <li>Supports structured (relational) and semi-structured (JSON, Avro, Parquet, ORC, XML)</li>
+</ul>
+</div>
+
+<h2>4. Compute Layer</h2>
+<div class="card">
+<h3>Virtual Warehouses</h3>
+<table>
+  <tr><th>Size</th><th>Nodes</th><th>Credits/Hour</th></tr>
+  <tr><td>X-Small</td><td>1</td><td>1</td></tr>
+  <tr><td>Small</td><td>2</td><td>2</td></tr>
+  <tr><td>Medium</td><td>4</td><td>4</td></tr>
+  <tr><td>Large</td><td>8</td><td>8</td></tr>
+  <tr><td>X-Large</td><td>16</td><td>16</td></tr>
+  <tr><td>2X-Large</td><td>32</td><td>32</td></tr>
+  <tr><td>3X-Large</td><td>64</td><td>64</td></tr>
+  <tr><td>4X-Large</td><td>128</td><td>128</td></tr>
+  <tr><td>5X-Large</td><td>256</td><td>256</td></tr>
+  <tr><td>6X-Large</td><td>512</td><td>512</td></tr>
+</table>
+
+<h3>Key Compute Properties</h3>
+<ul>
+  <li><strong>Independent scaling</strong> - Each warehouse scales independently without affecting others</li>
+  <li><strong>No resource contention</strong> - Warehouses do NOT share compute resources</li>
+  <li><strong>Local SSD cache</strong> - Each warehouse has local disk cache for recently accessed data</li>
+  <li><strong>Auto-suspend</strong> - Configurable idle timeout (default 10 minutes, minimum 1 minute or "never")</li>
+  <li><strong>Auto-resume</strong> - Automatically starts when a query is submitted</li>
+  <li><strong>Per-second billing</strong> - Minimum 60 seconds, then billed per-second</li>
+  <li><strong>Instant resize</strong> - Can scale up/down without restarting running queries</li>
+</ul>
+
+<div class="callout-warning callout">
+  <strong>Exam Alert:</strong> Multi-cluster warehouses are Enterprise Edition and above only. They scale OUT (add clusters), not UP (add nodes to existing cluster).
+</div>
+</div>
+
+<h2>5. Cloud Services Layer</h2>
+<div class="card">
+<h3>Responsibilities</h3>
+<div class="grid-2">
+  <div>
+    <h3>Query Processing</h3>
+    <ul>
+      <li>Query parsing and optimization</li>
+      <li>Query compilation (into execution plan)</li>
+      <li>Metadata management</li>
+      <li>Statistics collection</li>
+      <li>Result caching</li>
+    </ul>
+  </div>
+  <div>
+    <h3>Infrastructure</h3>
+    <ul>
+      <li>Authentication and access control</li>
+      <li>Security (encryption, network policies)</li>
+      <li>Transaction management (ACID)</li>
+      <li>Infrastructure management</li>
+      <li>Metadata storage</li>
+    </ul>
+  </div>
+</div>
+
+<div class="callout">
+  <strong>Billing:</strong> Cloud Services are billed only when usage exceeds 10% of total daily compute credits. The first 10% is free (adjustment applied daily).
+</div>
+</div>
+
+<h2>6. Supported Cloud Platforms</h2>
+<div class="card">
+<table>
+  <tr><th>Cloud</th><th>Regions (examples)</th><th>Storage Backend</th></tr>
+  <tr><td>Amazon Web Services (AWS)</td><td>US East, US West, EU, AP, etc.</td><td>Amazon S3</td></tr>
+  <tr><td>Microsoft Azure</td><td>East US, West Europe, Australia, etc.</td><td>Azure Blob Storage</td></tr>
+  <tr><td>Google Cloud Platform (GCP)</td><td>US Central, Europe West, etc.</td><td>Google Cloud Storage</td></tr>
+</table>
+<ul>
+  <li>Account is created in ONE cloud provider and ONE region</li>
+  <li>Data does NOT automatically replicate across clouds (requires Database Replication)</li>
+  <li>Cross-cloud/cross-region queries are NOT supported natively (need replication first)</li>
+  <li>Pricing varies by cloud provider and region</li>
+</ul>
+</div>
+
+<h2>7. Snowflake Editions</h2>
+<div class="card">
+<table>
+  <tr><th>Edition</th><th>Key Features Added</th><th>Use Case</th></tr>
+  <tr>
+    <td><strong>Standard</strong></td>
+    <td>Full SQL, Time Travel (1 day), automatic encryption, premier support</td>
+    <td>General purpose, development, small teams</td>
+  </tr>
+  <tr>
+    <td><strong>Enterprise</strong></td>
+    <td>Multi-cluster warehouses, Time Travel (90 days), materialized views, column-level security, search optimization, data masking, row access policies</td>
+    <td>Production workloads, large organizations</td>
+  </tr>
+  <tr>
+    <td><strong>Business Critical</strong></td>
+    <td>HIPAA/PCI-DSS/SOC compliance, customer-managed encryption keys (Tri-Secret Secure), database failover/failback, private connectivity (AWS PrivateLink, Azure Private Link)</td>
+    <td>Sensitive data, regulated industries</td>
+  </tr>
+  <tr>
+    <td><strong>Virtual Private Snowflake (VPS)</strong></td>
+    <td>Dedicated infrastructure, completely isolated environment, dedicated metadata store</td>
+    <td>Highest security requirements, government, financial services</td>
+  </tr>
+</table>
+
+<div class="callout-warning callout">
+  <strong>Exam Focus:</strong> Know which features are edition-specific. Multi-cluster warehouses = Enterprise+. Tri-Secret Secure = Business Critical+. 90-day Time Travel = Enterprise+. Failover = Business Critical+.
+</div>
+</div>
+
+<h2>8. Key Features (15)</h2>
+<div class="card">
+<div class="feature-list">
+<ol>
+  <li>Separation of storage and compute</li>
+  <li>Near-unlimited, independent scaling</li>
+  <li>Zero-copy cloning</li>
+  <li>Time Travel (up to 90 days)</li>
+  <li>Fail-safe (7-day recovery)</li>
+  <li>Automatic encryption (at rest and in transit)</li>
+  <li>Semi-structured data support (VARIANT)</li>
+  <li>Secure data sharing (no data movement)</li>
+  <li>Multi-cluster warehouses (auto-scale)</li>
+  <li>Materialized views (auto-maintained)</li>
+  <li>Result caching (24 hours)</li>
+  <li>Automatic micro-partitioning</li>
+  <li>Native support for JSON, Avro, Parquet, ORC, XML</li>
+  <li>Continuous data protection (no backups needed)</li>
+  <li>Cross-cloud/cross-region replication</li>
+</ol>
+</div>
+</div>
+
+<h2>9. Key Limitations (15)</h2>
+<div class="card">
+<div class="feature-list">
+<ol>
+  <li>No user-defined indexes (relies on micro-partition pruning)</li>
+  <li>No direct access to underlying storage files</li>
+  <li>Account locked to one cloud/region (replication needed for multi-region)</li>
+  <li>No support for stored procedures in all languages equally (SQL, JavaScript, Python, Java, Scala)</li>
+  <li>Limited UDF execution time (statements can time out)</li>
+  <li>No in-place updates (copy-on-write model)</li>
+  <li>Result cache limited to 24 hours and exact query match</li>
+  <li>Multi-cluster warehouses require Enterprise Edition or higher</li>
+  <li>Time Travel beyond 1 day requires Enterprise Edition</li>
+  <li>No support for arbitrary binary data types as partition keys</li>
+  <li>VARIANT column size limit of 16 MB per value</li>
+  <li>Maximum row size of 16 MB (compressed)</li>
+  <li>Cannot run on-premises (cloud only)</li>
+  <li>No column-level encryption (encryption is storage-level)</li>
+  <li>Network policies limited to IP-based rules (no FQDN filtering)</li>
+</ol>
+</div>
+</div>
+
+<h2>10. Architecture Comparison</h2>
+<div class="card">
+<table>
+  <tr><th>Architecture</th><th>Description</th><th>Snowflake Similarity</th></tr>
+  <tr>
+    <td><strong>Shared Disk</strong></td>
+    <td>All nodes access same storage</td>
+    <td>Yes - all warehouses access same centralized storage</td>
+  </tr>
+  <tr>
+    <td><strong>Shared Nothing</strong></td>
+    <td>Each node has its own storage</td>
+    <td>Partially - compute nodes have local SSD cache</td>
+  </tr>
+  <tr>
+    <td><strong>Multi-Cluster Shared Data</strong></td>
+    <td>Snowflake's hybrid approach</td>
+    <td>Centralized storage + independent compute clusters</td>
+  </tr>
+</table>
+</div>
+
+</body>
+</html>

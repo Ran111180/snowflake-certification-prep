@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Warehouses & Caching - 50 Question Quiz</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Interactive 50-question certification prep quiz for Snowflake Virtual Warehouses and Caching topics",
+    "sections": [
+      { "id": "quiz-section", "title": "Warehouses & Caching Quiz",
+        "dataSources": [{ "type": "static", "description": "50 hand-crafted questions covering warehouse sizing, multi-cluster, scaling policies, cache layers, QAS, resource monitors, RBAC, cost optimization, auto-suspend, query queuing, and monitoring" }],
+        "producerNotes": "Questions are embedded as a JS array. No external data source needed." }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      max-width: 900px; margin: 0 auto; padding: 24px;
+      color: light-dark(#1a1209, #f0e6d8);
+      background: light-dark(#fffaf5, #12100d);
+      line-height: 1.6;
+    }
+    h1 {
+      text-align: center; margin-bottom: 8px;
+      color: light-dark(#c2620a, #f09030);
+      font-size: 1.8rem;
+    }
+    .subtitle {
+      text-align: center; margin-bottom: 24px;
+      color: light-dark(#5c4a32, #bfa882);
+      font-size: 0.95rem;
+    }
+    .score-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      background: light-dark(#fef3e2, #2a1c08);
+      border: 1px solid light-dark(#f59e0b, #92400e);
+      border-radius: 10px; padding: 12px 20px; margin-bottom: 24px;
+      position: sticky; top: 8px; z-index: 100;
+    }
+    .score-bar span { font-weight: 600; color: light-dark(#92400e, #f59e0b); }
+    .score-bar .score-pct { font-size: 1.1rem; }
+    #resetBtn {
+      background: light-dark(#c2620a, #f09030); color: #fff;
+      border: none; border-radius: 6px; padding: 8px 16px;
+      cursor: pointer; font-size: 0.85rem; font-weight: 600;
+      transition: background 0.2s;
+    }
+    #resetBtn:hover { background: light-dark(#a3520a, #f5a040); }
+    .question-card {
+      background: light-dark(#ffffff, #1c1814);
+      border: 1px solid light-dark(#e8dcc8, #3a2e1e);
+      border-radius: 10px; padding: 20px; margin-bottom: 16px;
+      transition: border-color 0.3s;
+    }
+    .question-card.answered-correct { border-color: #22c55e; }
+    .question-card.answered-wrong { border-color: #ef4444; }
+    .q-header {
+      display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-start;
+    }
+    .q-num {
+      background: light-dark(#c2620a, #f09030); color: #fff;
+      border-radius: 50%; width: 28px; height: 28px; min-width: 28px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 700;
+    }
+    .q-text { font-weight: 600; color: light-dark(#1a1209, #f0e6d8); }
+    .options { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+    .option {
+      padding: 10px 14px; border-radius: 8px; cursor: pointer;
+      border: 1px solid light-dark(#e8dcc8, #3a2e1e);
+      background: light-dark(#fffaf5, #12100d);
+      transition: all 0.2s; font-size: 0.92rem;
+    }
+    .option:hover:not(.disabled) {
+      border-color: light-dark(#f59e0b, #f09030);
+      background: light-dark(#fef3e2, #2a1c08);
+    }
+    .option.correct {
+      background: light-dark(#dcfce7, #052e16);
+      border-color: #22c55e; color: light-dark(#166534, #86efac);
+    }
+    .option.wrong {
+      background: light-dark(#fee2e2, #350a0a);
+      border-color: #ef4444; color: light-dark(#991b1b, #fca5a5);
+    }
+    .option.disabled { cursor: default; opacity: 0.7; }
+    .explanation {
+      display: none; margin-top: 12px; padding: 10px 14px;
+      background: light-dark(#fef3e2, #2a1c08);
+      border-left: 3px solid light-dark(#f59e0b, #f09030);
+      border-radius: 4px; font-size: 0.88rem;
+      color: light-dark(#92400e, #fde68a);
+    }
+    .explanation.show { display: block; }
+  </style>
+</head>
+<body>
+
+<h1>Snowflake Warehouses & Caching Quiz</h1>
+<p class="subtitle">50 Questions — Sizing, Multi-Cluster, Cache Layers, QAS, Resource Monitors, RBAC & More</p>
+
+<div class="score-bar">
+  <span>Score: <span id="scoreVal">0</span> / <span id="totalAnswered">0</span></span>
+  <span class="score-pct" id="pctVal">0%</span>
+  <button id="resetBtn">Reset</button>
+</div>
+
+<div id="quizContainer"></div>
+
+<script>
+const questions=[
+{q:"How many credits per hour does an X-Small warehouse consume?",o:["0.5 credits","1 credit","2 credits","4 credits"],a:1,e:"An X-Small (XS) warehouse consumes 1 credit per hour. Each size up doubles: Small=2, Medium=4, Large=8, etc."},
+{q:"What happens to the local SSD cache when a warehouse is suspended?",o:["It persists for 24 hours","It is written to remote storage","It is cleared/lost","It is shared with other warehouses"],a:2,e:"Suspending a warehouse clears its local SSD cache completely. This is a key trade-off when choosing auto-suspend values."},
+{q:"Which Snowflake edition is required for multi-cluster warehouses?",o:["Standard Edition","Enterprise Edition or higher","Business Critical only","All editions support it"],a:1,e:"Multi-cluster warehouses require Enterprise Edition or higher. Standard Edition only supports single-cluster warehouses."},
+{q:"What is the default AUTO_SUSPEND value for a new warehouse?",o:["60 seconds","300 seconds","600 seconds","Never (must be set manually)"],a:2,e:"The default AUTO_SUSPEND is 600 seconds (10 minutes). The timer starts when the last query completes and no queries are queued."},
+{q:"Which scaling policy starts additional clusters only when load would keep them busy for at least 6 minutes?",o:["Standard","Economy","Conservative","Aggressive"],a:1,e:"The Economy scaling policy waits until there is enough load to keep an additional cluster busy for at least 6 minutes before starting it, reducing costs but allowing some queuing."},
+{q:"A query returns results in under 100ms with 0 bytes scanned. Which cache likely served it?",o:["Warehouse local SSD cache","Result cache (query result reuse)","Metadata cache","No cache — the table is empty"],a:1,e:"Result cache serves previously computed results without using a warehouse at all. Zero bytes scanned and near-instant return is the hallmark of a result cache hit."},
+{q:"How long does the result cache remain valid if the underlying data has not changed?",o:["1 hour","12 hours","24 hours (resets on each reuse)","7 days"],a:2,e:"The result cache is valid for 24 hours from the last time it was accessed. Each reuse resets the 24-hour timer. It is invalidated immediately if underlying data changes."},
+{q:"Which cache layer can answer SELECT COUNT(*) FROM table without scanning any data?",o:["Result cache","Metadata cache","Warehouse SSD cache","None — a scan is always required for COUNT(*)"],a:1,e:"The metadata cache maintains row counts and min/max values per micro-partition. Simple COUNT(*), MIN, MAX queries can be answered directly from metadata without scanning."},
+{q:"What is the maximum number of clusters in a multi-cluster warehouse?",o:["5","8","10","20"],a:2,e:"A multi-cluster warehouse supports 1 to 10 clusters. Both MIN_CLUSTER_COUNT and MAX_CLUSTER_COUNT must be between 1 and 10."},
+{q:"A warehouse has MIN_CLUSTER_COUNT=3 and MAX_CLUSTER_COUNT=3. What mode is this called?",o:["Economy mode","Maximized mode","Fixed mode","Standard mode"],a:1,e:"When MIN=MAX, the warehouse runs in Maximized mode — all clusters are always running with no autoscaling. This provides consistent compute but constant credit consumption."},
+{q:"Which privilege allows a role to suspend and resume a warehouse but NOT change its size?",o:["USAGE","OPERATE","MONITOR","MODIFY"],a:1,e:"The OPERATE privilege allows starting, stopping, suspending, and resuming a warehouse. MODIFY is needed to change properties like size."},
+{q:"What does the SCALE_FACTOR parameter control in Query Acceleration Service?",o:["How many warehouses can use QAS simultaneously","The maximum serverless compute QAS can use relative to warehouse size","The priority level of accelerated queries","The number of micro-partitions to scan in parallel"],a:1,e:"SCALE_FACTOR (0-100) controls the maximum serverless compute QAS can allocate, expressed as a multiple of the warehouse's compute. Higher values allow more acceleration but higher cost."},
+{q:"Which resource monitor action cancels currently running queries immediately?",o:["NOTIFY","SUSPEND","SUSPEND_IMMEDIATE","KILL_QUERIES"],a:2,e:"SUSPEND_IMMEDIATE (or NOTIFY & SUSPEND IMMEDIATELY) kills all running queries immediately and then suspends the warehouse. Regular SUSPEND waits for running queries to complete."},
+{q:"What is the minimum billing increment when a warehouse resumes?",o:["1 second","10 seconds","60 seconds","5 minutes"],a:2,e:"Snowflake bills per-second with a 60-second minimum each time a warehouse resumes. Even if a query takes 5 seconds, you are charged for 60 seconds."},
+{q:"Which Snowflake warehouse type provides 16x more memory per node?",o:["Standard","Snowpark-optimized","Memory-optimized","High-compute"],a:1,e:"Snowpark-optimized warehouses provide 16x more memory per node than Standard warehouses. They are designed for memory-intensive operations like ML training and large UDFs."},
+{q:"How much more do Snowpark-optimized warehouses cost compared to Standard?",o:["Same cost","1.25x","1.5x","2x"],a:2,e:"Snowpark-optimized warehouses cost 1.5x the credits of standard warehouses of the same size. For example, XL standard = 16 credits/hr, XL Snowpark-optimized = 24 credits/hr."},
+{q:"A user submits a query but the warehouse is suspended with AUTO_RESUME=TRUE. What happens?",o:["Query fails with an error","Query is queued until user manually resumes","Warehouse auto-resumes and executes the query","Query is routed to another warehouse"],a:2,e:"With AUTO_RESUME=TRUE, the warehouse automatically starts when a query is submitted to it. The query waits briefly during resume (~1-2 seconds) then executes."},
+{q:"Which view shows credit consumption per warehouse per hour?",o:["QUERY_HISTORY","WAREHOUSE_METERING_HISTORY","WAREHOUSE_LOAD_HISTORY","RESOURCE_MONITORS"],a:1,e:"WAREHOUSE_METERING_HISTORY (in ACCOUNT_USAGE or as a table function) shows credit consumption broken down by warehouse and time interval."},
+{q:"What does the Standard scaling policy do when a query is about to be queued?",o:["Waits 6 minutes before adding a cluster","Immediately starts an additional cluster","Redistributes queries to other warehouses","Cancels the lowest-priority query"],a:1,e:"Standard scaling policy starts an additional cluster immediately when a query is queued or estimated to queue. It prioritizes performance over cost."},
+{q:"Can you resize a warehouse while queries are actively running?",o:["No — you must suspend first","Yes — but running queries are cancelled","Yes — running queries use original resources, new queries use new resources","Yes — all queries immediately use new resources"],a:2,e:"You can resize a running warehouse. Currently executing queries continue with the original resources. Only new queries submitted after the resize use the new capacity."},
+{q:"Which parameter sets the maximum time a query can wait in queue before being cancelled?",o:["STATEMENT_TIMEOUT_IN_SECONDS","STATEMENT_QUEUED_TIMEOUT_IN_SECONDS","MAX_CONCURRENCY_LEVEL","QUERY_QUEUE_LIMIT"],a:1,e:"STATEMENT_QUEUED_TIMEOUT_IN_SECONDS controls how long a query can wait in the queue. Default is 0 (unlimited). Setting it prevents queries from waiting indefinitely."},
+{q:"What is the default MAX_CONCURRENCY_LEVEL for a warehouse?",o:["4","8","16","Unlimited"],a:1,e:"The default MAX_CONCURRENCY_LEVEL is 8. This is a soft cap — Snowflake may run fewer concurrent queries if they are memory-intensive. The actual concurrency depends on query resource needs."},
+{q:"A resource monitor is set at the ACCOUNT level. What does it monitor?",o:["Only the default warehouse","Only warehouses owned by ACCOUNTADMIN","All warehouses in the account","All warehouses plus serverless features"],a:2,e:"An account-level resource monitor tracks credit consumption across ALL warehouses in the account. It does not track serverless feature credits (Snowpipe, QAS, etc.) separately."},
+{q:"Which of these is NOT a valid trigger action for a resource monitor?",o:["NOTIFY","SUSPEND","SUSPEND_IMMEDIATE","TERMINATE_ACCOUNT"],a:3,e:"Valid resource monitor actions are NOTIFY, SUSPEND (or NOTIFY & SUSPEND), and SUSPEND_IMMEDIATE (or NOTIFY & SUSPEND IMMEDIATELY). There is no TERMINATE_ACCOUNT action."},
+{q:"To create a resource monitor, which role is required by default?",o:["SYSADMIN","SECURITYADMIN","ACCOUNTADMIN","Any role with CREATE RESOURCE MONITOR"],a:2,e:"By default, only ACCOUNTADMIN can create resource monitors. The privilege can be granted to other roles, but the default is ACCOUNTADMIN only."},
+{q:"What is the result cache behavior when the same query is run by a different role?",o:["Cache is shared across roles for efficiency","Cache hit — roles don't affect caching","Cache miss — result cache is role-specific","Cache hit only if both roles have SELECT on all tables"],a:2,e:"The result cache is role-specific. A query cached under ROLE_A cannot be served to ROLE_B, even if the query text is identical. This is enforced for access control security."},
+{q:"Which SQL command disables result cache for the current session?",o:["ALTER SESSION SET USE_CACHED_RESULT = FALSE","ALTER SESSION SET DISABLE_CACHE = TRUE","SET RESULT_CACHE = OFF","ALTER WAREHOUSE SET NO_CACHE = TRUE"],a:0,e:"ALTER SESSION SET USE_CACHED_RESULT = FALSE disables the result cache for the current session. This is useful for benchmarking or testing."},
+{q:"A Medium multi-cluster warehouse with MAX_CLUSTER_COUNT=4 can consume a maximum of how many credits per hour?",o:["4 credits","8 credits","16 credits","32 credits"],a:2,e:"A Medium warehouse uses 4 credits/hr per cluster. With MAX=4 clusters, maximum consumption is 4 x 4 = 16 credits/hour (when all clusters are active)."},
+{q:"What is the primary symptom that indicates you should scale OUT (add clusters) rather than scale UP (bigger size)?",o:["Individual queries are slow","Queries are spilling to remote storage","Many queries in QUEUED state","Single query has high bytes scanned"],a:2,e:"Queries in QUEUED state indicate concurrency contention — too many queries for the available compute threads. Scale out (multi-cluster) adds parallel capacity. Scale up helps individual slow queries."},
+{q:"Which warehouse parameter specifies that the warehouse should be created in suspended state?",o:["AUTO_SUSPEND = 0","INITIALLY_SUSPENDED = TRUE","START_STATE = SUSPENDED","CREATE_SUSPENDED = TRUE"],a:1,e:"INITIALLY_SUSPENDED = TRUE ensures the warehouse is created in a suspended state, preventing immediate credit consumption. This is a CREATE-time-only parameter."},
+{q:"How does Snowflake's Economy scaling policy decide when to shut down extra clusters?",o:["After 2-3 checks (1 minute apart) showing reduced load","After 5-6 checks (1 minute apart) showing reduced load","After 1 minute of no queries","Immediately when the queue is empty"],a:1,e:"Economy policy shuts down extra clusters after 5-6 consecutive checks (each 1 minute apart) showing reduced load. Standard policy uses 2-3 checks, making it faster to scale in."},
+{q:"What type of queries benefit MOST from Query Acceleration Service (QAS)?",o:["Simple point lookups","DML operations (INSERT/UPDATE/DELETE)","Ad-hoc queries with large scans and selective filters","Queries that are already using result cache"],a:2,e:"QAS is designed for outlier queries that scan large amounts of data but return filtered subsets. It offloads the scan-heavy portions to serverless compute. DML and simple queries are not eligible."},
+{q:"Which ACCOUNT_USAGE view helps identify queries that would benefit from QAS?",o:["QUERY_HISTORY","QUERY_ACCELERATION_ELIGIBLE","WAREHOUSE_LOAD_HISTORY","QUERY_ACCELERATION_HISTORY"],a:1,e:"QUERY_ACCELERATION_ELIGIBLE shows queries that could have benefited from QAS and the estimated time savings. Use this to evaluate whether enabling QAS is worthwhile."},
+{q:"What is the credit rate for a 6X-Large (6XL) warehouse?",o:["128 credits/hour","256 credits/hour","512 credits/hour","1024 credits/hour"],a:2,e:"Each size doubles: XS=1, S=2, M=4, L=8, XL=16, 2XL=32, 3XL=64, 4XL=128, 5XL=256, 6XL=512 credits per hour."},
+{q:"A query runs on Warehouse A, then the same query (same text, role, context) runs on Warehouse B with unchanged data. Does the result cache apply?",o:["Yes — result cache is served from the cloud services layer, independent of warehouse","No — result cache is warehouse-specific","Yes, but only within 1 hour","No — different warehouses have different caches"],a:0,e:"The result cache lives in the cloud services layer, not on any specific warehouse. The same query can be served from result cache regardless of which warehouse it targets."},
+{q:"What does 'spilling to remote storage' indicate about a warehouse?",o:["The warehouse is properly utilizing all available resources","The warehouse is too small for the query's memory requirements","The warehouse has insufficient disk space","The data being queried is stored externally"],a:1,e:"Spilling to remote storage means the query ran out of both memory AND local SSD on the warehouse nodes. Data must be written to remote cloud storage (S3/Azure/GCS), which is very slow. This is a strong signal to increase warehouse size."},
+{q:"Which privilege is needed to view warehouse utilization metrics but NOT run queries on it?",o:["USAGE","OPERATE","MONITOR","MODIFY"],a:2,e:"MONITOR allows viewing warehouse utilization, queries running, load history, etc. without the ability to run queries (USAGE) or change settings (MODIFY)."},
+{q:"Can a resource monitor trigger be set ABOVE 100% of the quota?",o:["No — 100% is the maximum","Yes — you can set triggers above 100% (e.g., 110%, 120%)","Only ACCOUNTADMIN can set above 100%","Only for NOTIFY actions, not SUSPEND"],a:1,e:"Triggers can exceed 100%. This is useful for setting a SUSPEND_IMMEDIATE at, say, 110% as a hard stop while having a regular SUSPEND at 100%. The quota may be slightly exceeded before actions take effect."},
+{q:"What is the default STATEMENT_TIMEOUT_IN_SECONDS?",o:["3600 (1 hour)","7200 (2 hours)","86400 (24 hours)","172800 (48 hours)"],a:3,e:"The default STATEMENT_TIMEOUT_IN_SECONDS is 172800 seconds (48 hours). This means a runaway query can consume credits for 2 full days before being automatically cancelled."},
+{q:"If a warehouse has STATEMENT_TIMEOUT set to 3600 at the warehouse level, can a user session set it to 7200?",o:["Yes — session always overrides warehouse","No — the most restrictive (lowest) value wins","Yes — the latest setting always takes precedence","Only ACCOUNTADMIN sessions can override"],a:1,e:"For timeout parameters, the most restrictive (lowest) value takes effect. A session cannot exceed the warehouse-level timeout. Setting session to 7200 would be ignored if warehouse is 3600."},
+{q:"How does the metadata cache differ from the result cache?",o:["Metadata cache expires after 24 hours; result cache never expires","Metadata cache is always current; result cache may be stale for up to 24 hours","Metadata cache answers structural queries (COUNT, MIN, MAX); result cache stores full query results","They are the same thing with different names"],a:2,e:"Metadata cache maintains always-current statistics about micro-partitions (count, min, max, null count). Result cache stores the exact output of previously executed queries for up to 24 hours."},
+{q:"What happens to the result cache when a DML operation modifies the underlying table?",o:["Nothing — result cache is independent of data changes","Result cache for queries on that table is invalidated immediately","Result cache is invalidated after 5 minutes","Only INSERT invalidates cache; UPDATE/DELETE do not"],a:1,e:"Any DML operation (INSERT, UPDATE, DELETE, MERGE) on a table immediately invalidates ALL result cache entries for queries that referenced that table."},
+{q:"Which of the following is NOT monitored by resource monitors?",o:["Warehouse compute credits","Cloud services credits (above 10% threshold)","Serverless feature credits (Snowpipe, QAS)","None — they monitor all credit types"],a:2,e:"Resource monitors track warehouse compute credits and cloud services credits (when exceeding the 10% daily adjustment threshold). They do NOT track serverless feature credits like Snowpipe, Automatic Clustering, QAS, or Materialized Views."},
+{q:"What is the AUTO_SUSPEND unit in SQL vs the Snowsight UI?",o:["Seconds in both","Minutes in both","Seconds in SQL, minutes in UI","Minutes in SQL, seconds in UI"],a:2,e:"In SQL, AUTO_SUSPEND is specified in seconds (e.g., AUTO_SUSPEND = 300 means 5 minutes). In the Snowsight UI, it is displayed and configured in minutes. This is a common source of confusion."},
+{q:"A multi-cluster warehouse is set to Standard scaling with MIN=1, MAX=5. During off-peak, how many clusters run?",o:["0 (fully suspended)","1 (minimum)","5 (maximized)","Depends on AUTO_SUSPEND setting"],a:3,e:"With MIN=1, at least 1 cluster is always running (unless the warehouse itself is suspended via AUTO_SUSPEND). The AUTO_SUSPEND setting determines whether the entire warehouse suspends during inactivity."},
+{q:"Which command shows the current state and properties of a warehouse?",o:["DESCRIBE WAREHOUSE wh_name","SHOW WAREHOUSES LIKE 'wh_name'","SELECT * FROM WAREHOUSE_PROPERTIES","GET WAREHOUSE wh_name"],a:1,e:"SHOW WAREHOUSES (with optional LIKE filter) displays warehouse properties including size, state (STARTED/SUSPENDED), cluster count, auto-suspend settings, and more."},
+{q:"Query Acceleration Service is billed using which model?",o:["Included in warehouse credits at no extra cost","Serverless credit model (pay for compute used)","Flat monthly fee per warehouse","Credits deducted from resource monitor quota"],a:1,e:"QAS uses the serverless credit model — you pay only for the additional compute resources consumed during query acceleration. Credits appear in QUERY_ACCELERATION_HISTORY."},
+{q:"What is the minimum warehouse size for Snowpark-optimized warehouses?",o:["X-Small","Small","Medium","X-Large"],a:3,e:"Snowpark-optimized warehouses are only available in X-Large and above. You cannot create a Snowpark-optimized warehouse smaller than XL."},
+{q:"Which of these scenarios would LEAST benefit from increasing warehouse size?",o:["A complex join query that spills to remote storage","Many simple SELECT queries experiencing queuing","A single aggregation query running for 30 minutes","A query with heavy sorting running out of memory"],a:1,e:"Many simple queries queuing is a concurrency problem — solved by multi-cluster (scale out), not larger size (scale up). Increasing size helps individual complex/memory-intensive queries."},
+{q:"What is the frequency options for resource monitor credit quotas?",o:["Hourly, Daily, Weekly, Monthly","Daily, Weekly, Monthly, Yearly, Never (custom dates)","Monthly only","Weekly and Monthly only"],a:1,e:"Resource monitors support these frequency intervals: DAILY, WEEKLY, MONTHLY, YEARLY, and NEVER (which uses custom START/END timestamps for a one-time window)."},
+{q:"When a warehouse resumes, approximately how long is the startup latency?",o:["Instant (0 seconds)","1-2 seconds typically","10-15 seconds","30-60 seconds"],a:1,e:"Warehouse resume typically takes 1-2 seconds. This is fast but can be noticeable for latency-sensitive applications. It also means the local disk cache starts cold."}
+];
+
+const container=document.getElementById('quizContainer');
+let score=0,answered=0;
+
+function render(){
+  container.innerHTML='';
+  questions.forEach((item,idx)=>{
+    const card=document.createElement('div');
+    card.className='question-card';
+    card.id='q'+idx;
+    let optsHtml='';
+    item.o.forEach((opt,oi)=>{
+      optsHtml+='<div class="option" data-q="'+idx+'" data-o="'+oi+'">'+opt+'</div>';
+    });
+    card.innerHTML='<div class="q-header"><span class="q-num">'+( idx+1)+'</span><span class="q-text">'+item.q+'</span></div><div class="options">'+optsHtml+'</div><div class="explanation" id="exp'+idx+'">'+item.e+'</div>';
+    container.appendChild(card);
+  });
+  attachListeners();
+}
+
+function attachListeners(){
+  document.querySelectorAll('.option').forEach(function(el){
+    el.addEventListener('click',function(){
+      var qi=parseInt(this.dataset.q);
+      var oi=parseInt(this.dataset.o);
+      var card=document.getElementById('q'+qi);
+      if(card.classList.contains('answered-correct')||card.classList.contains('answered-wrong'))return;
+      var opts=card.querySelectorAll('.option');
+      var correct=questions[qi].a;
+      opts.forEach(function(o){o.classList.add('disabled');});
+      if(oi===correct){
+        this.classList.add('correct');
+        card.classList.add('answered-correct');
+        score++;
+      }else{
+        this.classList.add('wrong');
+        opts[correct].classList.add('correct');
+        card.classList.add('answered-wrong');
+      }
+      answered++;
+      updateScore();
+      document.getElementById('exp'+qi).classList.add('show');
+    });
+  });
+}
+
+function updateScore(){
+  document.getElementById('scoreVal').textContent=score;
+  document.getElementById('totalAnswered').textContent=answered;
+  document.getElementById('pctVal').textContent=answered?Math.round(score/answered*100)+'%':'0%';
+}
+
+document.getElementById('resetBtn').addEventListener('click',function(){
+  score=0;answered=0;updateScore();render();
+});
+
+render();
+</script>
+</body>
+</html>

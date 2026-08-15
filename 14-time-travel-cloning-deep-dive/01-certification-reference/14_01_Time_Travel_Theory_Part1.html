@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Snowflake Certification - 14.1 Time Travel, Fail-safe &amp; Cloning</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Snowflake SnowPro Core Certification preparation - Domain 14.1 Time Travel, Fail-safe and Zero-Copy Cloning",
+    "sections": [
+      { "id": "time-travel", "title": "Time Travel Overview", "producerNotes": "AT/BEFORE syntax with OFFSET, TIMESTAMP, and STATEMENT clauses" },
+      { "id": "retention", "title": "DATA_RETENTION_TIME_IN_DAYS", "producerNotes": "0-90 day range, edition differences for Standard vs Enterprise" },
+      { "id": "fail-safe", "title": "Fail-safe", "producerNotes": "7-day non-queryable recovery, Snowflake-managed, Enterprise+ extended TT" },
+      { "id": "cloning", "title": "Zero-Copy Cloning", "producerNotes": "Instant clones, no storage until divergence, supported object types" },
+      { "id": "undrop", "title": "UNDROP", "producerNotes": "Recovering dropped tables, schemas, and databases within retention" },
+      { "id": "storage-costs", "title": "Storage Costs", "producerNotes": "Active + Time Travel + Fail-safe cost breakdown" },
+      { "id": "features-limitations", "title": "Key Features & Limitations", "producerNotes": "15 features and 15 limitations for exam preparation" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+      max-width: 960px; margin: 0 auto; padding: 32px 24px;
+      color: light-dark(#1f2937, #e5e7eb);
+      background: light-dark(#ffffff, #111827);
+      line-height: 1.7;
+    }
+    h1 { color: light-dark(#065f46, #6ee7b7); border-bottom: 3px solid light-dark(#0d9488, #14b8a6); padding-bottom: 12px; }
+    h2 { color: light-dark(#115e59, #5eead4); margin-top: 40px; border-left: 4px solid light-dark(#0d9488, #2dd4bf); padding-left: 12px; }
+    h3 { color: light-dark(#374151, #d1d5db); }
+    a { color: light-dark(#0d9488, #2dd4bf); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9em; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#ecfdf5, #064e3b); font-weight: 600; }
+    tr:nth-child(even) { background: light-dark(#f0fdfa, #1a2332); }
+    code { background: light-dark(#f0fdfa, #1e293b); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+    pre { background: light-dark(#0f172a, #0f172a); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; line-height: 1.5; }
+    .info { background: light-dark(#ecfdf5, #022c22); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#10b981, #34d399); margin: 16px 0; }
+    .warning { background: light-dark(#fffbeb, #422006); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#f59e0b, #fbbf24); margin: 16px 0; }
+    .danger { background: light-dark(#fef2f2, #450a0a); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#ef4444, #f87171); margin: 16px 0; }
+    .success { background: light-dark(#f0fdf4, #052e16); padding: 12px 16px; border-radius: 8px; border-left: 4px solid light-dark(#22c55e, #4ade80); margin: 16px 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+    .badge-cert { background: light-dark(#ccfbf1, #064e3b); color: light-dark(#065f46, #6ee7b7); }
+    .badge-important { background: light-dark(#fce7f3, #500724); color: light-dark(#be185d, #f9a8d4); }
+    .badge-new { background: light-dark(#d1fae5, #022c22); color: light-dark(#065f46, #6ee7b7); }
+    .qa-block { margin: 20px 0; padding: 16px; background: light-dark(#f0fdfa, #1a2332); border-radius: 8px; }
+    .qa-block strong { color: light-dark(#065f46, #6ee7b7); }
+    .diagram-box { text-align: center; padding: 20px; margin: 20px 0; }
+    .topic-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .page-break { page-break-before: always; }
+    .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+    .feature-card { background: light-dark(#f0fdfa, #1a2332); border: 1px solid light-dark(#99f6e4, #064e3b); border-radius: 8px; padding: 12px; }
+    .feature-card strong { color: light-dark(#0d9488, #2dd4bf); }
+    @media (max-width: 640px) { .feature-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+  <h1>Domain 14.1: Time Travel, Fail-safe &amp; Zero-Copy Cloning</h1>
+  <p><span class="badge badge-cert">SnowPro Core</span> <span class="badge badge-important">High-Weight Topic</span></p>
+  <p><strong>Exam Relevance:</strong> Heavily tested in SnowPro Core &amp; Advanced exams (Data Protection &amp; Continuity domain)</p>
+  <p><strong>Date:</strong> August 15, 2026</p>
+
+  <hr/>
+
+  <!-- ============================================================ -->
+  <h2 id="time-travel">1. What is Time Travel?</h2>
+
+  <p>Time Travel enables accessing historical data (data that has been changed or deleted) at any point within a defined retention period. It is a powerful feature for data recovery, auditing, and analytical purposes.</p>
+
+  <div class="info">
+    <strong>Core Concept:</strong> Time Travel works because Snowflake uses <strong>immutable micro-partitions</strong>. When data changes, old partitions are not overwritten; they are retained for the retention period, allowing queries against prior states.
+  </div>
+
+  <h3>Time Travel Query Syntax</h3>
+  <p>Snowflake provides two main clauses for querying historical data:</p>
+
+  <table>
+    <thead><tr><th>Clause</th><th>Behavior</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>AT</code></td><td>Inclusive</td><td>Returns data <strong>at or as of</strong> the specified point in time (includes the change)</td></tr>
+      <tr><td><code>BEFORE</code></td><td>Exclusive</td><td>Returns data <strong>immediately before</strong> the specified point (excludes the change)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Three Methods to Specify a Point in Time</h3>
+
+  <table>
+    <thead><tr><th>Method</th><th>Syntax</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>TIMESTAMP</strong></td>
+        <td><code>AT(TIMESTAMP =&gt; '...')</code></td>
+        <td>Specifies an exact date/time. Must be a valid timestamp expression.</td>
+      </tr>
+      <tr>
+        <td><strong>OFFSET</strong></td>
+        <td><code>AT(OFFSET =&gt; -N)</code></td>
+        <td>Specifies a relative time difference in <strong>seconds</strong> from the current time. Negative values go back in time.</td>
+      </tr>
+      <tr>
+        <td><strong>STATEMENT</strong></td>
+        <td><code>BEFORE(STATEMENT =&gt; 'id')</code></td>
+        <td>Uses a Query ID to reference the exact point before or at which a specific statement was executed.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Time Travel SQL Examples</h3>
+
+<pre>
+-- Method 1: TIMESTAMP - Query data as it existed at a specific time
+SELECT * FROM my_table
+  AT(TIMESTAMP =&gt; '2026-08-14 10:00:00'::TIMESTAMP_LTZ);
+
+-- Method 2: OFFSET - Query data as it was 5 minutes ago (300 seconds)
+SELECT * FROM my_table
+  AT(OFFSET =&gt; -300);
+
+-- Method 3: OFFSET - Query data 1 hour ago
+SELECT * FROM my_table
+  AT(OFFSET =&gt; -3600);
+
+-- Method 4: STATEMENT - Query data just before a specific query ran
+SELECT * FROM my_table
+  BEFORE(STATEMENT =&gt; '01abc123-0000-0000-0000-000000000001');
+
+-- Method 5: AT with STATEMENT - Query data at the time a query completed
+SELECT * FROM my_table
+  AT(STATEMENT =&gt; '01abc123-0000-0000-0000-000000000001');
+
+-- Using Time Travel with CREATE TABLE (cloning historical state)
+CREATE TABLE my_table_restored CLONE my_table
+  AT(TIMESTAMP =&gt; '2026-08-14 10:00:00'::TIMESTAMP_LTZ);
+
+-- Using Time Travel in CTAS
+CREATE TABLE my_backup AS
+  SELECT * FROM my_table
+  BEFORE(STATEMENT =&gt; '01abc123-0000-0000-0000-000000000001');
+</pre>
+
+  <div class="warning">
+    <strong>Exam Tip:</strong> The <code>OFFSET</code> value is in <strong>seconds</strong> (not minutes or hours). A value of <code>-300</code> means 5 minutes ago. The offset must be negative to go back in time.
+  </div>
+
+  <div class="info">
+    <strong>AT vs BEFORE with STATEMENT:</strong>
+    <ul>
+      <li><code>AT(STATEMENT =&gt; 'id')</code> - Returns data <strong>after</strong> the statement completed (includes changes made by that statement)</li>
+      <li><code>BEFORE(STATEMENT =&gt; 'id')</code> - Returns data <strong>before</strong> the statement ran (excludes changes made by that statement)</li>
+    </ul>
+    This is the most common pattern for recovering from accidental DML.
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="retention">2. DATA_RETENTION_TIME_IN_DAYS</h2>
+
+  <p>The <code>DATA_RETENTION_TIME_IN_DAYS</code> parameter controls how long historical data is preserved for Time Travel. It can be set at the account, database, schema, or table level.</p>
+
+  <h3>Retention Period by Edition</h3>
+  <table>
+    <thead><tr><th>Snowflake Edition</th><th>Minimum</th><th>Maximum</th><th>Default</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Standard</strong></td><td>0 days</td><td>1 day</td><td>1 day</td></tr>
+      <tr><td><strong>Enterprise</strong></td><td>0 days</td><td>90 days</td><td>1 day</td></tr>
+      <tr><td><strong>Business Critical</strong></td><td>0 days</td><td>90 days</td><td>1 day</td></tr>
+      <tr><td><strong>VPS (Virtual Private Snowflake)</strong></td><td>0 days</td><td>90 days</td><td>1 day</td></tr>
+    </tbody>
+  </table>
+
+  <div class="danger">
+    <strong>Critical Exam Point:</strong> Standard Edition is limited to a <strong>maximum of 1 day</strong> of Time Travel. Only Enterprise and higher editions can extend up to 90 days. This is one of the most frequently tested edition differences.
+  </div>
+
+  <h3>Setting Retention at Different Levels</h3>
+
+<pre>
+-- Account level (requires ACCOUNTADMIN)
+ALTER ACCOUNT SET DATA_RETENTION_TIME_IN_DAYS = 30;
+
+-- Database level
+ALTER DATABASE my_db SET DATA_RETENTION_TIME_IN_DAYS = 14;
+
+-- Schema level
+ALTER SCHEMA my_db.my_schema SET DATA_RETENTION_TIME_IN_DAYS = 7;
+
+-- Table level (most granular)
+ALTER TABLE my_db.my_schema.my_table SET DATA_RETENTION_TIME_IN_DAYS = 90;
+
+-- Disable Time Travel entirely for a table (saves storage)
+ALTER TABLE staging_table SET DATA_RETENTION_TIME_IN_DAYS = 0;
+
+-- Check current retention setting
+SHOW PARAMETERS LIKE 'DATA_RETENTION_TIME_IN_DAYS' IN TABLE my_table;
+</pre>
+
+  <h3>Inheritance Hierarchy</h3>
+  <div class="diagram-box">
+<pre>
+Account (DATA_RETENTION_TIME_IN_DAYS = 30)
+  |
+  +-- Database (inherits 30 unless overridden)
+       |
+       +-- Schema (inherits from DB unless overridden)
+            |
+            +-- Table (inherits from Schema unless overridden)
+                 |
+                 +-- Most specific setting wins
+</pre>
+  </div>
+
+  <div class="warning">
+    <strong>Exam Tip:</strong> When you set retention to <strong>0 days</strong>, Time Travel is effectively disabled for that object. There is <strong>no way to query historical data</strong> for that object, and <code>UNDROP</code> is not available either. Use carefully for transient/staging tables.
+  </div>
+
+  <h3>Transient &amp; Temporary Tables</h3>
+  <table>
+    <thead><tr><th>Table Type</th><th>Max Retention</th><th>Fail-safe</th><th>Use Case</th></tr></thead>
+    <tbody>
+      <tr><td>Permanent</td><td>90 days (Enterprise+)</td><td>7 days</td><td>Production data requiring full protection</td></tr>
+      <tr><td>Transient</td><td>1 day (all editions)</td><td>No fail-safe</td><td>ETL staging, intermediate results</td></tr>
+      <tr><td>Temporary</td><td>1 day (all editions)</td><td>No fail-safe</td><td>Session-scoped work; dropped at session end</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info">
+    <strong>Key Distinction:</strong> Transient and Temporary tables have a <strong>maximum</strong> retention of 1 day regardless of edition, and they have <strong>no Fail-safe period</strong>. This significantly reduces storage costs but provides less protection.
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="fail-safe">3. Fail-safe</h2>
+
+  <p>Fail-safe provides a <strong>7-day period</strong> of data recovery that begins immediately after the Time Travel retention period ends. It is a last-resort data recovery mechanism managed entirely by Snowflake.</p>
+
+  <div class="diagram-box">
+<pre>
+|&lt;--- Active Data ---&gt;|&lt;--- Time Travel (1-90 days) ---&gt;|&lt;--- Fail-safe (7 days) ---&gt;|
+|                      |                                  |                              |
+| Current queryable    | User-accessible via AT/BEFORE    | Snowflake-managed only       |
+| state of data        | and UNDROP                       | Contact Support to recover   |
+|                      |                                  |                              |
+|  No extra cost       |  Storage cost incurred           |  Storage cost incurred       |
+</pre>
+  </div>
+
+  <h3>Fail-safe Characteristics</h3>
+  <table>
+    <thead><tr><th>Characteristic</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr><td>Duration</td><td>Fixed at <strong>7 days</strong> (cannot be changed)</td></tr>
+      <tr><td>User Access</td><td><strong>Non-queryable</strong> - users cannot directly access Fail-safe data</td></tr>
+      <tr><td>Recovery Process</td><td>Must contact <strong>Snowflake Support</strong> for recovery</td></tr>
+      <tr><td>Recovery Time</td><td>May take <strong>hours to days</strong> depending on data volume</td></tr>
+      <tr><td>Guarantee</td><td>Best-effort recovery (not a guaranteed SLA)</td></tr>
+      <tr><td>Storage Cost</td><td>Incurs storage charges during the 7-day window</td></tr>
+      <tr><td>Applies To</td><td><strong>Permanent tables only</strong> (not transient or temporary)</td></tr>
+      <tr><td>Starts When</td><td>Immediately after the Time Travel retention period expires</td></tr>
+    </tbody>
+  </table>
+
+  <div class="danger">
+    <strong>Exam Critical:</strong> Fail-safe is <strong>NOT</strong> accessible to users. You cannot query data in Fail-safe. You cannot use <code>UNDROP</code> to recover data that has passed into Fail-safe. The ONLY option is to contact Snowflake Support, and recovery is on a best-effort basis.
+  </div>
+
+  <div class="warning">
+    <strong>Exam Tip:</strong> The extended Time Travel (up to 90 days) is available on <strong>Enterprise edition and higher</strong>. Standard Edition is limited to 1 day TT + 7 days Fail-safe = 8 days total protection. Enterprise Edition can have up to 90 days TT + 7 days Fail-safe = 97 days total protection.
+  </div>
+
+  <h3>Fail-safe Does NOT Apply To</h3>
+  <ul>
+    <li>Transient tables (<code>CREATE TRANSIENT TABLE</code>)</li>
+    <li>Temporary tables (<code>CREATE TEMPORARY TABLE</code>)</li>
+    <li>Transient databases (all tables within inherit no Fail-safe)</li>
+    <li>Transient schemas (all tables within inherit no Fail-safe)</li>
+  </ul>
+
+  <!-- ============================================================ -->
+  <h2 id="cloning">4. Zero-Copy Cloning</h2>
+
+  <p>Zero-Copy Cloning creates a copy of a database, schema, or table that initially shares the underlying micro-partitions with the source. No data is physically copied at the time of cloning, making it nearly instantaneous regardless of data size.</p>
+
+  <h3>How Zero-Copy Cloning Works</h3>
+  <div class="diagram-box">
+<pre>
+          BEFORE CLONE                              AFTER CLONE
+  +------------------+                    +------------------+   +------------------+
+  |  Source Table    |                    |  Source Table    |   |  Cloned Table    |
+  |                  |                    |                  |   |                  |
+  |  Partition A     |                    |  Partition A ----+---+--- Partition A   |
+  |  Partition B     |         ==&gt;        |  Partition B ----+---+--- Partition B   |
+  |  Partition C     |                    |  Partition C ----+---+--- Partition C   |
+  +------------------+                    +------------------+   +------------------+
+                                                    |                     |
+                                               SHARED (zero extra storage cost)
+
+          AFTER MODIFICATIONS TO CLONE
+  +------------------+   +------------------+
+  |  Source Table    |   |  Cloned Table    |
+  |                  |   |                  |
+  |  Partition A ----+---+--- Partition A   |  (still shared)
+  |  Partition B ----+---+--- Partition B   |  (still shared)
+  |  Partition C     |   |   Partition D    |  (diverged - new storage cost)
+  +------------------+   +------------------+
+</pre>
+  </div>
+
+  <h3>Cloning Syntax</h3>
+<pre>
+-- Clone a table
+CREATE TABLE my_clone CLONE my_source_table;
+
+-- Clone a schema (includes all objects within)
+CREATE SCHEMA my_schema_clone CLONE my_source_schema;
+
+-- Clone a database (includes all schemas and objects)
+CREATE DATABASE my_db_clone CLONE my_source_db;
+
+-- Clone with Time Travel (clone data from a past point in time)
+CREATE TABLE my_restored CLONE my_table
+  AT(TIMESTAMP =&gt; '2026-08-14 10:00:00'::TIMESTAMP_LTZ);
+
+CREATE TABLE my_restored CLONE my_table
+  BEFORE(STATEMENT =&gt; '01abc123-0000-0000-0000-000000000001');
+
+-- Clone with OFFSET
+CREATE TABLE my_restored CLONE my_table
+  AT(OFFSET =&gt; -3600);
+</pre>
+
+  <h3>What Gets Cloned</h3>
+  <table>
+    <thead><tr><th>Object Type</th><th>Cloned?</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Tables (data + structure)</td><td>Yes</td><td>Data is zero-copy; structure is duplicated</td></tr>
+      <tr><td>Views</td><td>Yes</td><td>Definition cloned (references may need updating)</td></tr>
+      <tr><td>Sequences</td><td>Yes</td><td>Cloned with current value snapshot</td></tr>
+      <tr><td>Stages (named internal)</td><td>Yes (empty)</td><td>Stage object cloned but <strong>files are NOT copied</strong></td></tr>
+      <tr><td>File Formats</td><td>Yes</td><td>Definitions are duplicated</td></tr>
+      <tr><td>Streams</td><td>Yes</td><td>Cloned but offset is reset; historical data not preserved</td></tr>
+      <tr><td>Tasks</td><td>Yes</td><td>Cloned in <strong>suspended</strong> state</td></tr>
+      <tr><td>Pipes</td><td>Not cloned</td><td>Must be recreated manually</td></tr>
+      <tr><td>External tables</td><td>Not cloned</td><td>Must be recreated manually</td></tr>
+      <tr><td>Privileges/Grants</td><td>Not cloned</td><td>Clone owner gets OWNERSHIP; existing grants not copied</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info">
+    <strong>Key Points for Exam:</strong>
+    <ul>
+      <li>Cloning is <strong>metadata-only</strong> at creation time - instantaneous regardless of table size</li>
+      <li>Storage charges begin <strong>only when data diverges</strong> (DML on source or clone creates new partitions)</li>
+      <li>Cloning works with <strong>databases, schemas, and tables</strong> (not individual rows or columns)</li>
+      <li>You can clone a clone (nested cloning is supported)</li>
+      <li>Cloning respects Time Travel - you can clone from a historical point</li>
+    </ul>
+  </div>
+
+  <div class="warning">
+    <strong>Exam Tip:</strong> When cloning a database or schema, <strong>internal named stages are cloned empty</strong> (the stage object exists but files within are NOT copied). This is frequently tested. External stages are not cloned at all.
+  </div>
+
+  <div class="success">
+    <strong>Common Use Cases for Cloning:</strong>
+    <ul>
+      <li>Creating development/test environments from production (instant, zero cost until modifications)</li>
+      <li>Data recovery combined with Time Travel (clone from a historical point)</li>
+      <li>Creating sandboxes for data scientists to experiment without affecting production</li>
+      <li>Backup snapshots before large migrations or transformations</li>
+    </ul>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="undrop">5. UNDROP</h2>
+
+  <p><code>UNDROP</code> restores a dropped object (table, schema, or database) within the Time Travel retention period. It is the primary mechanism for recovering accidentally dropped objects.</p>
+
+  <h3>UNDROP Syntax</h3>
+<pre>
+-- Undrop a table
+UNDROP TABLE my_table;
+
+-- Undrop a schema
+UNDROP SCHEMA my_schema;
+
+-- Undrop a database
+UNDROP DATABASE my_database;
+</pre>
+
+  <h3>UNDROP Rules and Behavior</h3>
+  <table>
+    <thead><tr><th>Rule</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr><td>Time Limit</td><td>Must be within the <code>DATA_RETENTION_TIME_IN_DAYS</code> period</td></tr>
+      <tr><td>Name Conflict</td><td>If an object with the same name already exists, UNDROP <strong>fails</strong></td></tr>
+      <tr><td>Resolution for Conflicts</td><td>Rename the existing object first, then UNDROP</td></tr>
+      <tr><td>Multiple Drops</td><td>UNDROP restores the <strong>most recently dropped</strong> version</td></tr>
+      <tr><td>Cascade</td><td>UNDROP DATABASE/SCHEMA also restores child objects</td></tr>
+      <tr><td>Retention = 0</td><td>UNDROP is <strong>not available</strong> if retention was set to 0</td></tr>
+      <tr><td>Fail-safe Data</td><td>UNDROP <strong>cannot recover</strong> data that has moved past Time Travel into Fail-safe</td></tr>
+      <tr><td>Transient/Temp</td><td>Available if within retention (max 1 day for these types)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Handling Name Conflicts</h3>
+<pre>
+-- Scenario: You dropped TABLE_A, then created a new TABLE_A
+-- UNDROP TABLE TABLE_A; would FAIL because TABLE_A already exists
+
+-- Solution: Rename the new table first
+ALTER TABLE table_a RENAME TO table_a_new;
+
+-- Now UNDROP the original
+UNDROP TABLE table_a;
+
+-- You now have both: TABLE_A (original restored) and TABLE_A_NEW
+</pre>
+
+  <div class="warning">
+    <strong>Exam Tip:</strong> If a table is dropped and recreated with the same name, you must <strong>rename the current table</strong> before you can UNDROP the previous version. UNDROP always fails if there is a naming conflict.
+  </div>
+
+  <div class="danger">
+    <strong>Critical:</strong> Once the Time Travel retention period expires, data moves to Fail-safe. <code>UNDROP</code> will <strong>no longer work</strong>. The only recovery path at that point is to contact Snowflake Support (best-effort recovery).
+  </div>
+
+  <h3>UNDROP with Multiple Versions</h3>
+<pre>
+-- If TABLE_A was dropped 3 times, UNDROP brings back the MOST RECENT drop
+-- To access older dropped versions, you must UNDROP and rename iteratively:
+
+UNDROP TABLE table_a;                       -- Restores most recent drop
+ALTER TABLE table_a RENAME TO table_a_v3;   -- Rename to avoid conflict
+
+UNDROP TABLE table_a;                       -- Restores next most recent
+ALTER TABLE table_a RENAME TO table_a_v2;   -- Rename again
+
+UNDROP TABLE table_a;                       -- Restores oldest drop (if still in retention)
+</pre>
+
+  <!-- ============================================================ -->
+  <h2 id="storage-costs">6. Storage Costs</h2>
+
+  <p>Snowflake storage charges are based on three components: active data, Time Travel data, and Fail-safe data. Understanding how these interact is critical for both the exam and real-world cost optimization.</p>
+
+  <h3>Storage Cost Components</h3>
+  <div class="diagram-box">
+<pre>
+Total Storage Cost = Active Storage + Time Travel Storage + Fail-safe Storage
+
++-------------------------------------------------------------------+
+|  Component           | What it stores                              |
++-------------------------------------------------------------------+
+|  Active Storage      | Current state of data (compressed)          |
+|  Time Travel Storage | Changed/deleted micro-partitions retained   |
+|                      | for the retention period                    |
+|  Fail-safe Storage   | Micro-partitions retained beyond TT         |
+|                      | for the 7-day fail-safe window              |
++-------------------------------------------------------------------+
+</pre>
+  </div>
+
+  <h3>How DML Affects Storage</h3>
+  <table>
+    <thead><tr><th>Operation</th><th>Active Storage</th><th>Time Travel Storage</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>INSERT (new data)</td><td>Increases</td><td>No change</td><td>New partitions created; no old partitions to retain</td></tr>
+      <tr><td>DELETE</td><td>Decreases</td><td>Increases</td><td>Old partitions move to TT storage</td></tr>
+      <tr><td>UPDATE</td><td>May increase</td><td>Increases</td><td>Old partitions retained; new partitions created</td></tr>
+      <tr><td>TRUNCATE</td><td>Decreases to ~0</td><td>Increases significantly</td><td>All old partitions move to TT storage</td></tr>
+      <tr><td>DROP TABLE</td><td>Decreases to 0</td><td>Increases</td><td>All data moves to TT (for UNDROP)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warning">
+    <strong>Exam Tip - Surprising Cost Scenario:</strong> A large <code>UPDATE</code> on a table with 90-day retention effectively <strong>doubles</strong> the storage for that table (both old and new partitions are stored). This is because the original micro-partitions are retained in Time Travel while new ones are created for the updated data.
+  </div>
+
+  <h3>Checking Storage Usage</h3>
+<pre>
+-- View storage for tables including Time Travel and Fail-safe
+SELECT table_name,
+       active_bytes,
+       time_travel_bytes,
+       failsafe_bytes,
+       active_bytes + time_travel_bytes + failsafe_bytes AS total_bytes
+FROM snowflake.account_usage.table_storage_metrics
+WHERE table_catalog = 'MY_DB'
+ORDER BY total_bytes DESC;
+
+-- Simpler view at the table level
+SELECT * FROM TABLE(INFORMATION_SCHEMA.TABLE_STORAGE_METRICS())
+WHERE TABLE_NAME = 'MY_TABLE';
+
+-- Account-level storage usage
+SELECT * FROM snowflake.account_usage.storage_usage
+ORDER BY usage_date DESC
+LIMIT 30;
+</pre>
+
+  <h3>Cost Optimization Strategies</h3>
+  <table>
+    <thead><tr><th>Strategy</th><th>Approach</th><th>Savings</th></tr></thead>
+    <tbody>
+      <tr><td>Use Transient tables for staging</td><td>No Fail-safe; max 1-day TT</td><td>Eliminates 7 days of Fail-safe storage</td></tr>
+      <tr><td>Reduce retention on non-critical tables</td><td>Set to 0 or 1 day</td><td>Reduces TT storage proportionally</td></tr>
+      <tr><td>Drop unused clones</td><td>Clones that have diverged consume storage</td><td>Frees diverged partition storage</td></tr>
+      <tr><td>Use Temporary tables for session data</td><td>Dropped at session end; max 1-day TT</td><td>Automatic cleanup + no Fail-safe</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info">
+    <strong>Storage Billing:</strong> Storage is billed based on the <strong>average compressed bytes</strong> stored per month across all three tiers (active + TT + Fail-safe). On-demand storage is typically ~$40/TB/month (varies by cloud/region). Capacity storage is typically ~$23/TB/month.
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="features-limitations">7. Key Features &amp; Limitations</h2>
+
+  <h3>15 Key Features</h3>
+  <table>
+    <thead><tr><th>#</th><th>Feature</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Historical querying with AT/BEFORE</td><td>Query any point within retention using TIMESTAMP, OFFSET, or STATEMENT</td></tr>
+      <tr><td>2</td><td>Up to 90 days retention</td><td>Enterprise+ editions support 0-90 days; Standard supports 0-1 day</td></tr>
+      <tr><td>3</td><td>Object-level retention control</td><td>Set retention at account, database, schema, or table level independently</td></tr>
+      <tr><td>4</td><td>UNDROP for recovery</td><td>Instantly restore dropped tables, schemas, or databases within retention</td></tr>
+      <tr><td>5</td><td>Zero-Copy Cloning</td><td>Create instant copies with no storage cost until data diverges</td></tr>
+      <tr><td>6</td><td>Clone from Time Travel</td><td>Combine cloning with AT/BEFORE to restore data from any historical point</td></tr>
+      <tr><td>7</td><td>Database/schema-level cloning</td><td>Clone entire databases or schemas including all child objects in one command</td></tr>
+      <tr><td>8</td><td>Fail-safe (7-day safety net)</td><td>Additional 7-day protection beyond Time Travel for permanent tables</td></tr>
+      <tr><td>9</td><td>Automatic micro-partition retention</td><td>No user action needed; Snowflake automatically retains changed partitions</td></tr>
+      <tr><td>10</td><td>Works with DML and DDL</td><td>Time Travel captures changes from INSERT, UPDATE, DELETE, TRUNCATE, and DROP</td></tr>
+      <tr><td>11</td><td>CTAS from historical data</td><td>Create new tables from Time Travel queries for selective recovery</td></tr>
+      <tr><td>12</td><td>Nested cloning</td><td>You can clone a clone, creating multi-level copies</td></tr>
+      <tr><td>13</td><td>Transient/Temporary cost savings</td><td>Use these table types to avoid Fail-safe costs when protection is not needed</td></tr>
+      <tr><td>14</td><td>Metadata inheritance</td><td>Retention settings cascade from account to database to schema to table</td></tr>
+      <tr><td>15</td><td>Query ID-based recovery</td><td>Pinpoint exact pre/post-statement state using query IDs from QUERY_HISTORY</td></tr>
+    </tbody>
+  </table>
+
+  <h3>15 Limitations</h3>
+  <table>
+    <thead><tr><th>#</th><th>Limitation</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Standard Edition: max 1-day TT</td><td>Cannot extend beyond 1 day without upgrading to Enterprise</td></tr>
+      <tr><td>2</td><td>Fail-safe is non-queryable</td><td>Users cannot access Fail-safe data directly; must contact Support</td></tr>
+      <tr><td>3</td><td>Fail-safe recovery is best-effort</td><td>No SLA or guarantee on recovery success or timeframe</td></tr>
+      <tr><td>4</td><td>UNDROP fails on name conflicts</td><td>Must rename existing object before restoring a dropped one with the same name</td></tr>
+      <tr><td>5</td><td>Storage cost accumulates</td><td>High-frequency DML on tables with long retention generates significant TT storage</td></tr>
+      <tr><td>6</td><td>Cloned stages are empty</td><td>Internal named stages are cloned but their files are NOT copied</td></tr>
+      <tr><td>7</td><td>Grants are not cloned</td><td>Privileges and role grants must be reapplied to cloned objects</td></tr>
+      <tr><td>8</td><td>External tables not cloned</td><td>External tables and pipes are excluded from database/schema clones</td></tr>
+      <tr><td>9</td><td>Cannot extend Fail-safe</td><td>The 7-day period is fixed and cannot be configured by users</td></tr>
+      <tr><td>10</td><td>Time Travel on transient/temp: max 1 day</td><td>These table types cannot have retention beyond 1 day regardless of edition</td></tr>
+      <tr><td>11</td><td>No row-level Time Travel</td><td>Cannot recover specific rows; must query the entire table at a point in time</td></tr>
+      <tr><td>12</td><td>Retention = 0 disables UNDROP</td><td>If retention is set to 0, dropped objects cannot be recovered at all</td></tr>
+      <tr><td>13</td><td>Cloned tasks are suspended</td><td>Tasks in cloned schemas/databases are created in a suspended state</td></tr>
+      <tr><td>14</td><td>Time Travel does not cross account boundaries</td><td>Data shared via Secure Data Sharing does not carry source TT history</td></tr>
+      <tr><td>15</td><td>Cannot Time Travel past a table recreate</td><td>If a table is dropped and recreated (same name), TT for the original is separate</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ============================================================ -->
+  <h2>Quick Reference: Exam Scenarios</h2>
+
+  <div class="qa-block">
+    <strong>Q: A user accidentally deleted rows 30 minutes ago. How do they recover?</strong><br/>
+    A: Use <code>INSERT INTO my_table SELECT * FROM my_table BEFORE(STATEMENT =&gt; 'query_id_of_delete')</code> or create a clone from the time before the DELETE.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: A table was dropped 5 days ago on Standard Edition. Can it be recovered?</strong><br/>
+    A: <strong>No.</strong> Standard Edition has max 1-day retention. After 1 day, data moves to Fail-safe (non-queryable). User must contact Snowflake Support for best-effort recovery.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: Does cloning a 10 TB database immediately consume 10 TB of additional storage?</strong><br/>
+    A: <strong>No.</strong> Zero-copy cloning shares the underlying micro-partitions. Storage cost is zero until data in the source or clone diverges through DML operations.
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: What is the total maximum data protection window on Enterprise Edition?</strong><br/>
+    A: <strong>97 days</strong> (90 days Time Travel + 7 days Fail-safe).
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: Can you UNDROP a transient table dropped 2 days ago?</strong><br/>
+    A: <strong>No.</strong> Transient tables have a maximum retention of 1 day. After 1 day, the data is gone permanently (transient tables have no Fail-safe).
+  </div>
+
+  <div class="qa-block">
+    <strong>Q: What happens to grants when you clone a database?</strong><br/>
+    A: Grants/privileges are <strong>NOT</strong> cloned. The user who runs the CLONE command becomes the owner. All other grants must be explicitly re-granted.
+  </div>
+
+  <hr/>
+
+  <h2>Summary Comparison Table</h2>
+  <table>
+    <thead><tr><th>Feature</th><th>Permanent Table</th><th>Transient Table</th><th>Temporary Table</th></tr></thead>
+    <tbody>
+      <tr><td>Time Travel (Standard)</td><td>0-1 day</td><td>0-1 day</td><td>0-1 day</td></tr>
+      <tr><td>Time Travel (Enterprise+)</td><td>0-90 days</td><td>0-1 day</td><td>0-1 day</td></tr>
+      <tr><td>Fail-safe</td><td>7 days</td><td>None</td><td>None</td></tr>
+      <tr><td>Total Protection (Enterprise)</td><td>Up to 97 days</td><td>Up to 1 day</td><td>Up to 1 day</td></tr>
+      <tr><td>UNDROP Available</td><td>Yes (within retention)</td><td>Yes (within retention)</td><td>No (session-scoped)</td></tr>
+      <tr><td>Cloneable</td><td>Yes</td><td>Yes</td><td>Yes (within session)</td></tr>
+      <tr><td>Visible Across Sessions</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+      <tr><td>Survives Session End</td><td>Yes</td><td>Yes</td><td>No (auto-dropped)</td></tr>
+    </tbody>
+  </table>
+
+  <hr/>
+  <p style="text-align:center; opacity:0.6; font-size:0.85em;">Snowflake SnowPro Certification Prep - Domain 14.1 Time Travel, Fail-safe &amp; Cloning | Generated 2026-08-15</p>
+
+</body>
+</html>

@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Time Travel, Fail-safe &amp; Cloning - Advanced Topics | Snowflake Certification</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Comprehensive certification reference for Snowflake Time Travel, Fail-safe, and Cloning advanced topics",
+    "sections": [
+      { "id": "advanced-time-travel-patterns", "title": "Advanced Time Travel Patterns", "dataSources": [], "producerNotes": "Covers point-in-time recovery, historical comparison, and audit use cases" },
+      { "id": "clone-patterns", "title": "Clone Patterns", "dataSources": [], "producerNotes": "Dev/test from prod, schema migration testing, clone + stream for CDC replay" },
+      { "id": "cloning-deep-dive", "title": "Cloning Deep Dive", "dataSources": [], "producerNotes": "What is/is not cloned, child objects, pipes/tasks suspended, stage behavior" },
+      { "id": "storage-impact", "title": "Storage Impact", "dataSources": [], "producerNotes": "Micro-partition sharing and copy-on-write divergence" },
+      { "id": "fail-safe-operations", "title": "Fail-safe Operations", "dataSources": [], "producerNotes": "Support contact, recovery scope, cost implications" },
+      { "id": "retention-and-streams", "title": "Retention Interaction with Streams", "dataSources": [], "producerNotes": "Stream staleness = retention + 14 days rule" },
+      { "id": "production-best-practices", "title": "Production Best Practices", "dataSources": [], "producerNotes": "Retention strategy, clone scheduling, cost monitoring" },
+      { "id": "rbac-time-travel-cloning", "title": "RBAC for Time Travel & Cloning", "dataSources": [], "producerNotes": "Privileges for UNDROP, CLONE, and related operations" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      line-height: 1.7;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      color: light-dark(#1f2937, #e2e8f0);
+      background: light-dark(#ffffff, #0f172a);
+    }
+
+    /* Header */
+    .page-header {
+      text-align: center;
+      padding: 40px 24px;
+      margin-bottom: 40px;
+      border-radius: 12px;
+      background: light-dark(
+        linear-gradient(135deg, #0d9488 0%, #065f46 100%),
+        linear-gradient(135deg, #134e4a 0%, #064e3b 100%)
+      );
+      color: #ffffff;
+    }
+    .page-header h1 { font-size: 2rem; margin-bottom: 8px; }
+    .page-header .subtitle { font-size: 1.1rem; opacity: 0.9; }
+    .page-header .badge {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 4px 14px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.2);
+      font-size: 0.85rem;
+      letter-spacing: 0.5px;
+    }
+
+    /* Navigation */
+    .toc {
+      background: light-dark(#f0fdfa, #1a2e2b);
+      border: 1px solid light-dark(#99f6e4, #2d4a47);
+      border-radius: 10px;
+      padding: 24px 28px;
+      margin-bottom: 40px;
+    }
+    .toc h2 { font-size: 1.1rem; margin-bottom: 12px; color: light-dark(#0d9488, #5eead4); }
+    .toc ol { padding-left: 20px; }
+    .toc li { margin-bottom: 6px; }
+    .toc a {
+      color: light-dark(#0f766e, #99f6e4);
+      text-decoration: none;
+      border-bottom: 1px dotted light-dark(#0f766e, #99f6e4);
+    }
+    .toc a:hover { border-bottom-style: solid; }
+
+    /* Sections */
+    section {
+      margin-bottom: 48px;
+      padding-bottom: 32px;
+      border-bottom: 1px solid light-dark(#e2e8f0, #1e293b);
+    }
+    section:last-of-type { border-bottom: none; }
+    h2 {
+      font-size: 1.5rem;
+      color: light-dark(#0d9488, #5eead4);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid light-dark(#99f6e4, #2d4a47);
+    }
+    h3 {
+      font-size: 1.15rem;
+      color: light-dark(#115e59, #6ee7b7);
+      margin: 24px 0 10px;
+    }
+    h4 {
+      font-size: 1rem;
+      color: light-dark(#374151, #94a3b8);
+      margin: 16px 0 8px;
+    }
+    p { margin-bottom: 12px; }
+    ul, ol { margin: 8px 0 16px 24px; }
+    li { margin-bottom: 6px; }
+
+    /* Code */
+    pre {
+      background: light-dark(#0f172a, #020617);
+      color: #e2e8f0;
+      padding: 16px 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 12px 0 20px;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      border: 1px solid light-dark(#334155, #1e293b);
+    }
+    code {
+      font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+      font-size: 0.88em;
+    }
+    p code, li code {
+      background: light-dark(#f0fdfa, #1a2e2b);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: light-dark(#0f766e, #5eead4);
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 24px;
+      font-size: 0.92rem;
+    }
+    th, td {
+      padding: 10px 14px;
+      text-align: left;
+      border: 1px solid light-dark(#d1d5db, #334155);
+    }
+    th {
+      background: light-dark(#0d9488, #134e4a);
+      color: #ffffff;
+      font-weight: 600;
+    }
+    tr:nth-child(even) { background: light-dark(#f0fdfa, #0c1f1d); }
+
+    /* Callouts */
+    .callout {
+      padding: 16px 20px;
+      border-radius: 8px;
+      margin: 16px 0;
+      border-left: 4px solid;
+    }
+    .callout-exam {
+      background: light-dark(#fef3c7, #1c1917);
+      border-color: light-dark(#f59e0b, #fbbf24);
+      color: light-dark(#92400e, #fde68a);
+    }
+    .callout-warning {
+      background: light-dark(#fef2f2, #1c1111);
+      border-color: light-dark(#ef4444, #f87171);
+      color: light-dark(#991b1b, #fca5a5);
+    }
+    .callout-tip {
+      background: light-dark(#f0fdfa, #0c1f1d);
+      border-color: light-dark(#0d9488, #5eead4);
+      color: light-dark(#115e59, #a7f3d0);
+    }
+    .callout-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    /* Key-value highlights */
+    .kv-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .kv-card {
+      background: light-dark(#f0fdfa, #1a2e2b);
+      border: 1px solid light-dark(#99f6e4, #2d4a47);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .kv-card .kv-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: light-dark(#6b7280, #9ca3af);
+      margin-bottom: 4px;
+    }
+    .kv-card .kv-value {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: light-dark(#0d9488, #5eead4);
+    }
+
+    /* Footer */
+    .page-footer {
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid light-dark(#e2e8f0, #1e293b);
+      text-align: center;
+      font-size: 0.85rem;
+      color: light-dark(#6b7280, #64748b);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <h1>Time Travel, Fail-safe &amp; Cloning</h1>
+    <p class="subtitle">Advanced Topics &mdash; Snowflake Certification Reference</p>
+    <span class="badge">Module 14 &bull; Part 2</span>
+  </div>
+
+  <nav class="toc">
+    <h2>Table of Contents</h2>
+    <ol>
+      <li><a href="#advanced-time-travel-patterns">Advanced Time Travel Patterns</a></li>
+      <li><a href="#clone-patterns">Clone Patterns</a></li>
+      <li><a href="#cloning-deep-dive">Cloning Deep Dive</a></li>
+      <li><a href="#storage-impact">Storage Impact</a></li>
+      <li><a href="#fail-safe-operations">Fail-safe Operations</a></li>
+      <li><a href="#retention-and-streams">Retention Interaction with Streams</a></li>
+      <li><a href="#production-best-practices">Production Best Practices</a></li>
+      <li><a href="#rbac-time-travel-cloning">RBAC for Time Travel &amp; Cloning</a></li>
+    </ol>
+  </nav>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 1: Advanced Time Travel Patterns -->
+  <!-- ============================================================ -->
+  <section id="advanced-time-travel-patterns">
+    <h2>1. Advanced Time Travel Patterns</h2>
+
+    <h3>Point-in-Time Recovery</h3>
+    <p>Time Travel allows querying data as it existed at any point within the retention period. This enables surgical recovery of accidentally modified or deleted data without restoring entire backups.</p>
+
+    <h4>Recovery via CLONE AT</h4>
+    <pre><code>-- Recover a table to a specific timestamp
+CREATE TABLE sales_recovered CLONE sales
+  AT (TIMESTAMP => '2026-08-14 10:30:00'::TIMESTAMP_LTZ);
+
+-- Recover using a query ID (the statement that caused damage)
+CREATE TABLE sales_recovered CLONE sales
+  BEFORE (STATEMENT => '01abc123-0000-0000-0000-000000000001');
+
+-- Recover using an offset (5 minutes ago)
+CREATE TABLE sales_recovered CLONE sales
+  AT (OFFSET => -300);</code></pre>
+
+    <h4>Selective Row Recovery</h4>
+    <pre><code>-- Restore only specific deleted rows
+INSERT INTO orders
+SELECT * FROM orders AT (TIMESTAMP => '2026-08-14 09:00:00'::TIMESTAMP_LTZ)
+WHERE order_id NOT IN (SELECT order_id FROM orders);
+
+-- Restore specific column values that were incorrectly updated
+UPDATE customers c
+SET c.email = hist.email
+FROM customers AT (TIMESTAMP => '2026-08-14 08:00:00'::TIMESTAMP_LTZ) hist
+WHERE c.customer_id = hist.customer_id
+  AND c.email != hist.email;</code></pre>
+
+    <div class="callout callout-exam">
+      <span class="callout-title">Exam Tip</span>
+      <code>BEFORE (STATEMENT => ...)</code> returns data as it was <strong>immediately before</strong> that statement executed. <code>AT (STATEMENT => ...)</code> includes changes made by that statement.
+    </div>
+
+    <h3>Comparing Historical vs. Current Data</h3>
+    <p>Time Travel is powerful for auditing drift, debugging data pipeline issues, and validating transformations.</p>
+
+    <pre><code>-- Compare row counts: current vs 24 hours ago
+SELECT
+  'current' AS snapshot, COUNT(*) AS row_count FROM inventory
+UNION ALL
+SELECT
+  '24h_ago' AS snapshot, COUNT(*) AS row_count FROM inventory AT (OFFSET => -86400);
+
+-- Find rows that changed in the last hour
+SELECT curr.*, 'modified' AS change_type
+FROM products curr
+JOIN products AT (OFFSET => -3600) prev
+  ON curr.product_id = prev.product_id
+WHERE curr.price != prev.price
+
+UNION ALL
+
+-- Find newly inserted rows
+SELECT curr.*, 'inserted' AS change_type
+FROM products curr
+LEFT JOIN products AT (OFFSET => -3600) prev
+  ON curr.product_id = prev.product_id
+WHERE prev.product_id IS NULL;</code></pre>
+
+    <h3>Auditing Changes</h3>
+    <p>Combine Time Travel with <code>QUERY_HISTORY</code> and <code>ACCESS_HISTORY</code> for full audit trails.</p>
+
+    <pre><code>-- Find who made changes to a sensitive table
+SELECT query_id, user_name, query_text, start_time
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE query_text ILIKE '%UPDATE%employee_salaries%'
+  AND start_time > DATEADD(day, -7, CURRENT_TIMESTAMP())
+ORDER BY start_time DESC;
+
+-- Then use the query_id to see data before that change
+SELECT * FROM employee_salaries
+  BEFORE (STATEMENT => '&lt;query_id_from_above&gt;');</code></pre>
+
+    <div class="callout callout-tip">
+      <span class="callout-title">Pattern</span>
+      Combine <code>QUERY_HISTORY</code> to find the offending DML statement, then use <code>BEFORE(STATEMENT => ...)</code> to recover the pre-change state.
+    </div>
+
+    <h3>Time Travel Limitations</h3>
+    <table>
+      <thead><tr><th>Limitation</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td>Retention period</td><td>0-1 day (Standard), 0-90 days (Enterprise+)</td></tr>
+        <tr><td>Transient/Temporary tables</td><td>Max 1 day retention, no Fail-safe</td></tr>
+        <tr><td>Cannot travel past table creation</td><td>Earliest point is when the table was created</td></tr>
+        <tr><td>DDL changes</td><td>Column adds/drops are not "traveled" - schema at query time applies</td></tr>
+        <tr><td>Dropped &amp; recreated tables</td><td>Time Travel applies to the NEW table; UNDROP recovers the old one</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 2: Clone Patterns -->
+  <!-- ============================================================ -->
+  <section id="clone-patterns">
+    <h2>2. Clone Patterns</h2>
+
+    <h3>Dev/Test from Production</h3>
+    <p>Zero-copy cloning creates instant development environments from production data without additional storage cost (until the clone diverges).</p>
+
+    <pre><code>-- Clone entire database for development
+CREATE DATABASE dev_analytics CLONE prod_analytics;
+
+-- Clone specific schema for feature testing
+CREATE SCHEMA staging.test_feature_x CLONE prod.public;
+
+-- Clone a single table for experimentation
+CREATE TABLE sandbox.experiment_cohort CLONE prod.public.customers;</code></pre>
+
+    <h4>Best Practice: Timestamped Clones</h4>
+    <pre><code>-- Create time-stamped clone for reproducible testing
+CREATE DATABASE dev_analytics_20260815
+  CLONE prod_analytics
+  AT (TIMESTAMP => '2026-08-15 00:00:00'::TIMESTAMP_LTZ);
+
+-- Automated nightly clone (via task)
+CREATE OR REPLACE TASK clone_nightly
+  WAREHOUSE = admin_wh
+  SCHEDULE = 'USING CRON 0 2 * * * America/New_York'
+AS
+  CREATE OR REPLACE DATABASE dev_nightly CLONE prod_analytics;</code></pre>
+
+    <h3>Schema Migration Testing</h3>
+    <p>Test DDL changes (ALTER TABLE, new columns, type changes) on a clone before applying to production.</p>
+
+    <pre><code>-- 1. Clone the target schema
+CREATE SCHEMA migration_test CLONE production.public;
+
+-- 2. Apply migration scripts against the clone
+ALTER TABLE migration_test.orders ADD COLUMN shipping_method VARCHAR(50);
+ALTER TABLE migration_test.customers ALTER COLUMN phone SET DATA TYPE VARCHAR(20);
+
+-- 3. Run validation queries
+SELECT COUNT(*) FROM migration_test.orders WHERE shipping_method IS NULL;
+
+-- 4. If successful, apply to production; if not, drop the clone
+DROP SCHEMA migration_test;</code></pre>
+
+    <h3>Clone + Stream for CDC Replay</h3>
+    <p>Streams track DML changes on a table. Cloning a table with an active stream allows replaying or re-processing change data.</p>
+
+    <pre><code>-- Setup: create stream on source table
+CREATE STREAM orders_stream ON TABLE production.orders;
+
+-- Process some changes...
+-- Now clone the table AT a point before the stream was consumed
+CREATE TABLE orders_replay CLONE production.orders
+  AT (OFFSET => -7200);  -- 2 hours ago
+
+-- Create a new stream on the clone to capture changes from that point
+CREATE STREAM replay_stream ON TABLE orders_replay;
+
+-- The replay stream will capture all changes that occurred
+-- on the original table since the clone point</code></pre>
+
+    <div class="callout callout-exam">
+      <span class="callout-title">Exam Tip</span>
+      When you clone a table that has a stream, the stream itself is NOT cloned. You must create a new stream on the cloned table. The clone's Time Travel data preserves the change tracking metadata from the source.
+    </div>
+
+    <h3>Clone for Zero-Downtime Swap</h3>
+    <pre><code>-- Clone, transform, then swap
+CREATE TABLE customers_v2 CLONE customers;
+
+-- Apply transformations to the clone
+UPDATE customers_v2 SET region = 'APAC' WHERE country IN ('Japan','Korea','Australia');
+
+-- Atomic swap
+ALTER TABLE customers SWAP WITH customers_v2;
+-- Original is now named customers_v2 (can drop it)
+DROP TABLE customers_v2;</code></pre>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 3: Cloning Deep Dive -->
+  <!-- ============================================================ -->
+  <section id="cloning-deep-dive">
+    <h2>3. Cloning Deep Dive</h2>
+
+    <h3>What IS Cloned</h3>
+    <table>
+      <thead><tr><th>Object Type</th><th>Cloned?</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Table data (micro-partitions)</td><td>Yes (shared)</td><td>Zero-copy via metadata pointers</td></tr>
+        <tr><td>Table structure/DDL</td><td>Yes</td><td>Column definitions, clustering keys, constraints</td></tr>
+        <tr><td>Table-level parameters</td><td>Yes</td><td>DATA_RETENTION_TIME_IN_DAYS, etc.</td></tr>
+        <tr><td>Sequences</td><td>Yes</td><td>Current value is preserved</td></tr>
+        <tr><td>Views (regular)</td><td>Yes</td><td>Definition only; references update to clone context</td></tr>
+        <tr><td>Materialized Views</td><td>Yes</td><td>Both definition and materialized data</td></tr>
+        <tr><td>File Formats</td><td>Yes</td><td>All properties preserved</td></tr>
+        <tr><td>UDFs / Procedures</td><td>Yes</td><td>For database/schema clones</td></tr>
+        <tr><td>Policies (masking, row access)</td><td>Yes</td><td>Policy references are preserved on cloned objects</td></tr>
+        <tr><td>Tags</td><td>Yes</td><td>Tag associations are cloned with objects</td></tr>
+      </tbody>
+    </table>
+
+    <h3>What is NOT Cloned</h3>
+    <table>
+      <thead><tr><th>Object/Property</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td>Privileges / Grants</td><td>NOT cloned. Clone owner gets OWNERSHIP; all other grants must be re-applied.</td></tr>
+        <tr><td>Streams</td><td>NOT cloned. Must create new streams on cloned tables.</td></tr>
+        <tr><td>Load history</td><td>NOT cloned. COPY INTO will not know what was already loaded.</td></tr>
+        <tr><td>Future grants</td><td>NOT cloned for child objects.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-warning">
+      <span class="callout-title">Critical Exam Point</span>
+      Grants/privileges are NEVER cloned. The role that runs CREATE...CLONE becomes the owner. This is the #1 tested detail about cloning on the certification exam.
+    </div>
+
+    <h3>Child Objects for Database/Schema Clone</h3>
+    <p>When you clone a database or schema, all child objects are recursively cloned:</p>
+    <ul>
+      <li><strong>Database clone</strong>: All schemas, and all objects within each schema</li>
+      <li><strong>Schema clone</strong>: All tables, views, stages, file formats, sequences, pipes, tasks, streams (definitions only), UDFs, procedures</li>
+    </ul>
+
+    <h3>Pipes: Suspended on Clone</h3>
+    <div class="callout callout-exam">
+      <span class="callout-title">Exam Tip</span>
+      Cloned pipes are created in a <strong>SUSPENDED</strong> state. They will NOT auto-ingest until explicitly resumed with <code>ALTER PIPE ... RESUME</code>. This prevents duplicate data ingestion.
+    </div>
+    <pre><code>-- After cloning a database with pipes:
+SHOW PIPES IN DATABASE dev_clone;
+-- All pipes show state = 'SUSPENDED'
+
+-- To resume a specific pipe:
+ALTER PIPE dev_clone.public.my_pipe RESUME;</code></pre>
+
+    <h3>Tasks: Suspended on Clone</h3>
+    <p>Similar to pipes, cloned tasks are always created in a <strong>SUSPENDED</strong> state regardless of their original state.</p>
+    <pre><code>-- After cloning, tasks must be explicitly resumed
+ALTER TASK dev_clone.public.etl_task RESUME;
+
+-- For task trees, resume in reverse dependency order (leaf tasks first)
+ALTER TASK dev_clone.public.child_task RESUME;
+ALTER TASK dev_clone.public.root_task RESUME;</code></pre>
+
+    <h3>Stage Cloning Behavior</h3>
+    <table>
+      <thead><tr><th>Stage Type</th><th>Clone Behavior</th></tr></thead>
+      <tbody>
+        <tr><td>Internal (named) stages</td><td>Stage object is cloned but <strong>files are NOT copied</strong>. The cloned stage is empty.</td></tr>
+        <tr><td>External stages</td><td>Stage definition is cloned (URL, credentials reference). Both original and clone point to the same external location.</td></tr>
+        <tr><td>Table stages</td><td>Files in table stages are NOT cloned. Only the table data (micro-partitions) is shared.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-warning">
+      <span class="callout-title">Key Detail</span>
+      Internal named stages are cloned as empty containers. If your pipeline depends on files in a stage (e.g., for COPY INTO), those files will NOT be present in the clone.
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 4: Storage Impact -->
+  <!-- ============================================================ -->
+  <section id="storage-impact">
+    <h2>4. Storage Impact</h2>
+
+    <h3>Zero-Copy Clone: How It Works</h3>
+    <p>Cloning uses a <strong>copy-on-write</strong> model at the micro-partition level:</p>
+    <ol>
+      <li>At clone creation: <strong>zero additional storage</strong>. Both source and clone share identical micro-partition pointers.</li>
+      <li>When DML modifies the clone: only the <strong>new/modified micro-partitions</strong> created by that DML consume additional storage.</li>
+      <li>When DML modifies the source: same principle &mdash; new partitions on the source do not affect the clone's storage.</li>
+    </ol>
+
+    <div class="kv-grid">
+      <div class="kv-card">
+        <div class="kv-label">At Clone Time</div>
+        <div class="kv-value">0 bytes additional</div>
+      </div>
+      <div class="kv-card">
+        <div class="kv-label">After DML on Clone</div>
+        <div class="kv-value">Only changed partitions</div>
+      </div>
+      <div class="kv-card">
+        <div class="kv-label">Shared Partitions</div>
+        <div class="kv-value">Billed once (to source owner)</div>
+      </div>
+      <div class="kv-card">
+        <div class="kv-label">Time Travel on Clone</div>
+        <div class="kv-value">Independent retention</div>
+      </div>
+    </div>
+
+    <h3>Storage Divergence Example</h3>
+    <pre><code>-- Source table: 1000 micro-partitions, 500 GB
+-- Clone at T0: 0 additional storage
+
+-- T1: UPDATE 10% of rows in clone
+-- Result: ~100 new micro-partitions created for clone
+-- Clone storage: ~50 GB (only the modified partitions)
+-- Shared: 900 partitions still zero-cost to clone
+
+-- T2: DELETE 50% of rows from source
+-- Source creates new partitions, old shared ones enter Time Travel
+-- Clone still references original shared partitions (unaffected)</code></pre>
+
+    <h3>Monitoring Clone Storage</h3>
+    <pre><code>-- Check storage breakdown
+SELECT
+  table_catalog,
+  table_schema,
+  table_name,
+  active_bytes,
+  time_travel_bytes,
+  failsafe_bytes,
+  retained_for_clone_bytes
+FROM SNOWFLAKE.ACCOUNT_USAGE.TABLE_STORAGE_METRICS
+WHERE table_name = 'MY_CLONED_TABLE'
+ORDER BY active_bytes DESC;</code></pre>
+
+    <div class="callout callout-exam">
+      <span class="callout-title">Exam Tip</span>
+      <code>RETAINED_FOR_CLONE_BYTES</code> in <code>TABLE_STORAGE_METRICS</code> shows storage that the source table retains because a clone still references those micro-partitions. Dropping the clone releases this storage.
+    </div>
+
+    <h3>Storage Billing Rules</h3>
+    <table>
+      <thead><tr><th>Scenario</th><th>Who Pays</th></tr></thead>
+      <tbody>
+        <tr><td>Shared micro-partitions (unchanged)</td><td>Source table owner</td></tr>
+        <tr><td>New partitions from DML on clone</td><td>Clone owner</td></tr>
+        <tr><td>Time Travel on clone's changed partitions</td><td>Clone owner</td></tr>
+        <tr><td>Source dropped, clone still references partitions</td><td>Retained storage charged to the account until clone is dropped or partitions age out</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 5: Fail-safe Operations -->
+  <!-- ============================================================ -->
+  <section id="fail-safe-operations">
+    <h2>5. Fail-safe Operations</h2>
+
+    <h3>What is Fail-safe?</h3>
+    <p>Fail-safe is a <strong>7-day</strong> period that begins immediately after Time Travel expires. It provides a last-resort data recovery mechanism accessible <strong>only by Snowflake Support</strong>.</p>
+
+    <div class="kv-grid">
+      <div class="kv-card">
+        <div class="kv-label">Duration</div>
+        <div class="kv-value">7 days (non-configurable)</div>
+      </div>
+      <div class="kv-card">
+        <div class="kv-label">Access</div>
+        <div class="kv-value">Snowflake Support only</div>
+      </div>
+      <div class="kv-card">
+        <div class="kv-label">Applies to</div>
+        <div class="kv-value">Permanent tables only</div>
+      </div>
+      <div class="kv-card">
+        <div class="kv-label">Transient/Temporary</div>
+        <div class="kv-value">NO Fail-safe</div>
+      </div>
+    </div>
+
+    <h3>Contacting Snowflake Support</h3>
+    <ol>
+      <li>File a support case via the Snowflake Support portal</li>
+      <li>Provide: account identifier, database/schema/table name, approximate timestamp of data loss</li>
+      <li>Snowflake attempts recovery on a <strong>best-effort basis</strong></li>
+      <li>Recovery is NOT guaranteed and may take <strong>hours to days</strong></li>
+      <li>Recovered data is placed in a new table (not restored in-place)</li>
+    </ol>
+
+    <h3>What CAN Be Recovered</h3>
+    <table>
+      <thead><tr><th>Recoverable</th><th>Not Recoverable</th></tr></thead>
+      <tbody>
+        <tr><td>Table data (rows/micro-partitions)</td><td>Metadata-only objects (views, stages, pipes)</td></tr>
+        <tr><td>Data from permanent tables</td><td>Transient table data (no fail-safe)</td></tr>
+        <tr><td>Data that was in fail-safe window</td><td>Temporary table data (no fail-safe)</td></tr>
+        <tr><td>Specific point-in-time within fail-safe</td><td>Data older than Time Travel + 7 days</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Cost During Fail-safe</h3>
+    <div class="callout callout-warning">
+      <span class="callout-title">Storage Cost</span>
+      Fail-safe storage is billed at the same rate as active storage. For a table with 90-day retention, total protected period is <strong>90 + 7 = 97 days</strong> of historical storage charges. This can significantly increase costs for high-churn tables.
+    </div>
+
+    <pre><code>-- Monitor fail-safe storage costs
+SELECT
+  table_catalog AS database,
+  SUM(failsafe_bytes) / POWER(1024,4) AS failsafe_tb
+FROM SNOWFLAKE.ACCOUNT_USAGE.TABLE_STORAGE_METRICS
+WHERE deleted IS NULL
+GROUP BY table_catalog
+ORDER BY failsafe_tb DESC;
+
+-- Total storage breakdown
+SELECT
+  SUM(active_bytes) / POWER(1024,3) AS active_gb,
+  SUM(time_travel_bytes) / POWER(1024,3) AS time_travel_gb,
+  SUM(failsafe_bytes) / POWER(1024,3) AS failsafe_gb
+FROM SNOWFLAKE.ACCOUNT_USAGE.TABLE_STORAGE_METRICS;</code></pre>
+
+    <h3>Fail-safe Timeline</h3>
+    <pre><code>-- Permanent table lifecycle:
+-- |--- Active ---|--- Time Travel (0-90 days) ---|--- Fail-safe (7 days) ---|--- Purged ---|
+
+-- Transient table lifecycle:
+-- |--- Active ---|--- Time Travel (0-1 day) ---|--- Purged (NO Fail-safe) ---|
+
+-- Temporary table lifecycle:
+-- |--- Active (session) ---|--- Time Travel (0-1 day) ---|--- Purged (NO Fail-safe) ---|</code></pre>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 6: Retention Interaction with Streams -->
+  <!-- ============================================================ -->
+  <section id="retention-and-streams">
+    <h2>6. Retention Interaction with Streams</h2>
+
+    <h3>Stream Staleness Rule</h3>
+    <p>A stream becomes <strong>stale</strong> when the change data it needs to report has aged beyond the underlying table's data retention period. The effective staleness window is:</p>
+
+    <div class="callout callout-exam">
+      <span class="callout-title">Critical Formula</span>
+      <strong>Stream Staleness Threshold = DATA_RETENTION_TIME_IN_DAYS + 14 days</strong><br>
+      The extra 14 days is an internal Snowflake extension that provides a grace buffer. However, you should NOT rely on this buffer in production &mdash; treat it as undocumented grace.
+    </div>
+
+    <h3>How It Works</h3>
+    <ul>
+      <li>A stream tracks an <strong>offset</strong> (a point-in-time marker) on the source table</li>
+      <li>If the stream is not consumed within the retention window, the micro-partitions it needs to read from may be purged</li>
+      <li>Once stale, the stream is <strong>unusable</strong> &mdash; you must recreate it</li>
+      <li>Staleness is checked when the stream is queried, not continuously</li>
+    </ul>
+
+    <h3>Examples</h3>
+    <table>
+      <thead><tr><th>Table Retention</th><th>Stream Staleness Threshold</th><th>Recommendation</th></tr></thead>
+      <tbody>
+        <tr><td>1 day (default)</td><td>~15 days</td><td>Consume stream at least daily</td></tr>
+        <tr><td>14 days</td><td>~28 days</td><td>Consume at least every 2 weeks</td></tr>
+        <tr><td>90 days</td><td>~104 days</td><td>Consume within 90 days</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Preventing Stream Staleness</h3>
+    <pre><code>-- Check stream staleness
+SHOW STREAMS LIKE 'my_stream' IN SCHEMA my_db.my_schema;
+-- Check STALE column and STALE_AFTER column
+
+-- Proactive: query the stream regularly (even if no processing needed)
+-- A SELECT on the stream does NOT advance the offset
+-- Only DML in a transaction that reads the stream advances it
+
+-- Increase retention on the source table if streams go stale
+ALTER TABLE source_table SET DATA_RETENTION_TIME_IN_DAYS = 14;
+
+-- Monitor staleness with a task
+CREATE TASK check_stream_staleness
+  WAREHOUSE = admin_wh
+  SCHEDULE = 'USING CRON 0 8 * * * UTC'
+AS
+  SELECT stream_name, stale, stale_after
+  FROM TABLE(INFORMATION_SCHEMA.STREAMS())
+  WHERE stale = TRUE;</code></pre>
+
+    <div class="callout callout-tip">
+      <span class="callout-title">Best Practice</span>
+      Set table retention to at least 2x your expected stream consumption interval. If you process streams daily, keep at least 2 days retention. If weekly, keep at least 14 days.
+    </div>
+
+    <h3>Stream + Clone Interaction</h3>
+    <pre><code>-- Streams are NOT cloned with the table
+-- After cloning, create a fresh stream:
+CREATE TABLE orders_clone CLONE orders;
+CREATE STREAM orders_clone_stream ON TABLE orders_clone;
+-- This new stream starts tracking from the clone point forward
+
+-- The original stream on the original table is unaffected</code></pre>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 7: Production Best Practices -->
+  <!-- ============================================================ -->
+  <section id="production-best-practices">
+    <h2>7. Production Best Practices</h2>
+
+    <h3>Retention Strategy by Table Type</h3>
+    <table>
+      <thead><tr><th>Table Category</th><th>Recommended Retention</th><th>Table Type</th><th>Rationale</th></tr></thead>
+      <tbody>
+        <tr><td>Critical business data (finance, orders)</td><td>90 days</td><td>Permanent</td><td>Maximum recovery window + fail-safe</td></tr>
+        <tr><td>Dimension tables (slowly changing)</td><td>30-90 days</td><td>Permanent</td><td>Important but low churn = low cost</td></tr>
+        <tr><td>Fact tables (high volume)</td><td>7-14 days</td><td>Permanent</td><td>Balance cost vs recovery need</td></tr>
+        <tr><td>Staging/landing tables</td><td>0-1 day</td><td>Transient</td><td>Reloadable from source; minimize cost</td></tr>
+        <tr><td>ETL intermediate tables</td><td>0 days</td><td>Transient</td><td>Reproducible from pipeline</td></tr>
+        <tr><td>Dev/test tables</td><td>0-1 day</td><td>Transient</td><td>Easily recreatable</td></tr>
+        <tr><td>Session-scoped temp data</td><td>0-1 day</td><td>Temporary</td><td>Not needed beyond session</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Clone Scheduling Strategy</h3>
+    <pre><code>-- Production clone schedule pattern:
+-- 1. Nightly dev refresh
+CREATE OR REPLACE TASK nightly_dev_clone
+  WAREHOUSE = admin_wh
+  SCHEDULE = 'USING CRON 0 2 * * * America/New_York'
+AS
+  CREATE OR REPLACE DATABASE dev CLONE prod;
+
+-- 2. Weekly QA snapshot (preserved for a week)
+CREATE OR REPLACE TASK weekly_qa_clone
+  WAREHOUSE = admin_wh
+  SCHEDULE = 'USING CRON 0 3 * * 1 America/New_York'
+AS
+  BEGIN
+    DROP DATABASE IF EXISTS qa_previous_week;
+    ALTER DATABASE qa_current_week RENAME TO qa_previous_week;
+    CREATE DATABASE qa_current_week CLONE prod;
+  END;
+
+-- 3. Pre-release clone for migration testing
+-- (Manual, triggered before deployments)
+CREATE DATABASE release_test_v2_5 CLONE prod
+  AT (TIMESTAMP => CURRENT_TIMESTAMP());</code></pre>
+
+    <h3>Cost Monitoring</h3>
+    <pre><code>-- Daily storage cost monitoring query
+SELECT
+  DATE_TRUNC('day', usage_date) AS day,
+  SUM(storage_bytes + stage_bytes + failsafe_bytes) / POWER(1024,4) AS total_tb,
+  SUM(storage_bytes) / POWER(1024,4) AS active_tb,
+  SUM(failsafe_bytes) / POWER(1024,4) AS failsafe_tb
+FROM SNOWFLAKE.ACCOUNT_USAGE.STORAGE_USAGE
+WHERE usage_date > DATEADD(month, -1, CURRENT_DATE())
+GROUP BY 1 ORDER BY 1;
+
+-- Identify tables with expensive Time Travel
+SELECT
+  table_catalog || '.' || table_schema || '.' || table_name AS full_name,
+  active_bytes / POWER(1024,3) AS active_gb,
+  time_travel_bytes / POWER(1024,3) AS tt_gb,
+  failsafe_bytes / POWER(1024,3) AS fs_gb,
+  ROUND(time_travel_bytes * 100.0 / NULLIF(active_bytes,0), 1) AS tt_pct_of_active
+FROM SNOWFLAKE.ACCOUNT_USAGE.TABLE_STORAGE_METRICS
+WHERE time_travel_bytes > 1073741824  -- > 1 GB
+ORDER BY time_travel_bytes DESC
+LIMIT 20;
+
+-- Alert on unexpected storage growth
+CREATE ALERT storage_growth_alert
+  WAREHOUSE = admin_wh
+  SCHEDULE = 'USING CRON 0 7 * * * UTC'
+  IF (EXISTS (
+    SELECT 1 FROM SNOWFLAKE.ACCOUNT_USAGE.STORAGE_USAGE
+    WHERE usage_date = CURRENT_DATE() - 1
+      AND storage_bytes > (
+        SELECT storage_bytes * 1.2  -- 20% growth threshold
+        FROM SNOWFLAKE.ACCOUNT_USAGE.STORAGE_USAGE
+        WHERE usage_date = CURRENT_DATE() - 8
+      )
+  ))
+  THEN CALL SYSTEM$SEND_EMAIL(...);</code></pre>
+
+    <h3>Cost Reduction Tactics</h3>
+    <ul>
+      <li><strong>Use transient tables</strong> for staging/ETL (no fail-safe = 7 days less storage)</li>
+      <li><strong>Lower retention</strong> on high-churn tables where data is reproducible</li>
+      <li><strong>Drop unused clones</strong> promptly to release retained_for_clone storage</li>
+      <li><strong>Set retention to 0</strong> on tables during bulk loads, then restore after</li>
+      <li><strong>Monitor <code>RETAINED_FOR_CLONE_BYTES</code></strong> to find hidden storage costs</li>
+    </ul>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 8: RBAC for Time Travel & Cloning -->
+  <!-- ============================================================ -->
+  <section id="rbac-time-travel-cloning">
+    <h2>8. RBAC for Time Travel &amp; Cloning</h2>
+
+    <h3>Who Can UNDROP</h3>
+    <table>
+      <thead><tr><th>Object</th><th>Required Privilege</th><th>Who Typically Has It</th></tr></thead>
+      <tbody>
+        <tr><td>UNDROP TABLE</td><td>OWNERSHIP on the schema (or CREATE TABLE on schema + table existed)</td><td>Schema owner role</td></tr>
+        <tr><td>UNDROP SCHEMA</td><td>OWNERSHIP on the database (or CREATE SCHEMA on database)</td><td>Database owner role</td></tr>
+        <tr><td>UNDROP DATABASE</td><td>CREATE DATABASE at account level</td><td>SYSADMIN or custom role with account-level CREATE DATABASE</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-exam">
+      <span class="callout-title">Exam Tip</span>
+      To UNDROP a table, you need the ability to create objects in that schema (CREATE TABLE privilege on the schema), because UNDROP effectively re-creates the object. The original OWNERSHIP on the restored object is preserved.
+    </div>
+
+    <h3>Who Can CLONE</h3>
+    <table>
+      <thead><tr><th>Clone Target</th><th>Required on Source</th><th>Required at Destination</th></tr></thead>
+      <tbody>
+        <tr><td>Clone a TABLE</td><td>SELECT on the source table</td><td>CREATE TABLE on the target schema</td></tr>
+        <tr><td>Clone a SCHEMA</td><td>USAGE on source schema + SELECT on all tables within</td><td>CREATE SCHEMA on the target database</td></tr>
+        <tr><td>Clone a DATABASE</td><td>USAGE on source database + USAGE on all schemas + SELECT on all tables</td><td>CREATE DATABASE at account level</td></tr>
+        <tr><td>Clone at a TIME TRAVEL point</td><td>Same as above (no additional privilege for AT/BEFORE clause)</td><td>Same as above</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Privileges After Cloning</h3>
+    <pre><code>-- The role executing CREATE...CLONE becomes OWNER of the clone
+-- No other privileges are carried over!
+
+-- Typical post-clone grant pattern:
+CREATE DATABASE dev_db CLONE prod_db;
+
+-- Grant access to development roles
+GRANT USAGE ON DATABASE dev_db TO ROLE developer;
+GRANT USAGE ON ALL SCHEMAS IN DATABASE dev_db TO ROLE developer;
+GRANT SELECT ON ALL TABLES IN DATABASE dev_db TO ROLE developer;
+GRANT ALL ON ALL TABLES IN DATABASE dev_db TO ROLE developer;
+
+-- Set up future grants for objects created in the clone
+GRANT SELECT ON FUTURE TABLES IN DATABASE dev_db TO ROLE developer;</code></pre>
+
+    <h3>Time Travel Query Privileges</h3>
+    <pre><code>-- To query historical data with AT/BEFORE:
+-- You need SELECT on the table (same as a regular query)
+-- No special "Time Travel privilege" exists
+
+-- Example: analyst can query historical data if they have SELECT
+GRANT SELECT ON TABLE prod.public.orders TO ROLE analyst;
+-- Analyst can now run:
+-- SELECT * FROM orders AT (OFFSET => -3600);</code></pre>
+
+    <h3>Administrative Privilege Matrix</h3>
+    <table>
+      <thead><tr><th>Action</th><th>Minimum Privilege</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Query AT/BEFORE</td><td>SELECT on table</td><td>No extra privilege needed</td></tr>
+        <tr><td>Clone table</td><td>SELECT + CREATE TABLE</td><td>On source and target respectively</td></tr>
+        <tr><td>Clone database</td><td>Cascading USAGE/SELECT + CREATE DATABASE</td><td>Need access to all child objects</td></tr>
+        <tr><td>UNDROP table</td><td>CREATE TABLE on schema</td><td>Must have ability to create in that schema</td></tr>
+        <tr><td>UNDROP database</td><td>CREATE DATABASE</td><td>Account-level privilege</td></tr>
+        <tr><td>Set DATA_RETENTION_TIME_IN_DAYS</td><td>OWNERSHIP or MODIFY on object</td><td>Can increase up to account max</td></tr>
+        <tr><td>Set retention &gt; 1 day</td><td>Enterprise Edition required</td><td>Standard Edition max is 1 day</td></tr>
+        <tr><td>Request Fail-safe recovery</td><td>ACCOUNTADMIN (to file support ticket)</td><td>Only Snowflake Support can execute</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-tip">
+      <span class="callout-title">Best Practice</span>
+      Create a dedicated <code>CLONE_ADMIN</code> role with CREATE DATABASE + broad SELECT for scheduled clone operations. Keep UNDROP capability restricted to SYSADMIN or schema owners to prevent accidental namespace conflicts.
+    </div>
+
+    <h3>Recommended Role Hierarchy for Clone Operations</h3>
+    <pre><code>-- Create a clone administration role
+CREATE ROLE clone_admin;
+GRANT CREATE DATABASE ON ACCOUNT TO ROLE clone_admin;
+GRANT USAGE ON DATABASE prod TO ROLE clone_admin;
+GRANT USAGE ON ALL SCHEMAS IN DATABASE prod TO ROLE clone_admin;
+GRANT SELECT ON ALL TABLES IN DATABASE prod TO ROLE clone_admin;
+
+-- Grant to sysadmin hierarchy
+GRANT ROLE clone_admin TO ROLE sysadmin;
+
+-- For automated cloning tasks, grant to task-executing role
+GRANT ROLE clone_admin TO ROLE task_executor;
+GRANT USAGE ON WAREHOUSE admin_wh TO ROLE task_executor;
+GRANT EXECUTE TASK ON ACCOUNT TO ROLE task_executor;</code></pre>
+  </section>
+
+  <div class="page-footer">
+    <p>Snowflake Certification Reference &bull; Module 14: Time Travel, Fail-safe &amp; Cloning &bull; Part 2: Advanced Topics</p>
+    <p>Generated 2026-08-15 &bull; Covers SnowPro Core &amp; Advanced topics</p>
+  </div>
+
+</body>
+</html>

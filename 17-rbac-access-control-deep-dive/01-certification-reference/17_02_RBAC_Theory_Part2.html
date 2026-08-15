@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>17.02 RBAC Theory Part 2 - Advanced Access Control</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Advanced RBAC topics including database roles, best practices, privilege hierarchy, ownership transfer, managed access schemas, network policies, authentication methods",
+    "sections": [
+      { "id": "database-roles", "title": "Database Roles", "dataSources": [], "producerNotes": "Roles scoped to a database for sharing and encapsulation" },
+      { "id": "best-practices", "title": "Role Best Practices", "dataSources": [], "producerNotes": "Principle of least privilege and design patterns" },
+      { "id": "privilege-hierarchy", "title": "Privilege Hierarchy", "dataSources": [], "producerNotes": "Account to object level privilege chain" },
+      { "id": "ownership-transfer", "title": "Ownership Transfer", "dataSources": [], "producerNotes": "Transferring object ownership between roles" },
+      { "id": "managed-access", "title": "Managed Access Schemas", "dataSources": [], "producerNotes": "Centralized access control in schemas" },
+      { "id": "network-policies", "title": "Network Policies", "dataSources": [], "producerNotes": "IP allowlist/blocklist access control" },
+      { "id": "authentication", "title": "Authentication Methods", "dataSources": [], "producerNotes": "MFA, key-pair, OAuth, SSO/SAML" },
+      { "id": "production-patterns", "title": "Production Access Patterns", "dataSources": [], "producerNotes": "Real-world RBAC design for production" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+      max-width: 920px; margin: 0 auto; padding: 24px;
+      color: light-dark(#1f2937, #e5e7eb);
+      background: light-dark(#ffffff, #0f1117);
+      line-height: 1.7;
+    }
+    h1 { color: light-dark(#9f1239, #fb7185); border-bottom: 3px solid light-dark(#e11d48, #fb7185); padding-bottom: 10px; }
+    h2 { color: light-dark(#be123c, #fda4af); margin-top: 40px; border-left: 4px solid light-dark(#e11d48, #fb7185); padding-left: 12px; }
+    h3 { color: light-dark(#9f1239, #fecdd3); }
+    .card {
+      background: light-dark(#fff1f2, #1c1017);
+      border: 1px solid light-dark(#fecdd3, #4c1d2e);
+      border-radius: 8px; padding: 18px; margin: 16px 0;
+    }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { border: 1px solid light-dark(#fecdd3, #4c1d2e); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#ffe4e6, #2a0e1e); font-weight: 600; color: light-dark(#881337, #fda4af); }
+    tr:nth-child(even) { background: light-dark(#fff1f2, #1a0c14); }
+    code {
+      background: light-dark(#ffe4e6, #2a0e1e); padding: 2px 6px; border-radius: 3px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.9em;
+      color: light-dark(#9f1239, #fda4af);
+    }
+    pre {
+      background: light-dark(#1e293b, #0d0d12); color: #e2e8f0;
+      padding: 16px; border-radius: 8px; overflow-x: auto;
+      border: 1px solid light-dark(#334155, #1e293b);
+    }
+    pre code { background: none; color: inherit; padding: 0; }
+    .highlight { color: light-dark(#e11d48, #fb7185); font-weight: 600; }
+    .warning {
+      background: light-dark(#fef2f2, #1c0d0d); border-left: 4px solid #e11d48;
+      padding: 12px 16px; margin: 12px 0; border-radius: 0 6px 6px 0;
+    }
+    .exam-tip {
+      background: light-dark(#fff1f2, #1c1017); border: 2px dashed light-dark(#e11d48, #881337);
+      padding: 12px 16px; margin: 12px 0; border-radius: 6px;
+    }
+    .exam-tip::before { content: "EXAM TIP: "; font-weight: 700; color: light-dark(#e11d48, #fb7185); }
+    ul, ol { padding-left: 24px; }
+    li { margin: 6px 0; }
+    .comparison-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0;
+    }
+    .comparison-grid .card { margin: 0; }
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;
+      background: light-dark(#ffe4e6, #3b1025); color: light-dark(#9f1239, #fda4af);
+      border: 1px solid light-dark(#fda4af, #881337);
+    }
+    .flow-diagram {
+      background: light-dark(#1e293b, #0d0d12); color: #e2e8f0;
+      padding: 20px; border-radius: 8px; font-family: monospace;
+      white-space: pre; line-height: 1.5; overflow-x: auto;
+    }
+    .nav-links { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 16px; border-top: 1px solid light-dark(#fecdd3, #4c1d2e); }
+    .nav-links a { color: light-dark(#e11d48, #fb7185); text-decoration: none; font-weight: 500; }
+    .nav-links a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <h1>17.02 RBAC Theory Part 2 - Advanced Access Control</h1>
+
+  <h2 id="database-roles">Database Roles</h2>
+  <div class="card">
+    <p>Database roles are roles scoped to a specific database. They were introduced primarily to support <span class="highlight">secure data sharing</span> but are also useful for encapsulating database-level access.</p>
+  </div>
+
+  <h3>Key Characteristics</h3>
+  <ul>
+    <li>Created within a database: <code>CREATE DATABASE ROLE mydb.dr_reader;</code></li>
+    <li>Can only be granted privileges on objects <strong>within that same database</strong></li>
+    <li>Cannot hold warehouse privileges or account-level privileges</li>
+    <li>Can be granted to account-level roles or other database roles in the same database</li>
+    <li>Essential for data sharing - shared databases use database roles to control consumer access</li>
+    <li>Ownership is always within the database context</li>
+  </ul>
+
+  <pre><code>-- Create a database role
+CREATE DATABASE ROLE mydb.reader_role;
+
+-- Grant privileges (only within same database)
+GRANT USAGE ON SCHEMA mydb.analytics TO DATABASE ROLE mydb.reader_role;
+GRANT SELECT ON ALL TABLES IN SCHEMA mydb.analytics TO DATABASE ROLE mydb.reader_role;
+
+-- Grant database role to an account role
+GRANT DATABASE ROLE mydb.reader_role TO ROLE analyst_role;
+
+-- In data sharing context
+GRANT DATABASE ROLE shared_db.consumer_role TO SHARE my_share;</code></pre>
+
+  <div class="exam-tip">Database roles can ONLY hold privileges on objects within their database. They cannot be granted warehouse USAGE or account-level privileges. They are critical for data sharing where consumers access shared databases via database roles.</div>
+
+  <h3>Database Roles vs Account Roles</h3>
+  <table>
+    <thead><tr><th>Feature</th><th>Account Role</th><th>Database Role</th></tr></thead>
+    <tbody>
+      <tr><td>Scope</td><td>Entire account</td><td>Single database</td></tr>
+      <tr><td>Warehouse privileges</td><td>Yes</td><td>No</td></tr>
+      <tr><td>Account-level privileges</td><td>Yes</td><td>No</td></tr>
+      <tr><td>Cross-database access</td><td>Yes</td><td>No</td></tr>
+      <tr><td>Data sharing</td><td>Indirect</td><td>Direct (preferred)</td></tr>
+      <tr><td>Granted to users</td><td>Yes</td><td>No (must be granted to account role first)</td></tr>
+      <tr><td>Hierarchy</td><td>Can include DB roles</td><td>Only within same database</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="best-practices">Role Best Practices</h2>
+
+  <h3>Principle of Least Privilege</h3>
+  <div class="card">
+    <p>Grant only the minimum privileges necessary for a user or role to perform its function.</p>
+    <ol>
+      <li><strong>Start with zero access</strong> - don't add privileges to PUBLIC</li>
+      <li><strong>Create functional roles</strong> - based on job functions, not individuals</li>
+      <li><strong>Avoid ACCOUNTADMIN for daily use</strong> - switch to it only when needed</li>
+      <li><strong>Separate read and write</strong> - create distinct roles for readers vs writers</li>
+      <li><strong>Review regularly</strong> - audit grants periodically</li>
+    </ol>
+  </div>
+
+  <h3>Role Naming Conventions</h3>
+  <pre><code>-- Recommended patterns:
+-- FUNCTION_ACCESS_LEVEL
+CREATE ROLE analytics_read;
+CREATE ROLE analytics_write;
+CREATE ROLE etl_admin;
+CREATE ROLE finance_report_viewer;
+
+-- Or: DEPARTMENT_FUNCTION
+CREATE ROLE marketing_analyst;
+CREATE ROLE engineering_admin;
+CREATE ROLE data_science_ml_engineer;</code></pre>
+
+  <h3>Role Hierarchy Best Practices</h3>
+  <div class="card">
+    <ul>
+      <li>Always grant custom roles to SYSADMIN (directly or through hierarchy)</li>
+      <li>Create "admin" roles for each functional area that roll up to SYSADMIN</li>
+      <li>Avoid deep hierarchies (3-4 levels max recommended)</li>
+      <li>Document role purpose with COMMENT</li>
+      <li>Use a layered approach: access roles (bottom) → functional roles (middle) → admin roles (top)</li>
+      <li>Never grant ACCOUNTADMIN to service accounts</li>
+      <li>Require MFA for privileged roles</li>
+    </ul>
+  </div>
+
+  <h2 id="privilege-hierarchy">Privilege Hierarchy</h2>
+
+  <div class="flow-diagram">
+  ACCOUNT LEVEL
+  ├── CREATE DATABASE, CREATE WAREHOUSE, CREATE ROLE, MANAGE GRANTS
+  │
+  └── DATABASE LEVEL
+      ├── USAGE (required gateway)
+      ├── CREATE SCHEMA, MONITOR
+      │
+      └── SCHEMA LEVEL
+          ├── USAGE (required gateway)
+          ├── CREATE TABLE, CREATE VIEW, CREATE STAGE, ...
+          │
+          └── OBJECT LEVEL
+              ├── TABLE: SELECT, INSERT, UPDATE, DELETE, TRUNCATE, OWNERSHIP
+              ├── VIEW: SELECT, OWNERSHIP
+              ├── STAGE: READ, WRITE, USAGE, OWNERSHIP
+              ├── PIPE: MONITOR, OPERATE, OWNERSHIP
+              ├── STREAM: SELECT, OWNERSHIP
+              ├── TASK: MONITOR, OPERATE, OWNERSHIP
+              ├── FUNCTION: USAGE, OWNERSHIP
+              └── PROCEDURE: USAGE, OWNERSHIP
+  </div>
+
+  <div class="warning">
+    <strong>The USAGE chain:</strong> To access ANY object, you need USAGE on the database AND USAGE on the schema. Without both, object-level privileges are useless. This is the most common access issue in Snowflake.
+  </div>
+
+  <h2 id="ownership-transfer">Ownership Transfer</h2>
+
+  <h3>Understanding OWNERSHIP</h3>
+  <div class="card">
+    <ul>
+      <li>Every securable object has exactly ONE owner role</li>
+      <li>The owner has full control and can grant privileges to others</li>
+      <li>Ownership is assigned at creation to the role that created the object</li>
+      <li>OWNERSHIP can be transferred to another role</li>
+      <li>Only OWNERSHIP holders or roles with MANAGE GRANTS can transfer ownership</li>
+    </ul>
+  </div>
+
+  <pre><code>-- Transfer ownership of a single object
+GRANT OWNERSHIP ON TABLE mydb.myschema.sales TO ROLE data_admin_role;
+
+-- Transfer ownership of all tables in a schema
+GRANT OWNERSHIP ON ALL TABLES IN SCHEMA mydb.myschema TO ROLE data_admin_role;
+
+-- Transfer with COPY CURRENT GRANTS (preserves existing grants)
+GRANT OWNERSHIP ON TABLE mydb.myschema.sales 
+  TO ROLE data_admin_role 
+  COPY CURRENT GRANTS;
+
+-- Transfer with REVOKE CURRENT GRANTS (removes all existing grants)
+GRANT OWNERSHIP ON TABLE mydb.myschema.sales 
+  TO ROLE data_admin_role 
+  REVOKE CURRENT GRANTS;
+
+-- Transfer future ownership
+GRANT OWNERSHIP ON FUTURE TABLES IN SCHEMA mydb.myschema TO ROLE data_admin_role;</code></pre>
+
+  <div class="exam-tip">When transferring ownership: COPY CURRENT GRANTS preserves all existing privilege grants on the object. REVOKE CURRENT GRANTS removes them. The default behavior (when neither is specified) is REVOKE CURRENT GRANTS in a regular schema and depends on the managed access setting.</div>
+
+  <h3>Ownership Transfer Effects</h3>
+  <table>
+    <thead><tr><th>Aspect</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td>Previous owner</td><td>Loses all implicit privileges from ownership</td></tr>
+      <tr><td>Existing grants (COPY)</td><td>All previously granted privileges remain intact</td></tr>
+      <tr><td>Existing grants (REVOKE)</td><td>All previously granted privileges are removed</td></tr>
+      <tr><td>New owner</td><td>Gains full control including ability to grant/revoke</td></tr>
+      <tr><td>FUTURE grants</td><td>Not affected by ownership transfer of existing objects</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="managed-access">Managed Access Schemas</h2>
+
+  <div class="card">
+    <p>In a <span class="highlight">managed access schema</span>, the schema owner (or a role with MANAGE GRANTS) controls all privilege grants - individual object owners <strong>cannot</strong> grant access to their objects.</p>
+  </div>
+
+  <pre><code>-- Create a managed access schema
+CREATE SCHEMA mydb.secure_schema WITH MANAGED ACCESS;
+
+-- Convert existing schema to managed access
+ALTER SCHEMA mydb.existing_schema ENABLE MANAGED ACCESS;
+
+-- Revert to regular schema
+ALTER SCHEMA mydb.secure_schema DISABLE MANAGED ACCESS;</code></pre>
+
+  <h3>Regular vs Managed Access Schemas</h3>
+  <table>
+    <thead><tr><th>Behavior</th><th>Regular Schema</th><th>Managed Access Schema</th></tr></thead>
+    <tbody>
+      <tr><td>Who grants on objects?</td><td>Object owner</td><td>Schema owner or MANAGE GRANTS role only</td></tr>
+      <tr><td>Object owner can grant?</td><td>Yes</td><td>No (only OWNERSHIP transfer)</td></tr>
+      <tr><td>Centralized control?</td><td>No - distributed</td><td>Yes - schema owner decides</td></tr>
+      <tr><td>FUTURE grants?</td><td>Set by object-type owner</td><td>Set by schema owner only</td></tr>
+      <tr><td>Use case</td><td>Team autonomy</td><td>Strict governance, compliance</td></tr>
+    </tbody>
+  </table>
+
+  <div class="exam-tip">In a MANAGED ACCESS schema, even the object owner cannot grant privileges on their own objects. Only the schema owner or a role with the global MANAGE GRANTS privilege can grant access. This enables centralized security governance.</div>
+
+  <h2 id="network-policies">Network Policies</h2>
+
+  <div class="card">
+    <p>Network policies restrict access to Snowflake based on IP addresses. They use an allowlist/blocklist model.</p>
+  </div>
+
+  <pre><code>-- Create a network policy
+CREATE NETWORK POLICY my_policy
+  ALLOWED_IP_LIST = ('192.168.1.0/24', '10.0.0.0/8')
+  BLOCKED_IP_LIST = ('192.168.1.99')
+  COMMENT = 'Corporate network only';
+
+-- Apply to entire account
+ALTER ACCOUNT SET NETWORK_POLICY = my_policy;
+
+-- Apply to a specific user
+ALTER USER john_doe SET NETWORK_POLICY = user_specific_policy;
+
+-- Remove network policy
+ALTER ACCOUNT UNSET NETWORK_POLICY;
+ALTER USER john_doe UNSET NETWORK_POLICY;</code></pre>
+
+  <h3>Network Policy Rules</h3>
+  <ul>
+    <li><strong>Evaluation order:</strong> User-level policy takes precedence over account-level policy</li>
+    <li><strong>ALLOWED_IP_LIST:</strong> Only these IPs can connect (allowlist)</li>
+    <li><strong>BLOCKED_IP_LIST:</strong> Excluded from the allowed list (subset exclusion)</li>
+    <li>BLOCKED_IP_LIST is optional and only meaningful as an exception within ALLOWED_IP_LIST</li>
+    <li>If no network policy is set, all IPs are allowed</li>
+    <li>Supports CIDR notation for IP ranges</li>
+    <li>Only one network policy can be active per account or per user at a time</li>
+    <li>ACCOUNTADMIN can always bypass (for safety) if they are the only admin locked out</li>
+  </ul>
+
+  <div class="warning">Be careful when setting account-level network policies. If misconfigured, you can lock yourself out. ACCOUNTADMIN has a bypass mechanism but only if they're connecting from a previously known IP.</div>
+
+  <h2 id="authentication">Authentication Methods</h2>
+
+  <h3>Multi-Factor Authentication (MFA)</h3>
+  <div class="card">
+    <ul>
+      <li>Snowflake uses <strong>Duo Security</strong> for MFA (push notifications)</li>
+      <li>Enrolled per-user, not per-role</li>
+      <li>Can be enforced at account level via authentication policies</li>
+      <li>Best practice: Require MFA for all ACCOUNTADMIN users</li>
+      <li>MFA token caching available to reduce prompts (4-hour window)</li>
+    </ul>
+    <pre><code>-- Check MFA status for users
+SELECT name, has_mfa FROM SNOWFLAKE.ACCOUNT_USAGE.USERS;
+
+-- Enforce MFA via authentication policy (2024+)
+CREATE AUTHENTICATION POLICY require_mfa
+  MFA_AUTHENTICATION_METHODS = ('TOTP')
+  CLIENT_TYPES = ('SNOWFLAKE_UI', 'SNOWSQL');
+
+ALTER ACCOUNT SET AUTHENTICATION POLICY = require_mfa;</code></pre>
+  </div>
+
+  <h3>Key-Pair Authentication</h3>
+  <div class="card">
+    <ul>
+      <li>RSA key pair (2048-bit minimum)</li>
+      <li>More secure than password for service accounts and automation</li>
+      <li>Supports key rotation (two active keys simultaneously during rotation)</li>
+      <li>No password needed when using key-pair</li>
+    </ul>
+    <pre><code>-- Generate key pair (outside Snowflake)
+-- openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out rsa_key.p8
+
+-- Assign public key to user
+ALTER USER service_account SET RSA_PUBLIC_KEY = 'MIIBIj...';
+
+-- Rotate: set second key, then remove first
+ALTER USER service_account SET RSA_PUBLIC_KEY_2 = 'MIIBIj...new...';
+ALTER USER service_account UNSET RSA_PUBLIC_KEY;</code></pre>
+  </div>
+
+  <h3>OAuth</h3>
+  <div class="card">
+    <ul>
+      <li><strong>Snowflake OAuth:</strong> Built-in OAuth server for custom clients</li>
+      <li><strong>External OAuth:</strong> Integrate with external providers (Okta, Azure AD, PingFederate)</li>
+      <li>Token-based authentication; no password stored client-side</li>
+      <li>Supports scopes to limit role access</li>
+      <li>Refresh tokens for long-running sessions</li>
+    </ul>
+    <pre><code>-- Create OAuth integration (External OAuth example)
+CREATE SECURITY INTEGRATION external_oauth
+  TYPE = EXTERNAL_OAUTH
+  ENABLED = TRUE
+  EXTERNAL_OAUTH_TYPE = AZURE
+  EXTERNAL_OAUTH_ISSUER = 'https://login.microsoftonline.com/...'
+  EXTERNAL_OAUTH_TOKEN_USER_MAPPING_CLAIM = 'upn'
+  EXTERNAL_OAUTH_SNOWFLAKE_USER_MAPPING_ATTRIBUTE = 'login_name'
+  EXTERNAL_OAUTH_JWS_KEYS_URL = 'https://login.microsoftonline.com/.../discovery/v2.0/keys';</code></pre>
+  </div>
+
+  <h3>SSO / SAML Overview</h3>
+  <div class="card">
+    <ul>
+      <li>Snowflake acts as a <strong>Service Provider (SP)</strong></li>
+      <li>Customer's IdP (Okta, Azure AD, ADFS, etc.) is the <strong>Identity Provider</strong></li>
+      <li>Uses SAML 2.0 protocol</li>
+      <li>Supports both IdP-initiated and SP-initiated SSO</li>
+      <li>User mapping via email or login_name attribute</li>
+      <li>Can configure custom login page URL</li>
+    </ul>
+    <pre><code>-- Create SAML integration
+CREATE SECURITY INTEGRATION my_saml_idp
+  TYPE = SAML2
+  ENABLED = TRUE
+  SAML2_ISSUER = 'https://idp.example.com'
+  SAML2_SSO_URL = 'https://idp.example.com/sso/saml'
+  SAML2_PROVIDER = 'CUSTOM'
+  SAML2_X509_CERT = '-----BEGIN CERTIFICATE-----...-----END CERTIFICATE-----'
+  SAML2_SP_INITIATED_LOGIN_PAGE_LABEL = 'My Company SSO'
+  SAML2_ENABLE_SP_INITIATED = TRUE;</code></pre>
+  </div>
+
+  <h3>Authentication Methods Comparison</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Best For</th><th>Key Benefit</th></tr></thead>
+    <tbody>
+      <tr><td>Password + MFA</td><td>Interactive users</td><td>Simple, widely understood</td></tr>
+      <tr><td>Key-Pair</td><td>Service accounts, automation</td><td>No password exposure, supports rotation</td></tr>
+      <tr><td>OAuth</td><td>Applications, BI tools</td><td>Token-based, scoped access</td></tr>
+      <tr><td>SSO/SAML</td><td>Enterprise users</td><td>Centralized identity, no Snowflake passwords</td></tr>
+      <tr><td>SCIM</td><td>User provisioning</td><td>Automated user/group sync from IdP</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="production-patterns">Production Access Patterns</h2>
+
+  <h3>Three-Tier Access Model</h3>
+  <div class="flow-diagram">
+  TIER 1: ADMIN ROLES (granted to SYSADMIN)
+  ├── DATA_ADMIN        → Owns databases, manages schemas
+  ├── WAREHOUSE_ADMIN   → Owns/manages warehouses
+  └── SECURITY_ADMIN    → Custom security (below SECURITYADMIN)
+
+  TIER 2: FUNCTIONAL ROLES (granted to Tier 1)
+  ├── ETL_ROLE          → INSERT, UPDATE, DELETE on staging/prod tables
+  ├── ANALYST_ROLE      → SELECT on analytics schemas
+  ├── DATA_SCIENCE_ROLE → SELECT + CREATE TABLE on sandbox schemas
+  └── APP_SERVICE_ROLE  → Specific table/view access for applications
+
+  TIER 3: ACCESS ROLES (granted to Tier 2)
+  ├── SALES_DB_READ     → SELECT on sales database objects
+  ├── SALES_DB_WRITE    → INSERT/UPDATE on sales database objects
+  ├── FINANCE_DB_READ   → SELECT on finance database objects
+  └── RAW_STAGE_READ    → READ on raw data stages
+  </div>
+
+  <h3>Service Account Pattern</h3>
+  <div class="card">
+    <pre><code>-- Create service account user
+CREATE USER svc_etl_pipeline
+  LOGIN_NAME = 'svc_etl_pipeline'
+  TYPE = SERVICE
+  DEFAULT_ROLE = etl_role
+  DEFAULT_WAREHOUSE = etl_wh
+  MUST_CHANGE_PASSWORD = FALSE;
+
+-- Use key-pair (no password)
+ALTER USER svc_etl_pipeline SET RSA_PUBLIC_KEY = '...';
+
+-- Assign minimal role
+GRANT ROLE etl_role TO USER svc_etl_pipeline;
+
+-- Service accounts should NEVER have ACCOUNTADMIN</code></pre>
+  </div>
+
+  <h3>Environment Separation Pattern</h3>
+  <div class="card">
+    <pre><code>-- Separate databases per environment
+-- DEV_DB, STAGING_DB, PROD_DB
+
+-- Environment-specific roles
+CREATE ROLE dev_full_access;    -- Read/write on DEV_DB
+CREATE ROLE staging_read;       -- Read-only on STAGING_DB  
+CREATE ROLE prod_read;          -- Read-only on PROD_DB
+CREATE ROLE prod_etl;           -- Write access on PROD_DB (automated only)
+
+-- Developers get dev + staging read
+GRANT ROLE dev_full_access TO USER developer1;
+GRANT ROLE staging_read TO USER developer1;
+
+-- Only automation gets prod write
+GRANT ROLE prod_etl TO USER svc_etl_pipeline;</code></pre>
+  </div>
+
+  <h3>Secondary Roles</h3>
+  <div class="card">
+    <p>Secondary roles allow a session to combine privileges from multiple roles simultaneously.</p>
+    <pre><code>-- Enable all granted roles as secondary
+USE SECONDARY ROLES ALL;
+
+-- Now the session has privileges from primary role + all other granted roles
+-- Primary role still determines object ownership for CREATE statements
+
+-- Disable secondary roles
+USE SECONDARY ROLES NONE;
+
+-- Set default secondary roles for a user
+ALTER USER john_doe SET DEFAULT_SECONDARY_ROLES = ('ALL');</code></pre>
+    <div class="exam-tip">With USE SECONDARY ROLES ALL, the user has the UNION of all privileges from all their granted roles. However, objects created in this session are owned by the PRIMARY role only. This is useful when a user needs read access from one role and write access from another simultaneously.</div>
+  </div>
+
+  <h3>Auditing Access</h3>
+  <pre><code>-- Show all grants TO a role (what privileges does this role have?)
+SHOW GRANTS TO ROLE analyst_role;
+
+-- Show all grants ON an object (who has access to this table?)
+SHOW GRANTS ON TABLE mydb.myschema.sales;
+
+-- Show all grants OF a role (who has this role?)
+SHOW GRANTS OF ROLE analyst_role;
+
+-- Query access history (Enterprise Edition+)
+SELECT *
+FROM SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY
+WHERE query_start_time > DATEADD('day', -7, CURRENT_TIMESTAMP())
+ORDER BY query_start_time DESC;
+
+-- Login history
+SELECT *
+FROM SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY
+WHERE event_timestamp > DATEADD('day', -1, CURRENT_TIMESTAMP())
+ORDER BY event_timestamp DESC;</code></pre>
+
+  <div class="nav-links">
+    <a href="17_01_RBAC_Theory_Part1.html">&larr; Previous: Part 1 - Fundamentals</a>
+    <a href="17_03_RBAC_50_Questions.html">Next: 50 Practice Questions &rarr;</a>
+  </div>
+
+</body>
+</html>

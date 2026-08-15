@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UDFs & Stored Procedures Deep Dive - Part 2: Advanced Topics</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "UDFs & Stored Procedures Deep Dive - Part 2: Advanced Topics",
+  "description": "Stored procedures, execution rights, anonymous blocks, external functions, Snowpark UDFs, and production patterns",
+  "author": "Snowflake Certification Prep",
+  "created": "2026-08-15",
+  "topic": "UDFs-Stored-Procedures",
+  "part": 2,
+  "certification_relevance": "high"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#fff5f9, #1a0a12);
+  --bg-secondary: light-dark(#fff0f5, #2a1020);
+  --bg-card: light-dark(#ffffff, #1e0e18);
+  --bg-code: light-dark(#fdf0f5, #2d1525);
+  --text-primary: light-dark(#2d0a1a, #fce4ec);
+  --text-secondary: light-dark(#5c1a3a, #f8bbd0);
+  --accent: light-dark(#d81b60, #f06292);
+  --accent-secondary: light-dark(#ad1457, #ec407a);
+  --border: light-dark(#f8bbd0, #4a1a35);
+  --highlight: light-dark(#fce4ec, #3d1530);
+  --success: light-dark(#2e7d32, #66bb6a);
+  --warning: light-dark(#f57f17, #ffd54f);
+  --shadow: light-dark(rgba(216, 27, 96, 0.1), rgba(0, 0, 0, 0.3));
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { color-scheme: light dark; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+h1 { font-size: 2.2rem; color: var(--accent); border-bottom: 3px solid var(--accent); padding-bottom: 0.8rem; margin-bottom: 2rem; }
+h2 { font-size: 1.6rem; color: var(--accent-secondary); margin: 2.5rem 0 1rem; padding-left: 0.8rem; border-left: 4px solid var(--accent); }
+h3 { font-size: 1.2rem; color: var(--text-secondary); margin: 1.5rem 0 0.8rem; }
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.8rem;
+  margin: 1.5rem 0;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+.card-header { font-size: 1.1rem; font-weight: 700; color: var(--accent); margin-bottom: 1rem; }
+
+code { background: var(--bg-code); padding: 0.2rem 0.5rem; border-radius: 4px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.9em; color: var(--accent); }
+pre { background: var(--bg-code); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; overflow-x: auto; margin: 1rem 0; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.85rem; line-height: 1.6; }
+
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.92rem; }
+th, td { padding: 0.8rem 1rem; border: 1px solid var(--border); text-align: left; }
+th { background: var(--highlight); font-weight: 700; color: var(--accent-secondary); }
+tr:nth-child(even) { background: var(--bg-secondary); }
+
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem; }
+
+.callout { background: var(--highlight); border: 1px solid var(--accent); border-radius: 8px; padding: 1.2rem; margin: 1.5rem 0; }
+.callout-title { font-weight: 700; color: var(--accent); margin-bottom: 0.5rem; }
+
+.badge { display: inline-block; padding: 0.2rem 0.7rem; border-radius: 12px; font-size: 0.78rem; font-weight: 600; background: var(--highlight); color: var(--accent); border: 1px solid var(--border); }
+
+.comparison-box { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 2px solid var(--border); border-radius: 8px; overflow: hidden; margin: 1rem 0; }
+.comparison-box .side { padding: 1.2rem; }
+.comparison-box .side:first-child { border-right: 1px solid var(--border); background: var(--bg-secondary); }
+.comparison-box .side-title { font-weight: 700; color: var(--accent); margin-bottom: 0.8rem; font-size: 1rem; }
+</style>
+</head>
+<body>
+
+<h1>20.02 UDFs &amp; Stored Procedures Deep Dive - Part 2: Advanced Topics</h1>
+
+<h2>1. Stored Procedures Overview</h2>
+
+<div class="card">
+<div class="card-header">Stored Procedures vs UDFs - Critical Differences</div>
+<table>
+<tr><th>Aspect</th><th>UDF</th><th>Stored Procedure</th></tr>
+<tr><td><strong>Purpose</strong></td><td>Compute and return a value</td><td>Execute actions (DML, DDL, admin tasks)</td></tr>
+<tr><td><strong>Called with</strong></td><td>Used in SQL expressions/queries</td><td><code>CALL procedure_name(...)</code></td></tr>
+<tr><td><strong>DML/DDL</strong></td><td>Not allowed</td><td>Allowed (INSERT, CREATE, DROP, etc.)</td></tr>
+<tr><td><strong>Return</strong></td><td>Required - scalar or table</td><td>Optional - single value or RESULTSET</td></tr>
+<tr><td><strong>Transaction</strong></td><td>Cannot manage transactions</td><td>Can BEGIN/COMMIT/ROLLBACK</td></tr>
+<tr><td><strong>Nesting</strong></td><td>Can call other UDFs</td><td>Can call other procedures and UDFs</td></tr>
+<tr><td><strong>Execution rights</strong></td><td>Always runs as caller</td><td>OWNER or CALLER rights</td></tr>
+<tr><td><strong>Used in queries</strong></td><td>Yes (SELECT, WHERE, etc.)</td><td>No - standalone CALL only</td></tr>
+</table>
+</div>
+
+<h2>2. Stored Procedure Languages</h2>
+
+<div class="grid-2">
+<div class="card">
+<div class="card-header">SQL Scripting (Snowflake Scripting)</div>
+<pre>CREATE OR REPLACE PROCEDURE archive_old_orders(days_old NUMBER)
+RETURNS VARCHAR
+LANGUAGE SQL
+EXECUTE AS OWNER
+AS
+$$
+DECLARE
+  row_count NUMBER;
+  cutoff_date DATE;
+BEGIN
+  cutoff_date := DATEADD('day', -days_old, CURRENT_DATE());
+
+  INSERT INTO orders_archive
+  SELECT * FROM orders WHERE order_date &lt; :cutoff_date;
+
+  row_count := SQLROWCOUNT;
+
+  DELETE FROM orders WHERE order_date &lt; :cutoff_date;
+
+  RETURN 'Archived ' || :row_count || ' orders';
+EXCEPTION
+  WHEN OTHER THEN
+    ROLLBACK;
+    RETURN 'Error: ' || SQLERRM;
+END;
+$$;</pre>
+<p><strong>Key:</strong> Use <code>:variable_name</code> colon prefix to reference variables in SQL statements within the procedure body.</p>
+</div>
+
+<div class="card">
+<div class="card-header">JavaScript Stored Procedure</div>
+<pre>CREATE OR REPLACE PROCEDURE load_data_with_retry(
+  stage_path VARCHAR, target_table VARCHAR, max_retries NUMBER)
+RETURNS VARCHAR
+LANGUAGE JAVASCRIPT
+EXECUTE AS CALLER
+AS
+$$
+var attempts = 0;
+var success = false;
+
+while (attempts &lt; MAX_RETRIES &amp;&amp; !success) {
+  try {
+    var sql = `COPY INTO ${TARGET_TABLE}
+               FROM @${STAGE_PATH}
+               FILE_FORMAT = (TYPE = 'CSV')
+               ON_ERROR = 'ABORT_STATEMENT'`;
+    var stmt = snowflake.createStatement({sqlText: sql});
+    var rs = stmt.execute();
+    success = true;
+    return "Success after " + (attempts + 1) + " attempt(s)";
+  } catch(err) {
+    attempts++;
+    if (attempts &gt;= MAX_RETRIES) {
+      return "Failed after " + attempts + " attempts: " + err.message;
+    }
+  }
+}
+$$;</pre>
+<p><strong>Key:</strong> Uses <code>snowflake.createStatement()</code> API. Parameters are UPPERCASED in JS body.</p>
+</div>
+
+<div class="card">
+<div class="card-header">Python Stored Procedure</div>
+<pre>CREATE OR REPLACE PROCEDURE train_model(
+  training_table VARCHAR, model_name VARCHAR)
+RETURNS VARCHAR
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.11'
+PACKAGES = ('snowflake-snowpark-python', 'scikit-learn', 'joblib')
+HANDLER = 'run'
+EXECUTE AS CALLER
+AS
+$$
+import joblib
+from sklearn.ensemble import RandomForestClassifier
+
+def run(session, training_table, model_name):
+    # Read training data
+    df = session.table(training_table).to_pandas()
+
+    X = df.drop(columns=['label'])
+    y = df['label']
+
+    # Train model
+    model = RandomForestClassifier(n_estimators=100)
+    model.fit(X, y)
+
+    # Save model to stage
+    model_path = f'/tmp/{model_name}.pkl'
+    joblib.dump(model, model_path)
+    session.file.put(model_path, f'@models/{model_name}.pkl', auto_compress=False)
+
+    return f"Model {model_name} trained with accuracy: {model.score(X, y):.4f}"
+$$;</pre>
+<p><strong>Key:</strong> Python procedures receive a <code>session</code> object (Snowpark Session) as the first parameter automatically.</p>
+</div>
+
+<div class="card">
+<div class="card-header">Java Stored Procedure</div>
+<pre>CREATE OR REPLACE PROCEDURE validate_email_batch(source_table VARCHAR)
+RETURNS VARCHAR
+LANGUAGE JAVA
+RUNTIME_VERSION = '11'
+PACKAGES = ('com.snowflake:snowpark:latest')
+HANDLER = 'EmailValidator.run'
+EXECUTE AS OWNER
+AS
+$$
+import com.snowflake.snowpark_java.*;
+import java.util.regex.Pattern;
+
+public class EmailValidator {
+  private static final Pattern EMAIL_PATTERN =
+    Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$");
+
+  public static String run(Session session, String sourceTable) {
+    DataFrame df = session.table(sourceTable);
+    long totalRows = df.count();
+
+    // Flag invalid emails
+    session.sql(String.format(
+      "UPDATE %s SET is_valid = FALSE WHERE NOT RLIKE(email, '^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$')",
+      sourceTable
+    )).collect();
+
+    long invalidCount = session.sql(String.format(
+      "SELECT COUNT(*) FROM %s WHERE is_valid = FALSE", sourceTable
+    )).collect()[0].getLong(0);
+
+    return String.format("Validated %d rows, %d invalid emails found", totalRows, invalidCount);
+  }
+}
+$$;</pre>
+</div>
+</div>
+
+<h2>3. EXECUTE AS OWNER vs CALLER</h2>
+
+<div class="card">
+<div class="card-header">Execution Rights - Critical Exam Topic</div>
+
+<div class="comparison-box">
+<div class="side">
+<div class="side-title">EXECUTE AS OWNER (Default)</div>
+<ul>
+<li>Procedure runs with owner's privileges</li>
+<li>Caller does not need direct access to underlying objects</li>
+<li>Owner must have privileges on all accessed objects</li>
+<li>More secure: controlled access through the procedure</li>
+<li>Cannot use caller's session variables/context</li>
+<li>Cannot create objects owned by the caller</li>
+</ul>
+</div>
+<div class="side">
+<div class="side-title">EXECUTE AS CALLER</div>
+<ul>
+<li>Procedure runs with caller's privileges</li>
+<li>Caller must have access to all underlying objects</li>
+<li>Can use session context (current role, warehouse)</li>
+<li>Objects created are owned by the caller</li>
+<li>More flexible but less controlled</li>
+<li>Required for procedures that manage caller's objects</li>
+</ul>
+</div>
+</div>
+
+<pre>-- Owner's rights: Callers can insert without direct table access
+CREATE OR REPLACE PROCEDURE log_event(event_type VARCHAR, details VARCHAR)
+RETURNS VARCHAR
+LANGUAGE SQL
+EXECUTE AS OWNER  -- callers don't need INSERT on audit_log
+AS
+$$
+BEGIN
+  INSERT INTO audit_log(event_time, event_type, details, caller_role)
+  VALUES (CURRENT_TIMESTAMP(), :event_type, :details, CURRENT_ROLE());
+  RETURN 'Event logged';
+END;
+$$;
+
+-- Caller's rights: Operates on caller's objects
+CREATE OR REPLACE PROCEDURE clone_schema(source_schema VARCHAR, target_schema VARCHAR)
+RETURNS VARCHAR
+LANGUAGE SQL
+EXECUTE AS CALLER  -- needs caller's CREATE SCHEMA privilege
+AS
+$$
+BEGIN
+  CREATE SCHEMA IF NOT EXISTS IDENTIFIER(:target_schema)
+    CLONE IDENTIFIER(:source_schema);
+  RETURN 'Schema cloned: ' || :target_schema;
+END;
+$$;</pre>
+
+<div class="callout">
+<div class="callout-title">Exam Tip: Security Implications</div>
+<p><strong>OWNER rights</strong> = controlled delegation (like a security gate). Callers can do specific actions without broad access.<br>
+<strong>CALLER rights</strong> = transparent execution. Procedure cannot do more than caller already can. Used for admin/utility procedures.</p>
+</div>
+</div>
+
+<h2>4. Anonymous Blocks (BEGIN...END)</h2>
+
+<div class="card">
+<div class="card-header">Anonymous Blocks - Ad-hoc Procedural Logic</div>
+<p>Anonymous blocks let you run procedural SQL without creating a stored procedure. They execute immediately and are not stored.</p>
+
+<pre>-- Simple anonymous block
+BEGIN
+  LET counter NUMBER := 0;
+  LET target NUMBER := 5;
+
+  FOR i IN 1 TO target DO
+    counter := counter + i;
+  END FOR;
+
+  -- Return result
+  RETURN counter;
+END;
+
+-- More complex: ETL with error handling
+DECLARE
+  tables_processed NUMBER DEFAULT 0;
+  error_msg VARCHAR DEFAULT '';
+BEGIN
+  -- Process multiple tables
+  FOR rec IN (SELECT table_name FROM information_schema.tables
+              WHERE table_schema = 'RAW' AND table_type = 'BASE TABLE') DO
+    BEGIN
+      EXECUTE IMMEDIATE 'INSERT INTO staging.' || rec.table_name ||
+                        ' SELECT * FROM raw.' || rec.table_name;
+      tables_processed := tables_processed + 1;
+    EXCEPTION
+      WHEN OTHER THEN
+        error_msg := error_msg || rec.table_name || ': ' || SQLERRM || '; ';
+    END;
+  END FOR;
+
+  IF (error_msg != '') THEN
+    RETURN 'Processed ' || tables_processed || ' tables. Errors: ' || error_msg;
+  ELSE
+    RETURN 'Successfully processed ' || tables_processed || ' tables';
+  END IF;
+END;</pre>
+
+<div class="callout">
+<div class="callout-title">Anonymous Block Key Facts</div>
+<ul>
+<li>No CALL needed - just execute the block directly</li>
+<li>Cannot specify EXECUTE AS (always runs as caller)</li>
+<li>Great for one-time admin tasks, migrations, testing</li>
+<li>Support full Snowflake Scripting: IF, FOR, WHILE, LOOP, CURSOR, EXCEPTION</li>
+<li>Can use DECLARE section before BEGIN or LET inside BEGIN</li>
+</ul>
+</div>
+</div>
+
+<h2>5. RESULTSET and Cursors</h2>
+
+<div class="card">
+<div class="card-header">RESULTSET - Returning Query Results from Procedures</div>
+<pre>CREATE OR REPLACE PROCEDURE get_department_stats(dept_name VARCHAR)
+RETURNS TABLE(metric VARCHAR, value NUMBER)
+LANGUAGE SQL
+AS
+$$
+DECLARE
+  res RESULTSET;
+BEGIN
+  res := (SELECT 'headcount' AS metric, COUNT(*) AS value
+          FROM employees WHERE department = :dept_name
+          UNION ALL
+          SELECT 'avg_salary', AVG(salary)
+          FROM employees WHERE department = :dept_name
+          UNION ALL
+          SELECT 'total_budget', SUM(salary)
+          FROM employees WHERE department = :dept_name);
+  RETURN TABLE(res);
+END;
+$$;
+
+-- Call it:
+CALL get_department_stats('Engineering');</pre>
+</div>
+
+<div class="card">
+<div class="card-header">Cursors - Row-by-Row Processing</div>
+<pre>CREATE OR REPLACE PROCEDURE update_grades()
+RETURNS VARCHAR
+LANGUAGE SQL
+AS
+$$
+DECLARE
+  student_id NUMBER;
+  avg_score FLOAT;
+  new_grade VARCHAR;
+  updated_count NUMBER DEFAULT 0;
+  c1 CURSOR FOR
+    SELECT id, average_score FROM students WHERE grade IS NULL;
+BEGIN
+  OPEN c1;
+
+  FOR rec IN c1 DO
+    student_id := rec.id;
+    avg_score := rec.average_score;
+
+    IF (avg_score &gt;= 90) THEN
+      new_grade := 'A';
+    ELSEIF (avg_score &gt;= 80) THEN
+      new_grade := 'B';
+    ELSEIF (avg_score &gt;= 70) THEN
+      new_grade := 'C';
+    ELSE
+      new_grade := 'F';
+    END IF;
+
+    UPDATE students SET grade = :new_grade WHERE id = :student_id;
+    updated_count := updated_count + 1;
+  END FOR;
+
+  CLOSE c1;
+  RETURN 'Updated ' || :updated_count || ' student grades';
+END;
+$$;</pre>
+
+<div class="callout">
+<div class="callout-title">Cursor Key Points</div>
+<ul>
+<li>Declared in DECLARE section with a query</li>
+<li>Must OPEN before use (or use FOR rec IN cursor_name)</li>
+<li>FOR loop auto-opens and auto-closes the cursor</li>
+<li>FETCH INTO for manual iteration</li>
+<li>Use sparingly - set-based operations are preferred for performance</li>
+</ul>
+</div>
+</div>
+
+<h2>6. Exception Handling</h2>
+
+<div class="card">
+<div class="card-header">Snowflake Scripting Exception Handling</div>
+<pre>CREATE OR REPLACE PROCEDURE safe_division_demo(numerator NUMBER, denominator NUMBER)
+RETURNS VARCHAR
+LANGUAGE SQL
+AS
+$$
+DECLARE
+  result FLOAT;
+  my_exception EXCEPTION (-20001, 'Custom: denominator cannot be zero');
+BEGIN
+  IF (denominator = 0) THEN
+    RAISE my_exception;
+  END IF;
+
+  result := numerator / denominator;
+  RETURN 'Result: ' || :result;
+
+EXCEPTION
+  WHEN my_exception THEN
+    RETURN 'Error: ' || SQLERRM || ' (Code: ' || SQLCODE || ')';
+  WHEN EXPRESSION_ERROR THEN
+    RETURN 'Expression error: ' || SQLERRM;
+  WHEN OTHER THEN
+    RETURN 'Unexpected error: ' || SQLERRM;
+END;
+$$;</pre>
+
+<table>
+<tr><th>Built-in Exception</th><th>When Raised</th></tr>
+<tr><td><code>STATEMENT_ERROR</code></td><td>SQL statement fails (syntax, permission, etc.)</td></tr>
+<tr><td><code>EXPRESSION_ERROR</code></td><td>Expression evaluation fails (divide by zero, overflow)</td></tr>
+<tr><td><code>OTHER</code></td><td>Catches any exception not caught by specific handlers</td></tr>
+</table>
+
+<h3>Exception Variables:</h3>
+<ul>
+<li><code>SQLCODE</code> - Numeric error code</li>
+<li><code>SQLERRM</code> - Error message text</li>
+<li><code>SQLSTATE</code> - 5-character SQLSTATE code</li>
+</ul>
+</div>
+
+<h2>7. External Functions</h2>
+
+<div class="card">
+<div class="card-header">External Functions - Calling External APIs</div>
+<p>External functions call remote services (AWS Lambda, Azure Functions, GCP Cloud Functions) via API integrations.</p>
+
+<pre>-- Step 1: Create API Integration (admin task)
+CREATE OR REPLACE API INTEGRATION my_api_integration
+  API_PROVIDER = aws_api_gateway
+  API_AWS_ROLE_ARN = 'arn:aws:iam::123456789:role/snowflake-api-role'
+  API_ALLOWED_PREFIXES = ('https://abc123.execute-api.us-east-1.amazonaws.com/')
+  ENABLED = TRUE;
+
+-- Step 2: Create External Function
+CREATE OR REPLACE EXTERNAL FUNCTION translate_text(text VARCHAR, target_lang VARCHAR)
+RETURNS VARIANT
+API_INTEGRATION = my_api_integration
+HEADERS = ('content-type' = 'application/json')
+MAX_BATCH_ROWS = 100
+AS 'https://abc123.execute-api.us-east-1.amazonaws.com/prod/translate';</pre>
+
+<table>
+<tr><th>Property</th><th>Description</th></tr>
+<tr><td><code>API_INTEGRATION</code></td><td>References the API integration object (authentication)</td></tr>
+<tr><td><code>MAX_BATCH_ROWS</code></td><td>Rows sent per batch to remote service (default 100)</td></tr>
+<tr><td><code>COMPRESSION</code></td><td>AUTO, GZIP, DEFLATE, or NONE</td></tr>
+<tr><td><code>HEADERS</code></td><td>Custom HTTP headers sent with each request</td></tr>
+<tr><td><code>CONTEXT_HEADERS</code></td><td>Snowflake context (current_account, etc.) in headers</td></tr>
+</table>
+
+<div class="callout">
+<div class="callout-title">External Function Limitations</div>
+<ul>
+<li>Always VOLATILE (results not cached)</li>
+<li>Latency: network round-trip per batch</li>
+<li>Cost: remote service charges apply</li>
+<li>Batch processing: rows are batched (not one-at-a-time)</li>
+<li>JSON format: input/output is JSON arrays</li>
+<li>Cannot be SECURE (definition is already opaque)</li>
+<li>Requires ACCOUNTADMIN for API_INTEGRATION setup</li>
+</ul>
+</div>
+</div>
+
+<h2>8. UDTF Advanced Patterns</h2>
+
+<div class="card">
+<div class="card-header">Python UDTF with Partitioning</div>
+<pre>-- UDTF that computes running statistics per partition
+CREATE OR REPLACE FUNCTION compute_partition_stats(value FLOAT)
+RETURNS TABLE(
+  min_val FLOAT, max_val FLOAT, avg_val FLOAT,
+  stddev_val FLOAT, count_val NUMBER
+)
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.11'
+HANDLER = 'StatsComputer'
+AS
+$$
+import statistics
+
+class StatsComputer:
+    def __init__(self):
+        self._values = []
+
+    def process(self, value):
+        # Accumulate values within partition
+        if value is not None:
+            self._values.append(value)
+
+    def end_partition(self):
+        # Emit one row per partition with aggregate stats
+        if self._values:
+            yield (
+                min(self._values),
+                max(self._values),
+                statistics.mean(self._values),
+                statistics.stdev(self._values) if len(self._values) &gt; 1 else 0.0,
+                len(self._values)
+            )
+$$;
+
+-- Usage with PARTITION BY:
+SELECT category, stats.*
+FROM sales_data,
+     TABLE(compute_partition_stats(amount)
+       OVER (PARTITION BY category)) stats;</pre>
+
+<h3>UDTF Handler Methods:</h3>
+<table>
+<tr><th>Method</th><th>Required</th><th>Purpose</th></tr>
+<tr><td><code>__init__(self)</code></td><td>Optional</td><td>Initialize state per partition</td></tr>
+<tr><td><code>process(self, ...)</code></td><td>Required</td><td>Called once per input row; can yield 0+ output rows</td></tr>
+<tr><td><code>end_partition(self)</code></td><td>Optional</td><td>Called after all rows in partition; emit final rows</td></tr>
+</table>
+</div>
+
+<h2>9. Snowpark UDFs &amp; Deployment</h2>
+
+<div class="card">
+<div class="card-header">Registering UDFs via Snowpark Python</div>
+<pre># In a Snowpark session (notebook or script):
+from snowflake.snowpark.functions import udf, udtf
+from snowflake.snowpark.types import *
+import pandas as pd
+
+# Register a scalar UDF
+@udf(
+    name="my_db.my_schema.normalize_text",
+    is_permanent=True,
+    stage_location="@my_stage",
+    replace=True,
+    packages=["unidecode"]
+)
+def normalize_text(text: str) -&gt; str:
+    from unidecode import unidecode
+    if text is None:
+        return None
+    return unidecode(text).lower().strip()
+
+# Register a vectorized UDF (batch processing with pandas)
+@udf(
+    name="my_db.my_schema.batch_upper",
+    is_permanent=True,
+    stage_location="@my_stage",
+    replace=True,
+    input_types=[StringType()],
+    return_type=StringType()
+)
+def batch_upper(series: pd.Series) -&gt; pd.Series:
+    return series.str.upper()
+
+# Register via session (alternative approach)
+session.udf.register(
+    func=normalize_text,
+    name="normalize_text_v2",
+    stage_location="@my_stage",
+    is_permanent=True,
+    replace=True
+)</pre>
+</div>
+
+<div class="card">
+<div class="card-header">Deploy with snow CLI</div>
+<pre># Project structure for snow CLI deployment:
+# my_project/
+# ├── snowflake.yml
+# ├── app/
+# │   ├── procedures/
+# │   │   └── etl_proc.py
+# │   └── functions/
+# │       └── transform_udf.py
+
+# snowflake.yml
+# snow object:
+#   type: function
+#   identifier: transform_udf
+#   handler: transform_udf.main
+#   runtime: "3.11"
+#   returns: varchar
+#   arguments:
+#     - name: input_text
+#       type: varchar
+
+# Deploy command:
+# snow snowpark build
+# snow snowpark deploy</pre>
+
+<div class="callout">
+<div class="callout-title">Snowpark Deployment Options</div>
+<ul>
+<li><strong>Temporary UDF:</strong> <code>is_permanent=False</code> - exists only for session duration</li>
+<li><strong>Permanent UDF:</strong> <code>is_permanent=True</code> + <code>stage_location</code> - persisted in schema</li>
+<li><strong>Anonymous UDF:</strong> Inline lambda without registration for one-time use</li>
+<li><strong>snow CLI:</strong> Build and deploy from project directory with <code>snowflake.yml</code> config</li>
+</ul>
+</div>
+</div>
+
+<h2>10. Production Patterns</h2>
+
+<div class="card">
+<div class="card-header">Pattern 1: Stored Procedure as ETL Orchestrator</div>
+<pre>CREATE OR REPLACE PROCEDURE run_daily_etl(run_date DATE)
+RETURNS TABLE(step VARCHAR, status VARCHAR, duration_seconds NUMBER)
+LANGUAGE SQL
+EXECUTE AS OWNER
+AS
+$$
+DECLARE
+  res RESULTSET;
+  start_time TIMESTAMP;
+  results ARRAY DEFAULT ARRAY_CONSTRUCT();
+BEGIN
+  -- Step 1: Load raw data
+  start_time := CURRENT_TIMESTAMP();
+  BEGIN
+    EXECUTE IMMEDIATE 'COPY INTO raw_orders FROM @data_stage/orders/' ||
+                      TO_CHAR(:run_date, 'YYYY/MM/DD/');
+    results := ARRAY_APPEND(results,
+      OBJECT_CONSTRUCT('step','load_raw','status','success',
+        'duration', DATEDIFF('second', :start_time, CURRENT_TIMESTAMP())));
+  EXCEPTION WHEN OTHER THEN
+    results := ARRAY_APPEND(results,
+      OBJECT_CONSTRUCT('step','load_raw','status','failed: '||SQLERRM,'duration',0));
+    -- Continue to next step or abort based on severity
+  END;
+
+  -- Step 2: Transform
+  start_time := CURRENT_TIMESTAMP();
+  INSERT INTO staging_orders
+  SELECT *, :run_date AS load_date FROM raw_orders WHERE load_date = :run_date;
+  results := ARRAY_APPEND(results,
+    OBJECT_CONSTRUCT('step','transform','status','success',
+      'duration', DATEDIFF('second', :start_time, CURRENT_TIMESTAMP())));
+
+  -- Step 3: Merge into final
+  start_time := CURRENT_TIMESTAMP();
+  MERGE INTO final_orders t USING staging_orders s
+    ON t.order_id = s.order_id
+    WHEN MATCHED THEN UPDATE SET t.status = s.status, t.updated_at = CURRENT_TIMESTAMP()
+    WHEN NOT MATCHED THEN INSERT VALUES (s.order_id, s.customer_id, s.amount, s.status, CURRENT_TIMESTAMP());
+  results := ARRAY_APPEND(results,
+    OBJECT_CONSTRUCT('step','merge','status','success',
+      'duration', DATEDIFF('second', :start_time, CURRENT_TIMESTAMP())));
+
+  -- Return results as table
+  res := (SELECT f.value:step::VARCHAR AS step,
+                 f.value:status::VARCHAR AS status,
+                 f.value:duration::NUMBER AS duration_seconds
+          FROM TABLE(FLATTEN(:results)) f);
+  RETURN TABLE(res);
+END;
+$$;</pre>
+</div>
+
+<div class="card">
+<div class="card-header">Pattern 2: Dynamic SQL with Parameterized Procedures</div>
+<pre>CREATE OR REPLACE PROCEDURE create_monthly_partition(
+  base_table VARCHAR, year NUMBER, month NUMBER)
+RETURNS VARCHAR
+LANGUAGE SQL
+EXECUTE AS CALLER
+AS
+$$
+DECLARE
+  partition_name VARCHAR;
+  ddl_stmt VARCHAR;
+BEGIN
+  partition_name := :base_table || '_' || :year || '_' || LPAD(:month, 2, '0');
+
+  ddl_stmt := 'CREATE TABLE IF NOT EXISTS ' || :partition_name || ' AS ' ||
+              'SELECT * FROM ' || :base_table ||
+              ' WHERE YEAR(created_at) = ' || :year ||
+              ' AND MONTH(created_at) = ' || :month;
+
+  EXECUTE IMMEDIATE :ddl_stmt;
+  RETURN 'Created partition: ' || :partition_name;
+END;
+$$;</pre>
+</div>
+
+<div class="card">
+<div class="card-header">Pattern 3: Procedure with Logging and Audit</div>
+<pre>CREATE OR REPLACE PROCEDURE data_quality_check(schema_name VARCHAR)
+RETURNS TABLE(table_name VARCHAR, check_type VARCHAR, result VARCHAR)
+LANGUAGE SQL
+EXECUTE AS OWNER
+AS
+$$
+DECLARE
+  res RESULTSET;
+BEGIN
+  -- Log start
+  INSERT INTO procedure_audit_log(proc_name, start_time, parameters)
+  VALUES ('data_quality_check', CURRENT_TIMESTAMP(),
+          OBJECT_CONSTRUCT('schema', :schema_name));
+
+  -- Run checks
+  res := (
+    SELECT table_name, 'null_check' AS check_type,
+           CASE WHEN null_count &gt; 0
+                THEN 'FAIL: ' || null_count || ' nulls found'
+                ELSE 'PASS' END AS result
+    FROM (
+      SELECT t.table_name, COUNT(*) AS null_count
+      FROM information_schema.tables t
+      JOIN information_schema.columns c
+        ON t.table_name = c.table_name AND t.table_schema = c.table_schema
+      WHERE t.table_schema = :schema_name
+        AND c.is_nullable = 'NO'
+      GROUP BY t.table_name
+    )
+  );
+
+  -- Log completion
+  UPDATE procedure_audit_log
+  SET end_time = CURRENT_TIMESTAMP(), status = 'SUCCESS'
+  WHERE proc_name = 'data_quality_check'
+    AND end_time IS NULL;
+
+  RETURN TABLE(res);
+EXCEPTION
+  WHEN OTHER THEN
+    UPDATE procedure_audit_log
+    SET end_time = CURRENT_TIMESTAMP(), status = 'FAILED', error_message = SQLERRM
+    WHERE proc_name = 'data_quality_check' AND end_time IS NULL;
+    RAISE;
+END;
+$$;</pre>
+</div>
+
+<div class="card">
+<div class="card-header">Summary: When to Use What</div>
+<table>
+<tr><th>Need</th><th>Solution</th></tr>
+<tr><td>Simple calculation in a query</td><td>SQL UDF (scalar)</td></tr>
+<tr><td>Complex string/JSON manipulation</td><td>JavaScript UDF</td></tr>
+<tr><td>ML inference, data science libraries</td><td>Python UDF</td></tr>
+<tr><td>Enterprise library (JAR) integration</td><td>Java/Scala UDF</td></tr>
+<tr><td>Return multiple rows per input</td><td>UDTF (any language)</td></tr>
+<tr><td>DML operations (INSERT/UPDATE/DELETE)</td><td>Stored Procedure</td></tr>
+<tr><td>DDL operations (CREATE/DROP/ALTER)</td><td>Stored Procedure</td></tr>
+<tr><td>Transaction management</td><td>Stored Procedure</td></tr>
+<tr><td>Call external REST API</td><td>External Function or Python UDF with EAI</td></tr>
+<tr><td>Ad-hoc procedural logic (one-time)</td><td>Anonymous Block</td></tr>
+<tr><td>Grant elevated access to specific actions</td><td>Stored Procedure with EXECUTE AS OWNER</td></tr>
+</table>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warehouses &amp; Caching Edge Cases - SnowPro Deep Dive</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Warehouses & Caching Edge Cases",
+  "description": "Deep dive into warehouse sizing, multi-cluster behavior, caching mechanics, auto-suspend, resource monitors, and QAS edge cases for SnowPro certification",
+  "version": "1.0",
+  "generated": "2026-08-15",
+  "topic": "warehouses-caching-deep-dive",
+  "certification": "SnowPro Core / Advanced"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#fffaf5, #1a1410);
+  --bg-secondary: light-dark(#fff5eb, #2a1f15);
+  --bg-card: light-dark(#ffffff, #1f1a14);
+  --bg-code: light-dark(#fef3e2, #2d2218);
+  --text-primary: light-dark(#2d1f0e, #f5e6d3);
+  --text-secondary: light-dark(#5c4a35, #c9b8a5);
+  --accent: light-dark(#d97706, #f59e0b);
+  --accent-dim: light-dark(#b45309, #d97706);
+  --accent-bg: light-dark(#fef3c7, #3d2a0f);
+  --border: light-dark(#e8d5b8, #3d2e1f);
+  --border-accent: light-dark(#f59e0b, #d97706);
+  --shadow: light-dark(rgba(180,83,9,0.08), rgba(0,0,0,0.3));
+  --success: light-dark(#16a34a, #4ade80);
+  --warning: light-dark(#d97706, #fbbf24);
+  --danger: light-dark(#dc2626, #f87171);
+  --info: light-dark(#2563eb, #60a5fa);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { color-scheme: light dark; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 2.2rem;
+  color: var(--accent);
+  border-bottom: 3px solid var(--border-accent);
+  padding-bottom: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  margin-bottom: 2.5rem;
+}
+
+h2 {
+  font-size: 1.5rem;
+  color: var(--accent);
+  margin: 2.5rem 0 1rem;
+  padding-left: 0.8rem;
+  border-left: 4px solid var(--border-accent);
+}
+
+h3 {
+  font-size: 1.2rem;
+  color: var(--accent-dim);
+  margin: 1.5rem 0 0.8rem;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.card-warning {
+  border-left: 4px solid var(--warning);
+}
+
+.card-danger {
+  border-left: 4px solid var(--danger);
+}
+
+.card-info {
+  border-left: 4px solid var(--info);
+}
+
+.card-success {
+  border-left: 4px solid var(--success);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+th {
+  background: var(--accent-bg);
+  color: var(--accent-dim);
+  padding: 0.8rem;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid var(--border-accent);
+}
+
+td {
+  padding: 0.7rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+tr:hover td {
+  background: var(--bg-secondary);
+}
+
+code {
+  background: var(--bg-code);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.88rem;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+}
+
+pre {
+  background: var(--bg-code);
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  margin: 0.8rem 0;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+}
+
+.tag {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.tag-exam { background: var(--accent-bg); color: var(--accent-dim); }
+.tag-gotcha { background: light-dark(#fde2e2, #3d1515); color: var(--danger); }
+.tag-tip { background: light-dark(#dcfce7, #15301a); color: var(--success); }
+
+ul, ol {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+li { margin: 0.4rem 0; }
+
+.scenario {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.2rem;
+  margin: 1rem 0;
+}
+
+.scenario-q {
+  font-weight: 600;
+  margin-bottom: 0.8rem;
+  color: var(--text-primary);
+}
+
+.scenario-answer {
+  display: none;
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px dashed var(--border);
+}
+
+.scenario-answer.visible {
+  display: block;
+}
+
+.reveal-btn {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--border-accent);
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.reveal-btn:hover {
+  background: var(--accent);
+  color: white;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 1rem;
+}
+
+.playbook-step {
+  counter-increment: step;
+  padding-left: 2.5rem;
+  position: relative;
+  margin: 1rem 0;
+}
+
+.playbook-step::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1.8rem;
+  height: 1.8rem;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.recovery-section {
+  counter-reset: step;
+}
+
+.highlight {
+  background: var(--accent-bg);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-weight: 500;
+}
+</style>
+</head>
+<body>
+
+<h1>Warehouses &amp; Caching Edge Cases</h1>
+<p class="subtitle">SnowPro Certification Deep Dive - Tricky behaviors, gotchas, and exam scenarios</p>
+
+<!-- SECTION 1: Warehouse Size Operations -->
+<h2>1. Supported Operations by Warehouse Size</h2>
+
+<div class="card">
+<table>
+<thead>
+<tr><th>Size</th><th>Credits/Hr</th><th>Nodes</th><th>Best For</th><th>Not Ideal For</th></tr>
+</thead>
+<tbody>
+<tr><td><code>X-Small</code></td><td>1</td><td>1</td><td>Simple queries, BI tool connections, metadata ops, light ELT</td><td>Large scans, complex joins on TB+ data</td></tr>
+<tr><td><code>Small</code></td><td>2</td><td>2</td><td>Interactive dashboards, moderate complexity queries</td><td>Heavy ETL on very large tables</td></tr>
+<tr><td><code>Medium</code></td><td>4</td><td>4</td><td>Standard ETL workloads, multi-join analytics</td><td>Simple lookups (over-provisioned)</td></tr>
+<tr><td><code>Large</code></td><td>8</td><td>8</td><td>Complex transformations, large aggregations, heavy BI</td><td>Infrequent small queries</td></tr>
+<tr><td><code>X-Large</code></td><td>16</td><td>16</td><td>Bulk data loading, massive scans, complex ML pipelines</td><td>Dashboard queries (wasteful)</td></tr>
+<tr><td><code>2XL-6XL</code></td><td>32-512</td><td>32-512</td><td>Very large data processing, time-critical batch jobs</td><td>Most interactive workloads</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="card card-warning">
+<h3><span class="tag tag-exam">Exam Focus</span> Key Sizing Rules</h3>
+<ul>
+<li>Each size <strong>doubles</strong> credits AND compute resources from the previous size</li>
+<li>Bigger warehouse does NOT mean faster for <strong>all</strong> queries - simple queries gain nothing</li>
+<li>Query complexity and data volume determine ideal size, not just data amount</li>
+<li>Snowflake recommends <strong>starting small and scaling up</strong> based on query performance</li>
+<li>Resizing takes effect for the <strong>next query</strong> (existing queries use current resources)</li>
+</ul>
+</div>
+
+<!-- SECTION 2: Multi-Cluster Edge Cases -->
+<h2>2. Multi-Cluster Warehouse Edge Cases</h2>
+
+<div class="grid-2">
+<div class="card card-danger">
+<h3>Scaling Delay</h3>
+<ul>
+<li>New clusters take <strong>30-90 seconds</strong> to provision (not instant)</li>
+<li>During provisioning, queries continue to queue on existing clusters</li>
+<li>Scaling policy triggers are evaluated every <strong>few seconds</strong></li>
+<li>Scale-out happens when queuing is detected, not preemptively</li>
+<li><span class="tag tag-gotcha">Gotcha</span> A burst of 100 queries at once will queue before scale-out completes</li>
+</ul>
+</div>
+
+<div class="card card-warning">
+<h3>Credit Consumption During Scale-Out</h3>
+<ul>
+<li>Each additional cluster consumes credits at the <strong>full warehouse rate</strong></li>
+<li>A 3-cluster Medium warehouse = <strong>12 credits/hr</strong> (not 4)</li>
+<li>Minimum 60-second billing per cluster start event</li>
+<li>Clusters that start and stop rapidly still incur minimum charges</li>
+<li><span class="tag tag-gotcha">Gotcha</span> Economy mode can cause cluster "flapping" - repeatedly starting/stopping</li>
+</ul>
+</div>
+</div>
+
+<div class="card card-info">
+<h3>Standard vs Economy Scaling Policy</h3>
+<table>
+<thead>
+<tr><th>Behavior</th><th>Standard</th><th>Economy</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Scale-out trigger</strong></td><td>Query queuing detected OR system estimates additional cluster would improve throughput</td><td>Only when system estimates query load will keep cluster busy for at least 6 minutes</td></tr>
+<tr><td><strong>Scale-in trigger</strong></td><td>2-3 consecutive checks show cluster underutilized (checks every ~15-20 sec)</td><td>Same as Standard but waits longer to confirm underutilization</td></tr>
+<tr><td><strong>Response time</strong></td><td>Faster - favors performance</td><td>Slower - favors cost savings</td></tr>
+<tr><td><strong>Risk</strong></td><td>May over-provision briefly</td><td>May queue queries longer than needed</td></tr>
+<tr><td><strong>Best for</strong></td><td>User-facing workloads, SLA-bound queries</td><td>Batch ETL, cost-sensitive environments</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="card card-danger">
+<h3><span class="tag tag-gotcha">Gotcha</span> Multi-Cluster Exam Traps</h3>
+<ul>
+<li>Multi-cluster does <strong>NOT</strong> make individual queries faster - it handles more concurrent queries</li>
+<li>Setting <code>MIN_CLUSTER_COUNT = MAX_CLUSTER_COUNT</code> creates a <strong>static</strong> multi-cluster (always-on)</li>
+<li>Multi-cluster is only available in <strong>Enterprise Edition</strong> and above</li>
+<li>The <code>SCALING_POLICY</code> parameter only applies when <code>MIN &lt; MAX</code> clusters</li>
+<li>Auto-suspend applies to the <strong>entire warehouse</strong> - all clusters suspend together after no activity</li>
+<li>Each cluster maintains its own local disk cache (SSD) - scale-out means cold caches</li>
+</ul>
+</div>
+
+<!-- SECTION 3: Cache Edge Cases -->
+<h2>3. Cache Edge Cases</h2>
+
+<div class="card">
+<h3>Three Cache Layers in Snowflake</h3>
+<table>
+<thead>
+<tr><th>Cache Type</th><th>Scope</th><th>Location</th><th>Persistence</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Metadata Cache</strong></td><td>Account-wide</td><td>Cloud Services layer</td><td>Always available</td></tr>
+<tr><td><strong>Result Cache</strong></td><td>Account-wide (role-scoped)</td><td>Cloud Services layer</td><td>24 hours max</td></tr>
+<tr><td><strong>Local Disk Cache (SSD)</strong></td><td>Per-warehouse</td><td>Warehouse compute nodes</td><td>Until suspend or resize</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="card card-danger">
+<h3>Result Cache Invalidation Triggers</h3>
+<p>The result cache is invalidated when <strong>ANY</strong> of these occur:</p>
+<ol>
+<li><strong>24-hour expiry</strong> - Results older than 24 hours are purged regardless of other factors</li>
+<li><strong>Underlying data change</strong> - Any DML (INSERT, UPDATE, DELETE, MERGE) on referenced tables</li>
+<li><strong>Role change</strong> - Different role = different cache entry (even for identical SQL)</li>
+<li><strong>Different query text</strong> - Even whitespace or comment differences = cache miss</li>
+<li><strong>Session parameter change</strong> - Different TIMEZONE, DATE_FORMAT, etc. that affects results</li>
+<li><strong>Micro-partition changes</strong> - Background reclustering or time travel cleanup</li>
+</ol>
+</div>
+
+<div class="card card-warning">
+<h3><span class="tag tag-exam">Exam Focus</span> Result Cache Gotchas</h3>
+<ul>
+<li><code>SELECT * FROM t WHERE date = CURRENT_DATE()</code> - cache hit only within same calendar day</li>
+<li><code>SELECT * FROM t</code> vs <code>select * from t</code> - <strong>cache HIT</strong> (case-insensitive matching)</li>
+<li><code>SELECT * FROM t -- comment1</code> vs <code>SELECT * FROM t -- comment2</code> - <strong>cache MISS</strong></li>
+<li>Non-deterministic functions (<code>RANDOM()</code>, <code>UUID_STRING()</code>) - result cache <strong>still works</strong> (returns same random result within 24hr!)</li>
+<li><code>USE_CACHED_RESULT = FALSE</code> bypasses result cache but result is still stored for others</li>
+<li>Result cache works even when warehouse is <strong>suspended</strong> (it's in Cloud Services layer)</li>
+<li>DDL on a table (ALTER TABLE ADD COLUMN) invalidates result cache for that table</li>
+</ul>
+</div>
+
+<div class="card card-info">
+<h3>Local Disk Cache (SSD) Behavior</h3>
+<ul>
+<li>Caches raw micro-partition data read from remote storage</li>
+<li><strong>Lost on suspend</strong> - warehouse restart means cold cache</li>
+<li><strong>Lost on resize</strong> - nodes are replaced, cache is cleared</li>
+<li>LRU (Least Recently Used) eviction policy when cache is full</li>
+<li>Each node caches different partitions - no duplication across nodes</li>
+<li><span class="tag tag-gotcha">Gotcha</span> Setting AUTO_SUSPEND too low causes frequent cache rebuilds</li>
+<li><span class="tag tag-tip">Tip</span> For repeated scan-heavy workloads, longer AUTO_SUSPEND = better cache hit ratio</li>
+</ul>
+</div>
+
+<!-- SECTION 4: Auto-Suspend Edge Cases -->
+<h2>4. Auto-Suspend Edge Cases</h2>
+
+<div class="card card-danger">
+<h3>Critical Auto-Suspend Rules</h3>
+<ul>
+<li><strong>Minimum value: 60 seconds</strong> (cannot set lower via SQL; UI shows minimum of 1 minute)</li>
+<li>Setting <code>AUTO_SUSPEND = 0</code> means <strong>never auto-suspend</strong> (warehouse runs forever)</li>
+<li><code>NULL</code> for AUTO_SUSPEND also means never suspend</li>
+<li>Timer resets with every query completion or statement execution</li>
+<li>Timer starts from the <strong>last query completion</strong>, not from warehouse start</li>
+</ul>
+</div>
+
+<div class="card card-warning">
+<h3><span class="tag tag-gotcha">Gotcha</span> Queries In Flight Prevent Suspend</h3>
+<ul>
+<li>A warehouse will <strong>NOT</strong> auto-suspend while any query is still running</li>
+<li>A long-running query (e.g., 4 hours) keeps the warehouse alive the entire time</li>
+<li>Queued queries (waiting for resources) <strong>also</strong> prevent suspend</li>
+<li>Background services (result scanning, cleanup) may briefly delay suspend</li>
+<li>If a query starts just before suspend timer fires, suspend is deferred</li>
+</ul>
+</div>
+
+<div class="card card-info">
+<h3>Auto-Resume Behavior</h3>
+<ul>
+<li><code>AUTO_RESUME = TRUE</code> (default) - warehouse starts automatically on query submission</li>
+<li>Resume takes <strong>~1-5 seconds</strong> typically for provisioning</li>
+<li>If <code>AUTO_RESUME = FALSE</code>, queries against a suspended warehouse <strong>fail immediately</strong></li>
+<li><span class="tag tag-exam">Exam</span> Queued queries DO trigger auto-resume and start the warehouse</li>
+<li>A warehouse in RESIZING state can still accept and queue queries</li>
+</ul>
+</div>
+
+<!-- SECTION 5: Resource Monitor Edge Cases -->
+<h2>5. Resource Monitor Edge Cases</h2>
+
+<div class="card">
+<h3>Action Types and Their Behavior</h3>
+<table>
+<thead>
+<tr><th>Action</th><th>Behavior</th><th>Edge Cases</th></tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NOTIFY</code></td>
+<td>Sends notification only</td>
+<td>Notification goes to account admins. Queries continue running. Can set multiple NOTIFY thresholds.</td>
+</tr>
+<tr>
+<td><code>SUSPEND</code></td>
+<td>Suspends after running queries finish</td>
+<td>Queries in flight <strong>complete</strong> before suspend. New queries are queued then fail. Credit usage can <strong>exceed threshold</strong> while queries finish.</td>
+</tr>
+<tr>
+<td><code>SUSPEND_IMMEDIATE</code></td>
+<td>Kills running queries and suspends</td>
+<td>Running queries are <strong>aborted</strong> (not graceful). Users get error. Most aggressive option.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="card card-danger">
+<h3><span class="tag tag-gotcha">Gotcha</span> Percentage Trigger Behavior</h3>
+<ul>
+<li>Triggers are checked <strong>periodically</strong> (not in real-time) - actual usage may exceed trigger %</li>
+<li>A 90% NOTIFY + 100% SUSPEND means you might hit ~95% before notification fires</li>
+<li>Multiple NOTIFY triggers: you can set 50%, 75%, 90% to get progressive warnings</li>
+<li>Only <strong>one</strong> SUSPEND or SUSPEND_IMMEDIATE trigger per monitor</li>
+<li>Monitor checks happen approximately every <strong>15 minutes</strong> (not per-query)</li>
+<li><span class="tag tag-gotcha">Gotcha</span> A fast-consuming workload can blow past 100% between checks</li>
+</ul>
+</div>
+
+<div class="card card-warning">
+<h3>Credit Reset Schedule</h3>
+<ul>
+<li><strong>Daily</strong> - resets at midnight (account timezone)</li>
+<li><strong>Weekly</strong> - resets Monday at midnight</li>
+<li><strong>Monthly</strong> - resets 1st of each month</li>
+<li><strong>Yearly</strong> - resets January 1st</li>
+<li><strong>NEVER</strong> - lifetime monitor, never resets</li>
+<li><span class="tag tag-exam">Exam</span> The <code>START_TIMESTAMP</code> can be set to control when the schedule begins (defaults to IMMEDIATELY)</li>
+<li>Account-level monitors cover <strong>all</strong> warehouses including serverless compute</li>
+<li>Warehouse-level monitors only cover their assigned warehouse(s)</li>
+</ul>
+</div>
+
+<div class="card card-info">
+<h3>Resource Monitor Scope Rules</h3>
+<ul>
+<li>Only <strong>ACCOUNTADMIN</strong> can create resource monitors (by default)</li>
+<li>A warehouse can only have <strong>one</strong> resource monitor assigned</li>
+<li>Account-level monitor applies in <strong>addition to</strong> warehouse-level monitors</li>
+<li>If both account and warehouse monitors exist, the <strong>more restrictive</strong> one wins</li>
+<li>Resource monitors do NOT track Cloud Services credits (only warehouse compute)</li>
+<li><span class="tag tag-gotcha">Gotcha</span> Serverless features (Snowpipe, auto-clustering, materialized views) are NOT covered by warehouse monitors</li>
+</ul>
+</div>
+
+<!-- SECTION 6: QAS Edge Cases -->
+<h2>6. Query Acceleration Service (QAS) Edge Cases</h2>
+
+<div class="card card-info">
+<h3>QAS Eligibility Requirements</h3>
+<ul>
+<li>Query must have <strong>significant scan-to-filter ratio</strong> (scans many partitions, returns few rows)</li>
+<li>Works best with: selective filters, LIMIT clauses, aggregations on large tables</li>
+<li>Does <strong>NOT</strong> accelerate: queries that return most of the data, small table scans</li>
+<li>Only applies to <strong>SELECT</strong> statements (not DML, DDL, or COPY)</li>
+<li>Enterprise Edition or higher required</li>
+</ul>
+</div>
+
+<div class="card card-danger">
+<h3><span class="tag tag-gotcha">Gotcha</span> QAS Credit Consumption</h3>
+<ul>
+<li>QAS credits are <strong>separate</strong> from warehouse credits (serverless compute)</li>
+<li>Billed per-second for the serverless resources used</li>
+<li><code>QUERY_ACCELERATION_MAX_SCALE_FACTOR</code> controls cost ceiling (0 = disabled, default = 8)</li>
+<li>Scale factor is a multiplier of warehouse size (factor 8 on Medium = up to 32 credits/hr of QAS)</li>
+<li>Setting scale factor to 0 <strong>disables</strong> QAS for that warehouse</li>
+<li>QAS charges appear in <code>QUERY_ACCELERATION_HISTORY</code> view, NOT warehouse metering</li>
+</ul>
+</div>
+
+<div class="card card-warning">
+<h3>Compatible vs Incompatible Query Patterns</h3>
+<div class="grid-2">
+<div>
+<h3 style="color: var(--success);">Compatible</h3>
+<ul>
+<li>Ad-hoc analytics with selective filters</li>
+<li>Queries with LIMIT on large tables</li>
+<li>Aggregations (SUM, COUNT, AVG) with WHERE</li>
+<li>Point lookups on non-clustered columns</li>
+<li>Queries scanning many partitions but returning few rows</li>
+</ul>
+</div>
+<div>
+<h3 style="color: var(--danger);">Incompatible</h3>
+<ul>
+<li>Full table scans returning all data</li>
+<li>INSERT, UPDATE, DELETE, MERGE</li>
+<li>Queries already running fast (no benefit)</li>
+<li>Queries on small tables (&lt;few partitions)</li>
+<li>COPY INTO commands</li>
+<li>Queries requiring UDFs in WHERE clause</li>
+</ul>
+</div>
+</div>
+</div>
+
+<div class="card">
+<h3>Checking QAS Eligibility</h3>
+<pre><code>-- Check if specific queries would benefit from QAS
+SELECT query_id, eligible_query_acceleration_time
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE eligible_query_acceleration_time > 0
+ORDER BY eligible_query_acceleration_time DESC;
+
+-- System function for specific query
+SELECT SYSTEM$ESTIMATE_QUERY_ACCELERATION('&lt;query_id&gt;');</code></pre>
+</div>
+
+<!-- SECTION 7: Recovery Playbook -->
+<h2>7. Recovery Playbook</h2>
+
+<div class="card card-danger">
+<h3>Scenario 1: Runaway Query Consuming Excessive Resources</h3>
+<div class="recovery-section">
+<div class="playbook-step">
+<strong>Identify the query</strong> - Check <code>SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY</code> or <code>INFORMATION_SCHEMA.QUERY_HISTORY()</code> for long-running queries
+<pre><code>SELECT query_id, query_text, execution_status, 
+       DATEDIFF('minute', start_time, CURRENT_TIMESTAMP()) as running_mins
+FROM TABLE(INFORMATION_SCHEMA.QUERY_HISTORY())
+WHERE execution_status = 'RUNNING'
+ORDER BY start_time;</code></pre>
+</div>
+<div class="playbook-step">
+<strong>Cancel the query</strong> - Use <code>SELECT SYSTEM$CANCEL_QUERY('&lt;query_id&gt;')</code>
+</div>
+<div class="playbook-step">
+<strong>Investigate root cause</strong> - Check query profile for explosion (cartesian joins, recursive CTEs)
+</div>
+<div class="playbook-step">
+<strong>Prevent recurrence</strong> - Set <code>STATEMENT_TIMEOUT_IN_SECONDS</code> on the warehouse or user
+<pre><code>ALTER WAREHOUSE my_wh SET STATEMENT_TIMEOUT_IN_SECONDS = 3600;</code></pre>
+</div>
+</div>
+</div>
+
+<div class="card card-warning">
+<h3>Scenario 2: Credit Overspend Alert</h3>
+<div class="recovery-section">
+<div class="playbook-step">
+<strong>Check current consumption</strong>
+<pre><code>SELECT warehouse_name, SUM(credits_used) as total_credits
+FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY
+WHERE start_time >= DATEADD('day', -1, CURRENT_TIMESTAMP())
+GROUP BY warehouse_name ORDER BY total_credits DESC;</code></pre>
+</div>
+<div class="playbook-step">
+<strong>Suspend offending warehouses</strong> - <code>ALTER WAREHOUSE my_wh SUSPEND;</code>
+</div>
+<div class="playbook-step">
+<strong>Review resource monitor settings</strong> - Ensure monitors have SUSPEND actions, not just NOTIFY
+</div>
+<div class="playbook-step">
+<strong>Adjust auto-suspend</strong> - Reduce idle time to avoid credit burn during inactivity
+</div>
+</div>
+</div>
+
+<div class="card card-info">
+<h3>Scenario 3: Warehouse Stuck in Resizing/Provisioning</h3>
+<div class="recovery-section">
+<div class="playbook-step">
+<strong>Check warehouse state</strong> - <code>SHOW WAREHOUSES LIKE 'my_wh';</code> (look at "state" column)
+</div>
+<div class="playbook-step">
+<strong>Wait briefly</strong> - Resizing typically completes in 1-2 minutes. Provisioning after resume takes seconds.
+</div>
+<div class="playbook-step">
+<strong>If stuck > 5 minutes</strong> - Try <code>ALTER WAREHOUSE my_wh SUSPEND;</code> then <code>ALTER WAREHOUSE my_wh RESUME;</code>
+</div>
+<div class="playbook-step">
+<strong>If still stuck</strong> - Contact Snowflake support; potential infrastructure issue in the region
+</div>
+</div>
+</div>
+
+<div class="card card-success">
+<h3>Scenario 4: Cache Miss Diagnosis</h3>
+<div class="recovery-section">
+<div class="playbook-step">
+<strong>Check if result cache was used</strong>
+<pre><code>SELECT query_id, query_text, 
+       PERCENTAGE_SCANNED_FROM_CACHE,
+       BYTES_SCANNED
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE query_text ILIKE '%your_query_pattern%'
+ORDER BY start_time DESC LIMIT 10;</code></pre>
+</div>
+<div class="playbook-step">
+<strong>Verify cache conditions</strong> - Same role? Same query text exactly? Within 24 hours? No DML on underlying table?
+</div>
+<div class="playbook-step">
+<strong>Check for SSD cache misses</strong> - <code>PERCENTAGE_SCANNED_FROM_CACHE = 0</code> means cold warehouse cache. Was warehouse recently resumed or resized?
+</div>
+<div class="playbook-step">
+<strong>Optimize</strong> - Consider longer AUTO_SUSPEND for SSD cache; ensure consistent query formatting for result cache
+</div>
+</div>
+</div>
+
+<div class="card card-warning">
+<h3>Scenario 5: Multi-Cluster Thrashing (Frequent Scale In/Out)</h3>
+<div class="recovery-section">
+<div class="playbook-step">
+<strong>Identify thrashing</strong>
+<pre><code>SELECT start_time, end_time, warehouse_name, cluster_number,
+       DATEDIFF('second', start_time, end_time) as active_seconds
+FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY
+WHERE warehouse_name = 'MY_WH' AND cluster_number > 1
+ORDER BY start_time DESC;</code></pre>
+</div>
+<div class="playbook-step">
+<strong>Assess pattern</strong> - If clusters run < 2-3 minutes repeatedly, this is thrashing
+</div>
+<div class="playbook-step">
+<strong>Switch to ECONOMY scaling policy</strong> - Requires sustained load before scale-out
+<pre><code>ALTER WAREHOUSE my_wh SET SCALING_POLICY = 'ECONOMY';</code></pre>
+</div>
+<div class="playbook-step">
+<strong>Or increase MIN_CLUSTER_COUNT</strong> - If workload is predictably concurrent, keep minimum clusters warm
+<pre><code>ALTER WAREHOUSE my_wh SET MIN_CLUSTER_COUNT = 2;</code></pre>
+</div>
+</div>
+</div>
+
+<!-- SECTION 8: Exam Scenarios -->
+<h2>8. Exam Scenario Questions</h2>
+
+<div class="scenario">
+<p class="scenario-q">Q1: A user runs the same SELECT query twice within 5 minutes. The second execution takes 0 seconds and shows 0 bytes scanned. The warehouse was suspended between the two runs. What explains this?</p>
+<button class="reveal-btn" onclick="this.nextElementSibling.classList.toggle('visible')">Reveal Answer</button>
+<div class="scenario-answer">
+<strong>Answer:</strong> The <strong>result cache</strong> served the second query. Result cache lives in the Cloud Services layer, not the warehouse. It works even when the warehouse is suspended. The 0 bytes scanned and instant response confirm a result cache hit.
+</div>
+</div>
+
+<div class="scenario">
+<p class="scenario-q">Q2: A Large multi-cluster warehouse (MIN=1, MAX=4, STANDARD policy) is running 200 concurrent queries. A user reports their query is queuing. What is the most likely explanation?</p>
+<button class="reveal-btn" onclick="this.nextElementSibling.classList.toggle('visible')">Reveal Answer</button>
+<div class="scenario-answer">
+<strong>Answer:</strong> The warehouse is in the process of <strong>scaling out additional clusters</strong> (provisioning delay of 30-90 seconds). During this time, queries queue on existing clusters. The STANDARD policy detected the load and initiated scale-out, but new clusters aren't ready yet.
+</div>
+</div>
+
+<div class="scenario">
+<p class="scenario-q">Q3: A resource monitor is set to SUSPEND at 100%. The monitor uses a MONTHLY reset. On January 15th, credit usage reaches 105%. How did usage exceed 100%?</p>
+<button class="reveal-btn" onclick="this.nextElementSibling.classList.toggle('visible')">Reveal Answer</button>
+<div class="scenario-answer">
+<strong>Answer:</strong> Resource monitor checks are <strong>periodic (approximately every 15 minutes)</strong>, not real-time. Between checks, running queries continued consuming credits. Additionally, SUSPEND (not SUSPEND_IMMEDIATE) allows in-flight queries to complete, which can push usage above the threshold.
+</div>
+</div>
+
+<div class="scenario">
+<p class="scenario-q">Q4: Two users with different roles run identical SELECT statements on the same table. User B's query does a full scan instead of using the result cache. Why?</p>
+<button class="reveal-btn" onclick="this.nextElementSibling.classList.toggle('visible')">Reveal Answer</button>
+<div class="scenario-answer">
+<strong>Answer:</strong> Result cache entries are <strong>scoped by role</strong>. Even though the SQL is identical, User B's active role is different from User A's. Each role has its own result cache namespace to enforce access control (the role might have different row-access policies applied).
+</div>
+</div>
+
+<div class="scenario">
+<p class="scenario-q">Q5: A warehouse has AUTO_SUSPEND = 300 (5 minutes). A stored procedure starts, runs for 45 minutes, then completes. When will the warehouse suspend?</p>
+<button class="reveal-btn" onclick="this.nextElementSibling.classList.toggle('visible')">Reveal Answer</button>
+<div class="scenario-answer">
+<strong>Answer:</strong> The warehouse will suspend <strong>5 minutes after the stored procedure completes</strong> (at the ~50 minute mark from start). Running queries prevent auto-suspend - the timer only starts counting after the last query finishes.
+</div>
+</div>
+
+<div class="scenario">
+<p class="scenario-q">Q6: A customer enables QAS on a warehouse with scale_factor = 8. They notice increased costs but query performance hasn't improved. What's the likely issue?</p>
+<button class="reveal-btn" onclick="this.nextElementSibling.classList.toggle('visible')">Reveal Answer</button>
+<div class="scenario-answer">
+<strong>Answer:</strong> Their queries are likely <strong>not eligible for QAS</strong>. QAS only helps queries with high scan-to-output ratios (selective filters on large tables). If queries are full table scans, complex joins without selective predicates, or DML operations, QAS resources spin up but provide no benefit. Check <code>SYSTEM$ESTIMATE_QUERY_ACCELERATION</code> to verify eligibility.
+</div>
+</div>
+
+<div class="scenario">
+<p class="scenario-q">Q7: A warehouse is configured with AUTO_SUSPEND = 60 and AUTO_RESUME = TRUE. Users complain about slow first-query-of-the-day performance. The queries themselves are fast once running. What's happening?</p>
+<button class="reveal-btn" onclick="this.nextElementSibling.classList.toggle('visible')">Reveal Answer</button>
+<div class="scenario-answer">
+<strong>Answer:</strong> Two compounding factors: (1) <strong>Warehouse resume time</strong> (~1-5 seconds added to first query), and (2) <strong>Cold SSD cache</strong> - with AUTO_SUSPEND = 60, the warehouse suspends quickly, clearing the local disk cache. The first queries must fetch all data from remote storage. Solution: increase AUTO_SUSPEND to maintain warm cache, or accept the trade-off for cost savings.
+</div>
+</div>
+
+<div class="scenario">
+<p class="scenario-q">Q8: A multi-cluster warehouse (MIN=1, MAX=3) uses ECONOMY policy. During peak hours, the warehouse stays at 1 cluster despite query queuing of 30+ seconds. Why doesn't it scale out?</p>
+<button class="reveal-btn" onclick="this.nextElementSibling.classList.toggle('visible')">Reveal Answer</button>
+<div class="scenario-answer">
+<strong>Answer:</strong> The <strong>ECONOMY policy</strong> only scales out when the system estimates the additional cluster will be busy for at least 6 minutes. If the query burst is short-lived (many quick queries finishing within seconds), ECONOMY may calculate that by the time the new cluster provisions, the queue will already be drained. Solution: Switch to STANDARD policy for latency-sensitive workloads.
+</div>
+</div>
+
+<div class="scenario">
+<p class="scenario-q">Q9: A user runs: <code>ALTER WAREHOUSE my_wh SET WAREHOUSE_SIZE = 'XLARGE';</code> while 10 queries are executing on the currently Medium warehouse. What happens to the running queries?</p>
+<button class="reveal-btn" onclick="this.nextElementSibling.classList.toggle('visible')">Reveal Answer</button>
+<div class="scenario-answer">
+<strong>Answer:</strong> Running queries <strong>continue on the current (Medium) resources</strong> and complete normally. The resize takes effect for <strong>subsequent queries</strong>. Snowflake provisions the new XL nodes in the background, and once ready, new queries use the larger size. There is no disruption to in-flight queries.
+</div>
+</div>
+
+<div class="scenario">
+<p class="scenario-q">Q10: An account has both an account-level resource monitor (1000 credits/month, SUSPEND at 100%) and a warehouse-level monitor on WH_ANALYTICS (200 credits/month, SUSPEND at 100%). WH_ANALYTICS has used 199 credits and the account total is at 999 credits. A new query would use 5 credits. What happens?</p>
+<button class="reveal-btn" onclick="this.nextElementSibling.classList.toggle('visible')">Reveal Answer</button>
+<div class="scenario-answer">
+<strong>Answer:</strong> <strong>Both monitors</strong> will trigger their SUSPEND action after the next check cycle. The more restrictive one effectively wins - both the warehouse-level (200 exceeded) and account-level (1000 exceeded) will fire. In practice, whichever check runs first suspends the warehouse. The account-level monitor could also suspend OTHER warehouses if their combined usage crosses 1000 credits.
+</div>
+</div>
+
+<script>
+document.querySelectorAll('.reveal-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var answer = this.nextElementSibling;
+    if (answer.classList.contains('visible')) {
+      answer.classList.remove('visible');
+      this.textContent = 'Reveal Answer';
+    } else {
+      answer.classList.add('visible');
+      this.textContent = 'Hide Answer';
+    }
+  });
+});
+</script>
+
+</body>
+</html>

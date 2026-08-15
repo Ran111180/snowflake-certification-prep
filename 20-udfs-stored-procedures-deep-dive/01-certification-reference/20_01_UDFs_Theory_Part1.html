@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UDFs & Stored Procedures Deep Dive - Part 1: Fundamentals</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "UDFs & Stored Procedures Deep Dive - Part 1: Fundamentals",
+  "description": "Comprehensive reference for UDF types, scalar vs tabular, SECURE UDFs, overloading, and CREATE FUNCTION syntax",
+  "author": "Snowflake Certification Prep",
+  "created": "2026-08-15",
+  "topic": "UDFs-Stored-Procedures",
+  "part": 1,
+  "certification_relevance": "high"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#fff5f9, #1a0a12);
+  --bg-secondary: light-dark(#fff0f5, #2a1020);
+  --bg-card: light-dark(#ffffff, #1e0e18);
+  --bg-code: light-dark(#fdf0f5, #2d1525);
+  --text-primary: light-dark(#2d0a1a, #fce4ec);
+  --text-secondary: light-dark(#5c1a3a, #f8bbd0);
+  --accent: light-dark(#d81b60, #f06292);
+  --accent-secondary: light-dark(#ad1457, #ec407a);
+  --border: light-dark(#f8bbd0, #4a1a35);
+  --highlight: light-dark(#fce4ec, #3d1530);
+  --success: light-dark(#2e7d32, #66bb6a);
+  --warning: light-dark(#f57f17, #ffd54f);
+  --shadow: light-dark(rgba(216, 27, 96, 0.1), rgba(0, 0, 0, 0.3));
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { color-scheme: light dark; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 2.2rem;
+  color: var(--accent);
+  border-bottom: 3px solid var(--accent);
+  padding-bottom: 0.8rem;
+  margin-bottom: 2rem;
+}
+
+h2 {
+  font-size: 1.6rem;
+  color: var(--accent-secondary);
+  margin: 2.5rem 0 1rem;
+  padding-left: 0.8rem;
+  border-left: 4px solid var(--accent);
+}
+
+h3 {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin: 1.5rem 0 0.8rem;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.8rem;
+  margin: 1.5rem 0;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.card-header {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+code {
+  background: var(--bg-code);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.9em;
+  color: var(--accent);
+}
+
+pre {
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.2rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.92rem;
+}
+
+th, td {
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+
+th {
+  background: var(--highlight);
+  font-weight: 700;
+  color: var(--accent-secondary);
+}
+
+tr:nth-child(even) { background: var(--bg-secondary); }
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+  gap: 1.5rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.7rem;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--highlight);
+  color: var(--accent);
+  border: 1px solid var(--border);
+}
+
+.feature-list, .limitation-list {
+  list-style: none;
+  padding: 0;
+}
+
+.feature-list li, .limitation-list li {
+  padding: 0.6rem 0.8rem;
+  margin: 0.4rem 0;
+  border-radius: 6px;
+  border-left: 3px solid var(--success);
+  background: var(--bg-secondary);
+}
+
+.limitation-list li {
+  border-left-color: var(--warning);
+}
+
+.callout {
+  background: var(--highlight);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 1.2rem;
+  margin: 1.5rem 0;
+}
+
+.callout-title {
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+
+.toc {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.toc a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.toc a:hover { text-decoration: underline; }
+.toc ul { list-style: none; padding-left: 1rem; }
+.toc li { padding: 0.3rem 0; }
+</style>
+</head>
+<body>
+
+<h1>20.01 UDFs &amp; Stored Procedures Deep Dive - Part 1: Fundamentals</h1>
+
+<div class="toc">
+<h3>Table of Contents</h3>
+<ul>
+<li><a href="#udf-types">1. UDF Language Types</a></li>
+<li><a href="#scalar-vs-tabular">2. Scalar vs Tabular (UDTF)</a></li>
+<li><a href="#create-function">3. CREATE FUNCTION Syntax</a></li>
+<li><a href="#secure-udfs">4. SECURE UDFs</a></li>
+<li><a href="#volatility">5. Immutable vs Volatile</a></li>
+<li><a href="#overloading">6. Function Overloading</a></li>
+<li><a href="#returns-table">7. RETURNS TABLE</a></li>
+<li><a href="#features">8. Key Features (15)</a></li>
+<li><a href="#limitations">9. Limitations (15)</a></li>
+<li><a href="#exam-focus">10. Certification Exam Focus</a></li>
+</ul>
+</div>
+
+<h2 id="udf-types">1. UDF Language Types</h2>
+
+<div class="card">
+<div class="card-header">Supported UDF Languages</div>
+<table>
+<tr><th>Language</th><th>LANGUAGE Keyword</th><th>Use Case</th><th>Key Features</th></tr>
+<tr><td><strong>SQL</strong></td><td><code>LANGUAGE SQL</code></td><td>Simple transformations, expressions</td><td>Best performance, inline expansion, no context switch</td></tr>
+<tr><td><strong>JavaScript</strong></td><td><code>LANGUAGE JAVASCRIPT</code></td><td>Complex logic, JSON processing</td><td>Full JS engine, object/array manipulation, regex</td></tr>
+<tr><td><strong>Python</strong></td><td><code>LANGUAGE PYTHON</code></td><td>Data science, ML inference, libraries</td><td>Anaconda packages, pandas, handler function</td></tr>
+<tr><td><strong>Java</strong></td><td><code>LANGUAGE JAVA</code></td><td>Enterprise logic, JAR libraries</td><td>JVM execution, typed, JAR imports</td></tr>
+<tr><td><strong>Scala</strong></td><td><code>LANGUAGE SCALA</code></td><td>Functional patterns, Spark-like</td><td>JVM-based, functional programming</td></tr>
+</table>
+</div>
+
+<div class="grid-2">
+<div class="card">
+<div class="card-header">SQL UDF Example</div>
+<pre>CREATE OR REPLACE FUNCTION celsius_to_fahrenheit(c FLOAT)
+RETURNS FLOAT
+LANGUAGE SQL
+AS
+$$
+  c * 9/5 + 32
+$$;</pre>
+<p>SQL UDFs are the simplest. The body is a single SQL expression. No procedural logic (no IF, LOOP). They get inlined into the query plan for maximum performance.</p>
+</div>
+
+<div class="card">
+<div class="card-header">JavaScript UDF Example</div>
+<pre>CREATE OR REPLACE FUNCTION parse_json_field(json_str VARCHAR, field VARCHAR)
+RETURNS VARCHAR
+LANGUAGE JAVASCRIPT
+AS
+$$
+  try {
+    var obj = JSON.parse(JSON_STR);
+    return obj[FIELD] || null;
+  } catch(e) {
+    return null;
+  }
+$$;</pre>
+<p><strong>Important:</strong> JavaScript UDF parameters are passed as UPPERCASE variable names inside the body regardless of how they are defined.</p>
+</div>
+
+<div class="card">
+<div class="card-header">Python UDF Example</div>
+<pre>CREATE OR REPLACE FUNCTION sentiment_score(text VARCHAR)
+RETURNS FLOAT
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.11'
+PACKAGES = ('textblob')
+HANDLER = 'analyze'
+AS
+$$
+from textblob import TextBlob
+
+def analyze(text):
+    if text is None:
+        return None
+    blob = TextBlob(text)
+    return blob.sentiment.polarity
+$$;</pre>
+<p>Python UDFs require: <code>RUNTIME_VERSION</code>, <code>HANDLER</code> function name, and optional <code>PACKAGES</code> from Anaconda channel.</p>
+</div>
+
+<div class="card">
+<div class="card-header">Java UDF Example</div>
+<pre>CREATE OR REPLACE FUNCTION hash_value(input VARCHAR)
+RETURNS VARCHAR
+LANGUAGE JAVA
+RUNTIME_VERSION = '11'
+HANDLER = 'HashUtil.computeHash'
+AS
+$$
+import java.security.MessageDigest;
+
+public class HashUtil {
+  public static String computeHash(String input) {
+    try {
+      MessageDigest md = MessageDigest.getInstance("SHA-256");
+      byte[] hash = md.digest(input.getBytes("UTF-8"));
+      StringBuilder sb = new StringBuilder();
+      for (byte b : hash) {
+        sb.append(String.format("%02x", b));
+      }
+      return sb.toString();
+    } catch (Exception e) {
+      return null;
+    }
+  }
+}
+$$;</pre>
+<p>Java UDFs require: <code>RUNTIME_VERSION</code> and a fully qualified <code>HANDLER</code> (ClassName.methodName).</p>
+</div>
+</div>
+
+<h2 id="scalar-vs-tabular">2. Scalar vs Tabular (UDTF)</h2>
+
+<div class="card">
+<div class="card-header">Scalar UDF vs UDTF Comparison</div>
+<table>
+<tr><th>Aspect</th><th>Scalar UDF</th><th>Tabular UDF (UDTF)</th></tr>
+<tr><td><strong>Returns</strong></td><td>Single value per input row</td><td>Zero, one, or many rows per input row</td></tr>
+<tr><td><strong>Syntax</strong></td><td><code>RETURNS datatype</code></td><td><code>RETURNS TABLE(col1 type, ...)</code></td></tr>
+<tr><td><strong>Usage in query</strong></td><td>SELECT clause, WHERE, etc.</td><td>FROM clause with <code>TABLE(func(args))</code></td></tr>
+<tr><td><strong>SQL body</strong></td><td>Single expression</td><td>Not supported for SQL UDTFs</td></tr>
+<tr><td><strong>JS/Python/Java</strong></td><td>Return single value</td><td>Return rows via process()/end_partition()</td></tr>
+<tr><td><strong>Partitioning</strong></td><td>N/A</td><td>PARTITION BY supported</td></tr>
+</table>
+</div>
+
+<div class="card">
+<div class="card-header">UDTF Usage Pattern</div>
+<pre>-- Calling a UDTF
+SELECT t.id, ut.*
+FROM my_table t,
+     TABLE(my_udtf(t.col1, t.col2)) ut;
+
+-- With PARTITION BY (for Python/JS/Java UDTFs)
+SELECT t.id, ut.*
+FROM my_table t,
+     TABLE(my_udtf(t.col1, t.col2) OVER (PARTITION BY t.category)) ut;</pre>
+</div>
+
+<div class="grid-2">
+<div class="card">
+<div class="card-header">JavaScript UDTF</div>
+<pre>CREATE OR REPLACE FUNCTION split_to_rows(str VARCHAR, delim VARCHAR)
+RETURNS TABLE(value VARCHAR, idx NUMBER)
+LANGUAGE JAVASCRIPT
+AS
+$$
+{
+  processRow: function(row, rowWriter, context) {
+    var parts = row.STR.split(row.DELIM);
+    for (var i = 0; i &lt; parts.length; i++) {
+      rowWriter.writeRow({VALUE: parts[i].trim(), IDX: i});
+    }
+  }
+}
+$$;</pre>
+</div>
+
+<div class="card">
+<div class="card-header">Python UDTF</div>
+<pre>CREATE OR REPLACE FUNCTION generate_date_range(
+    start_date DATE, end_date DATE)
+RETURNS TABLE(generated_date DATE)
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.11'
+HANDLER = 'DateRange'
+AS
+$$
+from datetime import timedelta
+
+class DateRange:
+    def process(self, start_date, end_date):
+        current = start_date
+        while current &lt;= end_date:
+            yield (current,)
+            current += timedelta(days=1)
+$$;</pre>
+</div>
+</div>
+
+<h2 id="create-function">3. CREATE FUNCTION Syntax</h2>
+
+<div class="card">
+<div class="card-header">Complete CREATE FUNCTION Reference</div>
+<pre>CREATE [ OR REPLACE ] [ SECURE ] FUNCTION [ IF NOT EXISTS ]
+  &lt;name&gt; ( [ &lt;arg_name&gt; &lt;arg_type&gt; [ DEFAULT &lt;default_value&gt; ] ] [, ...] )
+  RETURNS { &lt;result_type&gt; | TABLE ( &lt;col_name&gt; &lt;col_type&gt; [, ...] ) }
+  [ NOT NULL ]
+  [ LANGUAGE { SQL | JAVASCRIPT | PYTHON | JAVA | SCALA } ]
+  [ { CALLED ON NULL INPUT | RETURNS NULL ON NULL INPUT | STRICT } ]
+  [ { VOLATILE | IMMUTABLE } ]
+  [ RUNTIME_VERSION = '&lt;version&gt;' ]
+  [ PACKAGES = ( '&lt;package_name&gt;' [, ...] ) ]
+  [ IMPORTS = ( '&lt;stage_path&gt;' [, ...] ) ]
+  [ HANDLER = '&lt;handler_name&gt;' ]
+  [ EXTERNAL_ACCESS_INTEGRATIONS = ( &lt;integration_name&gt; [, ...] ) ]
+  [ SECRETS = ( '&lt;secret_var&gt;' = &lt;secret_name&gt; [, ...] ) ]
+  [ COMMENT = '&lt;comment&gt;' ]
+  AS '&lt;function_body&gt;';</pre>
+</div>
+
+<div class="card">
+<div class="card-header">Key Clauses Explained</div>
+<table>
+<tr><th>Clause</th><th>Purpose</th><th>Default</th></tr>
+<tr><td><code>SECURE</code></td><td>Hides UDF body from non-owners; prevents query plan optimization leaks</td><td>Not secure</td></tr>
+<tr><td><code>RETURNS NULL ON NULL INPUT</code></td><td>If ANY argument is NULL, return NULL without calling body</td><td>CALLED ON NULL INPUT</td></tr>
+<tr><td><code>STRICT</code></td><td>Synonym for RETURNS NULL ON NULL INPUT</td><td>-</td></tr>
+<tr><td><code>VOLATILE</code></td><td>May return different results for same inputs</td><td>VOLATILE (default)</td></tr>
+<tr><td><code>IMMUTABLE</code></td><td>Same inputs always produce same output (enables caching)</td><td>-</td></tr>
+<tr><td><code>NOT NULL</code></td><td>Guarantees the function never returns NULL</td><td>Nullable</td></tr>
+<tr><td><code>HANDLER</code></td><td>Entry-point function/class for Python/Java/Scala</td><td>Required for non-SQL</td></tr>
+<tr><td><code>RUNTIME_VERSION</code></td><td>Python/Java version to use</td><td>Required for Python/Java</td></tr>
+<tr><td><code>PACKAGES</code></td><td>Anaconda packages for Python UDFs</td><td>None</td></tr>
+<tr><td><code>IMPORTS</code></td><td>Stage files (JARs, Python modules, data)</td><td>None</td></tr>
+</table>
+</div>
+
+<h2 id="secure-udfs">4. SECURE UDFs</h2>
+
+<div class="card">
+<div class="card-header">SECURE Functions - Key Points</div>
+<pre>CREATE OR REPLACE SECURE FUNCTION mask_ssn(ssn VARCHAR)
+RETURNS VARCHAR
+LANGUAGE SQL
+AS
+$$
+  '***-**-' || RIGHT(ssn, 4)
+$$;</pre>
+
+<h3>What SECURE does:</h3>
+<ul>
+<li>Function definition (body) is hidden from users who are not the owner</li>
+<li>Query optimizer cannot look inside the function for plan optimization</li>
+<li>Prevents data leakage through error messages</li>
+<li>Similar to SECURE VIEWs - protects intellectual property and sensitive logic</li>
+</ul>
+
+<h3>When to use SECURE:</h3>
+<ul>
+<li>Masking/tokenization functions shared with other roles</li>
+<li>Proprietary business logic that should not be exposed</li>
+<li>Functions used in row-access or masking policies</li>
+<li>Functions shared via Secure Data Sharing</li>
+</ul>
+
+<div class="callout">
+<div class="callout-title">Exam Tip</div>
+<p>SECURE UDFs may have slightly worse performance because the optimizer cannot inline or push predicates through them. This is the trade-off for security.</p>
+</div>
+</div>
+
+<h2 id="volatility">5. Immutable vs Volatile</h2>
+
+<div class="card">
+<div class="card-header">Function Volatility</div>
+<table>
+<tr><th>Property</th><th>VOLATILE (default)</th><th>IMMUTABLE</th></tr>
+<tr><td><strong>Meaning</strong></td><td>May return different results for same inputs</td><td>Always returns same result for same inputs</td></tr>
+<tr><td><strong>Caching</strong></td><td>No result caching</td><td>Results may be cached/memoized</td></tr>
+<tr><td><strong>Optimization</strong></td><td>Called every time</td><td>Optimizer may reduce calls</td></tr>
+<tr><td><strong>Examples</strong></td><td>Functions using CURRENT_TIMESTAMP, RANDOM()</td><td>Math functions, string transforms, lookups</td></tr>
+<tr><td><strong>Use with</strong></td><td>Non-deterministic logic</td><td>Pure functions (no side effects)</td></tr>
+</table>
+
+<pre>-- IMMUTABLE: same input always gives same output
+CREATE FUNCTION area_circle(radius FLOAT)
+RETURNS FLOAT
+IMMUTABLE
+LANGUAGE SQL
+AS $$ 3.14159265 * radius * radius $$;
+
+-- VOLATILE: result could change (accessing table data, time-based)
+CREATE FUNCTION get_current_rate(currency VARCHAR)
+RETURNS FLOAT
+VOLATILE
+LANGUAGE SQL
+AS $$ (SELECT rate FROM exchange_rates WHERE code = currency LIMIT 1) $$;</pre>
+
+<div class="callout">
+<div class="callout-title">Exam Tip</div>
+<p>If you mark a function as IMMUTABLE but it actually reads table data or uses non-deterministic functions, Snowflake will NOT prevent this. The results could be incorrect due to caching. It is the developer's responsibility to ensure correctness.</p>
+</div>
+</div>
+
+<h2 id="overloading">6. Function Overloading</h2>
+
+<div class="card">
+<div class="card-header">Function Overloading Rules</div>
+<p>Snowflake supports function overloading: multiple functions with the <strong>same name</strong> but <strong>different argument signatures</strong>.</p>
+
+<pre>-- Overload 1: single argument
+CREATE FUNCTION format_amount(amount NUMBER)
+RETURNS VARCHAR
+LANGUAGE SQL
+AS $$ '$' || TO_CHAR(amount, '999,999.00') $$;
+
+-- Overload 2: two arguments (with currency)
+CREATE FUNCTION format_amount(amount NUMBER, currency VARCHAR)
+RETURNS VARCHAR
+LANGUAGE SQL
+AS $$ currency || ' ' || TO_CHAR(amount, '999,999.00') $$;
+
+-- Overload 3: different type
+CREATE FUNCTION format_amount(amount VARCHAR)
+RETURNS VARCHAR
+LANGUAGE SQL
+AS $$ '$' || amount $$;</pre>
+
+<h3>Resolution Rules:</h3>
+<ul>
+<li>Functions are identified by name + argument types (signature)</li>
+<li>Number of arguments differentiates overloads</li>
+<li>Argument data types differentiate overloads</li>
+<li>Return type alone does NOT differentiate (cannot overload by return type only)</li>
+<li>Snowflake uses implicit type coercion when resolving calls</li>
+<li>If ambiguous, an error is raised</li>
+</ul>
+
+<div class="callout">
+<div class="callout-title">DROP Behavior with Overloading</div>
+<p><code>DROP FUNCTION format_amount(NUMBER)</code> drops only that specific overload. You must specify the argument types to identify which overload to drop. <code>DESC FUNCTION format_amount(NUMBER, VARCHAR)</code> describes a specific overload.</p>
+</div>
+</div>
+
+<h2 id="returns-table">7. RETURNS TABLE</h2>
+
+<div class="card">
+<div class="card-header">RETURNS TABLE Patterns</div>
+
+<h3>SQL UDF with RETURNS TABLE:</h3>
+<pre>-- SQL UDF that returns a table (must be a single SELECT statement)
+CREATE OR REPLACE FUNCTION get_top_customers(min_orders NUMBER)
+RETURNS TABLE(customer_name VARCHAR, order_count NUMBER, total_spend NUMBER)
+LANGUAGE SQL
+AS
+$$
+  SELECT c.name, COUNT(o.id), SUM(o.amount)
+  FROM customers c
+  JOIN orders o ON c.id = o.customer_id
+  GROUP BY c.name
+  HAVING COUNT(o.id) &gt;= min_orders
+  ORDER BY total_spend DESC
+$$;
+
+-- Usage:
+SELECT * FROM TABLE(get_top_customers(5));</pre>
+
+<h3>Python UDTF with RETURNS TABLE:</h3>
+<pre>CREATE OR REPLACE FUNCTION explode_json_array(json_str VARCHAR)
+RETURNS TABLE(idx NUMBER, element VARCHAR)
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.11'
+HANDLER = 'JsonExploder'
+AS
+$$
+import json
+
+class JsonExploder:
+    def process(self, json_str):
+        if json_str is None:
+            return
+        try:
+            arr = json.loads(json_str)
+            for i, elem in enumerate(arr):
+                yield (i, str(elem))
+        except:
+            pass
+$$;</pre>
+
+<div class="callout">
+<div class="callout-title">Key Distinction</div>
+<p>A SQL UDF with <code>RETURNS TABLE</code> is different from a UDTF. The SQL version is a table function (its body must be a SELECT). A UDTF (JavaScript/Python/Java) uses a handler class with <code>process()</code> and optionally <code>end_partition()</code> methods to emit rows.</p>
+</div>
+</div>
+
+<h2 id="features">8. Key Features (15)</h2>
+
+<div class="card">
+<div class="card-header">15 Key Features of Snowflake UDFs</div>
+<ol class="feature-list">
+<li><strong>Multi-language support:</strong> SQL, JavaScript, Python, Java, Scala - choose the best language for each task</li>
+<li><strong>Scalar and tabular:</strong> Return single values or entire result sets (UDTF)</li>
+<li><strong>Function overloading:</strong> Same name with different signatures for polymorphic behavior</li>
+<li><strong>SECURE option:</strong> Hide function body and prevent optimizer-based data leaks</li>
+<li><strong>NULL handling:</strong> CALLED ON NULL INPUT vs RETURNS NULL ON NULL INPUT (STRICT)</li>
+<li><strong>Python packages:</strong> Access to curated Anaconda channel (numpy, pandas, scikit-learn, etc.)</li>
+<li><strong>Stage imports:</strong> Import JARs, Python wheels, data files from stages via IMPORTS clause</li>
+<li><strong>External access:</strong> Python/Java UDFs can call external APIs with EXTERNAL_ACCESS_INTEGRATIONS</li>
+<li><strong>Secrets management:</strong> Securely pass credentials to UDFs via SECRETS clause</li>
+<li><strong>Determinism control:</strong> IMMUTABLE enables optimizer caching; VOLATILE ensures fresh evaluation</li>
+<li><strong>Default arguments:</strong> Parameters can have DEFAULT values for optional calling</li>
+<li><strong>Schema-level scoping:</strong> UDFs belong to a schema and follow RBAC privileges</li>
+<li><strong>PARTITION BY for UDTFs:</strong> Process groups of rows together in Python/JS/Java UDTFs</li>
+<li><strong>Inline SQL expansion:</strong> SQL UDFs are expanded inline into the query plan for efficiency</li>
+<li><strong>USAGE/OWNERSHIP privileges:</strong> Fine-grained access control (GRANT USAGE ON FUNCTION)</li>
+</ol>
+</div>
+
+<h2 id="limitations">9. Limitations (15)</h2>
+
+<div class="card">
+<div class="card-header">15 Key Limitations of Snowflake UDFs</div>
+<ol class="limitation-list">
+<li><strong>No side effects:</strong> UDFs cannot perform DML (INSERT, UPDATE, DELETE) - use stored procedures instead</li>
+<li><strong>No DDL:</strong> UDFs cannot create/alter/drop objects</li>
+<li><strong>SQL UDF body:</strong> Must be a single expression (scalar) or single SELECT (table) - no procedural logic</li>
+<li><strong>JavaScript type mapping:</strong> Parameters are UPPERCASED inside JS body - easy source of bugs</li>
+<li><strong>Python sandbox:</strong> No filesystem access (except /tmp with limits), no subprocess, no network (without EAI)</li>
+<li><strong>Performance overhead:</strong> Non-SQL UDFs have context-switch overhead vs native SQL functions</li>
+<li><strong>Memory limits:</strong> Each UDF invocation has memory constraints (varies by warehouse size)</li>
+<li><strong>No transactions:</strong> UDFs cannot BEGIN/COMMIT transactions</li>
+<li><strong>SECURE UDF cost:</strong> Optimizer cannot push predicates through SECURE UDFs, potentially slower</li>
+<li><strong>Package availability:</strong> Only packages from Snowflake's curated Anaconda channel are available</li>
+<li><strong>Cold start:</strong> Python/Java UDFs may have initialization latency on first call</li>
+<li><strong>No recursion in SQL UDFs:</strong> A SQL UDF cannot call itself recursively</li>
+<li><strong>Return type fixed:</strong> Cannot return dynamic types; schema must be declared at creation time</li>
+<li><strong>Overload ambiguity:</strong> Too-similar signatures with implicit coercion can cause resolution errors</li>
+<li><strong>No cursor/RESULTSET in UDFs:</strong> These are stored procedure features only</li>
+</ol>
+</div>
+
+<h2 id="exam-focus">10. Certification Exam Focus Points</h2>
+
+<div class="card">
+<div class="card-header">High-Priority Exam Topics</div>
+
+<div class="callout">
+<div class="callout-title">Key Distinctions to Remember</div>
+<ul>
+<li><strong>UDF vs Stored Procedure:</strong> UDFs return values and are used in queries; Stored Procedures perform actions (DML/DDL) and are called with CALL</li>
+<li><strong>LANGUAGE keyword:</strong> Required for non-SQL UDFs; SQL is the default if omitted</li>
+<li><strong>HANDLER:</strong> Required for Python, Java, Scala - specifies the entry point function/class</li>
+<li><strong>RUNTIME_VERSION:</strong> Required for Python and Java - specifies the language version</li>
+<li><strong>Scalar vs Table function:</strong> Table functions are used in FROM clause with TABLE() wrapper</li>
+<li><strong>STRICT:</strong> Shorthand for RETURNS NULL ON NULL INPUT</li>
+<li><strong>Privileges:</strong> Need USAGE on function to call it; OWNERSHIP to alter/drop</li>
+</ul>
+</div>
+
+<h3>Common Exam Scenarios:</h3>
+<table>
+<tr><th>Scenario</th><th>Answer</th></tr>
+<tr><td>Need to call external REST API from a function</td><td>Python/Java UDF with EXTERNAL_ACCESS_INTEGRATIONS</td></tr>
+<tr><td>Want to hide function logic from consumers</td><td>CREATE SECURE FUNCTION</td></tr>
+<tr><td>Function should return multiple rows</td><td>RETURNS TABLE (UDTF)</td></tr>
+<tr><td>Need to modify data inside a function</td><td>Not possible - use a Stored Procedure</td></tr>
+<tr><td>Function takes same inputs, always same output</td><td>Mark as IMMUTABLE for optimization</td></tr>
+<tr><td>Need JSON parsing with complex logic</td><td>JavaScript UDF (native JSON support)</td></tr>
+<tr><td>Need ML model inference</td><td>Python UDF with PACKAGES</td></tr>
+<tr><td>Simplest, fastest UDF type</td><td>SQL UDF (inline expansion)</td></tr>
+</table>
+</div>
+
+<div class="card">
+<div class="card-header">Data Type Mapping Quick Reference</div>
+<table>
+<tr><th>Snowflake Type</th><th>JavaScript</th><th>Python</th><th>Java</th></tr>
+<tr><td>NUMBER</td><td>number</td><td>int/float</td><td>long/double/BigDecimal</td></tr>
+<tr><td>VARCHAR</td><td>string</td><td>str</td><td>String</td></tr>
+<tr><td>BOOLEAN</td><td>boolean</td><td>bool</td><td>boolean</td></tr>
+<tr><td>DATE</td><td>Date (string)</td><td>datetime.date</td><td>java.sql.Date</td></tr>
+<tr><td>TIMESTAMP</td><td>Date (SfDate)</td><td>datetime.datetime</td><td>java.sql.Timestamp</td></tr>
+<tr><td>VARIANT</td><td>Object/Array</td><td>dict/list</td><td>Map/String</td></tr>
+<tr><td>BINARY</td><td>Uint8Array</td><td>bytes</td><td>byte[]</td></tr>
+<tr><td>ARRAY</td><td>Array</td><td>list</td><td>String[] / Array</td></tr>
+<tr><td>OBJECT</td><td>Object</td><td>dict</td><td>Map</td></tr>
+</table>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Sharing - Fundamentals | Snowflake Certification Reference</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Data Sharing - Fundamentals",
+  "subject": "Snowflake Certification Prep",
+  "topic": "15-data-sharing-deep-dive",
+  "subtopic": "01-certification-reference",
+  "part": 1,
+  "version": "1.0",
+  "created": "2026-08-15",
+  "sections": [
+    "What is Snowflake Data Sharing",
+    "Share Objects",
+    "Secure Views",
+    "Secure UDFs",
+    "Reader Accounts",
+    "Listing Types",
+    "What Can Be Shared",
+    "Features and Limitations"
+  ],
+  "certification_relevance": ["SnowPro Core", "SnowPro Advanced: Architect"],
+  "difficulty": "Intermediate"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#f8f9fc, #0f1219);
+  --bg-secondary: light-dark(#ffffff, #181d28);
+  --bg-tertiary: light-dark(#eef1f8, #1e2433);
+  --text-primary: light-dark(#1a1f36, #e8ecf4);
+  --text-secondary: light-dark(#4a5068, #a0aac4);
+  --text-muted: light-dark(#6b7394, #7a86a6);
+  --accent-blue: light-dark(#2c5fd6, #5b8af0);
+  --accent-indigo: light-dark(#4338ca, #7c6ef0);
+  --accent-blue-bg: light-dark(#e8f0fe, #1a2744);
+  --accent-indigo-bg: light-dark(#eef0ff, #1e1a3a);
+  --border-color: light-dark(#d8dce8, #2a3148);
+  --border-accent: light-dark(#a4b8e8, #3a4d7a);
+  --code-bg: light-dark(#f0f3fa, #141822);
+  --code-text: light-dark(#2c5fd6, #7cacf8);
+  --callout-info-bg: light-dark(#e8f4fd, #112233);
+  --callout-info-border: light-dark(#2c5fd6, #3a6bc4);
+  --callout-warn-bg: light-dark(#fef3e2, #2a2010);
+  --callout-warn-border: light-dark(#d4860a, #c49020);
+  --callout-exam-bg: light-dark(#eef0ff, #1a1840);
+  --callout-exam-border: light-dark(#4338ca, #6c5ce7);
+  --callout-success-bg: light-dark(#e6f9ee, #0f2818);
+  --callout-success-border: light-dark(#16a34a, #22a856);
+  --table-header-bg: light-dark(#2c5fd6, #1e3a6e);
+  --table-header-text: #ffffff;
+  --table-row-alt: light-dark(#f4f6fc, #161c2a);
+  --shadow: light-dark(0 2px 12px rgba(44,95,214,0.08), 0 2px 12px rgba(0,0,0,0.3));
+  --tag-blue-bg: light-dark(#dbeafe, #1e3a5f);
+  --tag-blue-text: light-dark(#1e40af, #93c5fd);
+  --tag-indigo-bg: light-dark(#e0e7ff, #2a2660);
+  --tag-indigo-text: light-dark(#3730a3, #a5b4fc);
+}
+
+:root { color-scheme: light dark; }
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--border-color);
+}
+
+h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-blue);
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--border-accent);
+}
+
+h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--accent-indigo);
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+p { margin-bottom: 1rem; color: var(--text-primary); }
+
+ul, ol {
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+li { margin-bottom: 0.4rem; color: var(--text-primary); }
+
+code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.88rem;
+  background: var(--code-bg);
+  color: var(--code-text);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.25rem;
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.keyword { color: var(--accent-indigo); font-weight: 600; }
+.string { color: light-dark(#16a34a, #4ade80); }
+.comment { color: var(--text-muted); font-style: italic; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+thead th {
+  background: var(--table-header-bg);
+  color: var(--table-header-text);
+  padding: 0.85rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+tbody td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.9rem;
+  vertical-align: top;
+}
+
+tbody tr:nth-child(even) { background: var(--table-row-alt); }
+tbody tr:hover { background: var(--accent-blue-bg); }
+
+.callout {
+  border-left: 4px solid;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.callout-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.callout-info {
+  background: var(--callout-info-bg);
+  border-color: var(--callout-info-border);
+}
+.callout-info .callout-title { color: var(--accent-blue); }
+
+.callout-warn {
+  background: var(--callout-warn-bg);
+  border-color: var(--callout-warn-border);
+}
+.callout-warn .callout-title { color: light-dark(#d4860a, #f0a830); }
+
+.callout-exam {
+  background: var(--callout-exam-bg);
+  border-color: var(--callout-exam-border);
+}
+.callout-exam .callout-title { color: var(--accent-indigo); }
+
+.callout-success {
+  background: var(--callout-success-bg);
+  border-color: var(--callout-success-border);
+}
+.callout-success .callout-title { color: light-dark(#16a34a, #22a856); }
+
+.tag {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-right: 0.4rem;
+}
+
+.tag-blue { background: var(--tag-blue-bg); color: var(--tag-blue-text); }
+.tag-indigo { background: var(--tag-indigo-bg); color: var(--tag-indigo-text); }
+
+.section-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 1.75rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow);
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .two-col { grid-template-columns: 1fr; }
+  body { padding: 1rem; }
+  h1 { font-size: 1.7rem; }
+}
+
+.diagram-box {
+  background: var(--bg-tertiary);
+  border: 1px dashed var(--border-accent);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-family: 'SF Mono', monospace;
+  font-size: 0.85rem;
+  line-height: 1.8;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.toc {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.toc-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--accent-blue);
+  margin-bottom: 0.75rem;
+}
+
+.toc ol {
+  list-style: none;
+  counter-reset: toc-counter;
+  padding-left: 0;
+}
+
+.toc li {
+  counter-increment: toc-counter;
+  padding: 0.3rem 0;
+}
+
+.toc li::before {
+  content: counter(toc-counter) ". ";
+  color: var(--accent-indigo);
+  font-weight: 700;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  font-size: 0.9rem;
+}
+
+.feature-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: white;
+}
+
+.icon-green { background: light-dark(#16a34a, #22a856); }
+.icon-red { background: light-dark(#dc2626, #ef4444); }
+
+@media (max-width: 768px) {
+  .feature-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<h1>Data Sharing - Fundamentals</h1>
+<p class="subtitle">Snowflake Certification Reference | Module 15 - Part 1 | Zero-Copy Sharing, Secure Views, Reader Accounts &amp; Listings</p>
+
+<nav class="toc">
+  <div class="toc-title">Table of Contents</div>
+  <ol>
+    <li>What is Snowflake Data Sharing</li>
+    <li>Share Objects (CREATE SHARE, GRANT, ADD Accounts)</li>
+    <li>Secure Views (Why Needed, SECURE Keyword, Optimization)</li>
+    <li>Secure UDFs (Protecting Logic in Shared Data)</li>
+    <li>Reader Accounts (Managed Accounts)</li>
+    <li>Listing Types (Private, Personalized, Marketplace)</li>
+    <li>What Can Be Shared (and What Cannot)</li>
+    <li>15 Key Features &amp; 15 Limitations</li>
+  </ol>
+</nav>
+
+<!-- ============================================================ -->
+<!-- SECTION 1: What is Snowflake Data Sharing -->
+<!-- ============================================================ -->
+<h2>1. What is Snowflake Data Sharing</h2>
+
+<div class="section-card">
+  <h3>Core Concept: Zero-Copy Data Sharing</h3>
+  <p>Snowflake Data Sharing enables providers to share live, read-only data with consumers <strong>without copying or moving the data</strong>. Consumers access the provider's actual storage layer directly through Snowflake's metadata and access-control layer.</p>
+
+  <div class="diagram-box">
+┌─────────────────────┐                    ┌─────────────────────┐
+│   DATA PROVIDER     │                    │   DATA CONSUMER     │
+│                     │                    │                     │
+│  ┌───────────────┐  │    Share Object    │  ┌───────────────┐  │
+│  │ Database      │  │ ──────────────────►│  │ Imported DB   │  │
+│  │  └─ Schema    │  │  (metadata only)   │  │  (read-only)  │  │
+│  │     └─ Tables │  │                    │  │  └─ Tables    │  │
+│  └───────────────┘  │                    │  └───────────────┘  │
+│                     │                    │                     │
+│  ┌───────────────┐  │                    │                     │
+│  │ Cloud Storage │◄─┼────────────────────┼─── Queries read     │
+│  │ (micro-parts) │  │  Zero-copy access  │    directly from    │
+│  └───────────────┘  │                    │    provider storage │
+└─────────────────────┘                    └─────────────────────┘
+  </div>
+
+  <h3>Key Principles</h3>
+  <ul>
+    <li><strong>Zero-Copy:</strong> No data is duplicated; consumers query the provider's stored micro-partitions directly</li>
+    <li><strong>No Data Movement:</strong> Data never leaves the provider's account storage; only metadata pointers are shared</li>
+    <li><strong>Real-Time Access:</strong> Consumers see data changes immediately — no ETL lag, no stale copies</li>
+    <li><strong>Provider/Consumer Model:</strong> Providers create shares; consumers create databases from shares</li>
+    <li><strong>Same Region/Cloud Required:</strong> Both accounts must be in the same cloud region (unless using replication for cross-region)</li>
+    <li><strong>Consumer Pays for Compute:</strong> The consumer uses their own virtual warehouses; provider pays only for storage</li>
+  </ul>
+
+  <div class="callout callout-exam">
+    <div class="callout-title">Exam Tip</div>
+    <p>The most tested concept: <strong>"No data is copied or transferred"</strong>. Snowflake sharing leverages the services layer and metadata — the underlying micro-partitions are accessed in place. The consumer never owns or stores the shared data.</p>
+  </div>
+
+  <h3>How it Works (Under the Hood)</h3>
+  <ol>
+    <li>Provider creates a <code>SHARE</code> object and grants privileges on databases/schemas/objects</li>
+    <li>Provider adds consumer account(s) to the share</li>
+    <li>Consumer creates a database <code>FROM SHARE</code> (this is an imported/mounted database)</li>
+    <li>Consumer queries shared objects using their own compute (warehouse)</li>
+    <li>Queries read directly from the provider's cloud storage layer (S3, Azure Blob, GCS)</li>
+  </ol>
+
+  <div class="callout callout-info">
+    <div class="callout-title">Key Distinction</div>
+    <p><strong>Sharing ≠ Replication.</strong> Sharing provides read-only access via metadata. Replication physically copies data across accounts/regions for DR or performance. Sharing is instant and free for the provider (no storage cost); replication incurs storage and compute costs.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 2: Share Objects -->
+<!-- ============================================================ -->
+<h2>2. Share Objects</h2>
+
+<div class="section-card">
+  <h3>Creating and Managing Shares</h3>
+  <p>A <code>SHARE</code> is a named Snowflake object that encapsulates all the information needed to share data. Only <code>ACCOUNTADMIN</code> (or roles with <code>CREATE SHARE</code> privilege) can create shares.</p>
+
+  <pre><code><span class="comment">-- Step 1: Create a share</span>
+<span class="keyword">CREATE</span> <span class="keyword">SHARE</span> sales_share
+  <span class="keyword">COMMENT</span> = <span class="string">'Quarterly sales data for partner accounts'</span>;
+
+<span class="comment">-- Step 2: Grant usage on database and schema</span>
+<span class="keyword">GRANT</span> USAGE <span class="keyword">ON</span> DATABASE sales_db <span class="keyword">TO</span> SHARE sales_share;
+<span class="keyword">GRANT</span> USAGE <span class="keyword">ON</span> SCHEMA sales_db.public <span class="keyword">TO</span> SHARE sales_share;
+
+<span class="comment">-- Step 3: Grant SELECT on specific objects</span>
+<span class="keyword">GRANT</span> SELECT <span class="keyword">ON</span> TABLE sales_db.public.orders <span class="keyword">TO</span> SHARE sales_share;
+<span class="keyword">GRANT</span> SELECT <span class="keyword">ON</span> VIEW sales_db.public.v_order_summary <span class="keyword">TO</span> SHARE sales_share;
+
+<span class="comment">-- Step 4: Add consumer accounts</span>
+<span class="keyword">ALTER</span> SHARE sales_share <span class="keyword">ADD</span> ACCOUNTS = org1.consumer_acct1, org1.consumer_acct2;
+
+<span class="comment">-- Optional: Restrict share to specific accounts with SHARE_RESTRICTIONS</span>
+<span class="keyword">ALTER</span> SHARE sales_share <span class="keyword">ADD</span> ACCOUNTS = org1.consumer_acct1
+  SHARE_RESTRICTIONS = <span class="keyword">FALSE</span>; <span class="comment">-- Allow sharing across Business Critical editions</span></code></pre>
+
+  <h3>Required Grant Hierarchy</h3>
+  <p>Privileges must be granted in order — you cannot skip levels:</p>
+
+  <table>
+    <thead>
+      <tr><th>Step</th><th>Command</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td><code>GRANT USAGE ON DATABASE</code></td><td>Consumer can see the database exists</td></tr>
+      <tr><td>2</td><td><code>GRANT USAGE ON SCHEMA</code></td><td>Consumer can see the schema within the DB</td></tr>
+      <tr><td>3</td><td><code>GRANT SELECT ON TABLE/VIEW</code></td><td>Consumer can query specific objects</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-warn">
+    <div class="callout-title">Common Exam Trap</div>
+    <p>If you grant SELECT on a table but forget to grant USAGE on the database or schema, the consumer will get an error. <strong>All three levels must be granted.</strong> This is the #1 troubleshooting question on data sharing.</p>
+  </div>
+
+  <h3>Consumer Side: Creating a Database from a Share</h3>
+  <pre><code><span class="comment">-- Consumer account creates a database from the share</span>
+<span class="keyword">CREATE</span> DATABASE shared_sales_db <span class="keyword">FROM</span> SHARE provider_org.provider_acct.sales_share;
+
+<span class="comment">-- Grant access to roles in the consumer account</span>
+<span class="keyword">GRANT</span> IMPORTED PRIVILEGES <span class="keyword">ON</span> DATABASE shared_sales_db <span class="keyword">TO</span> ROLE analyst_role;
+
+<span class="comment">-- Consumers can now query (read-only)</span>
+<span class="keyword">SELECT</span> * <span class="keyword">FROM</span> shared_sales_db.public.orders <span class="keyword">LIMIT</span> 10;</code></pre>
+
+  <h3>Managing Shares</h3>
+  <pre><code><span class="comment">-- View all outbound shares from your account</span>
+<span class="keyword">SHOW</span> SHARES;
+
+<span class="comment">-- Describe what's in a share</span>
+<span class="keyword">DESCRIBE</span> SHARE sales_share;
+
+<span class="comment">-- Revoke access from a consumer</span>
+<span class="keyword">ALTER</span> SHARE sales_share <span class="keyword">REMOVE</span> ACCOUNTS = org1.consumer_acct2;
+
+<span class="comment">-- Revoke an object from the share</span>
+<span class="keyword">REVOKE</span> SELECT <span class="keyword">ON</span> TABLE sales_db.public.orders <span class="keyword">FROM</span> SHARE sales_share;
+
+<span class="comment">-- Drop a share entirely</span>
+<span class="keyword">DROP</span> SHARE sales_share;</code></pre>
+
+  <div class="callout callout-exam">
+    <div class="callout-title">Exam Tip</div>
+    <p>Only <code>ACCOUNTADMIN</code> or a role with the <code>CREATE SHARE</code> global privilege can create shares. On the consumer side, only <code>ACCOUNTADMIN</code> can create a database from an inbound share (using <code>CREATE DATABASE ... FROM SHARE</code>). They can then grant <code>IMPORTED PRIVILEGES</code> to other roles.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 3: Secure Views -->
+<!-- ============================================================ -->
+<h2>3. Secure Views</h2>
+
+<div class="section-card">
+  <h3>Why Secure Views Are Needed for Sharing</h3>
+  <p>Regular views expose their DDL definition to anyone with access, which means a consumer could see the underlying table structure, filter logic, and business rules. <strong>Secure Views</strong> hide the view definition and prevent query optimization techniques that could leak data.</p>
+
+  <div class="two-col">
+    <div>
+      <h3>Regular View</h3>
+      <ul>
+        <li>View DDL visible via <code>GET_DDL()</code> or <code>SHOW VIEWS</code></li>
+        <li>Query optimizer can push predicates past the view</li>
+        <li>Consumer could infer filtered-out data</li>
+        <li><strong>Cannot be shared</strong> — Snowflake blocks non-secure views in shares</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Secure View</h3>
+      <ul>
+        <li>View DDL is hidden from non-owners</li>
+        <li>Optimizer bypasses disabled — prevents data leakage</li>
+        <li>Consumer sees only the output, never the logic</li>
+        <li><strong>Can be shared</strong> — required for view-based sharing</li>
+      </ul>
+    </div>
+  </div>
+
+  <pre><code><span class="comment">-- Create a secure view for sharing</span>
+<span class="keyword">CREATE</span> <span class="keyword">OR REPLACE</span> <span class="keyword">SECURE</span> VIEW sales_db.public.sv_customer_orders <span class="keyword">AS</span>
+<span class="keyword">SELECT</span>
+    o.order_id,
+    o.order_date,
+    o.total_amount,
+    c.customer_name,
+    c.region
+<span class="keyword">FROM</span> sales_db.private.orders o
+<span class="keyword">JOIN</span> sales_db.private.customers c <span class="keyword">ON</span> o.customer_id = c.customer_id
+<span class="keyword">WHERE</span> c.sharing_consent = <span class="keyword">TRUE</span>;  <span class="comment">-- Only share consented data</span>
+
+<span class="comment">-- Convert an existing view to secure</span>
+<span class="keyword">ALTER</span> VIEW sales_db.public.v_summary <span class="keyword">SET</span> SECURE;
+
+<span class="comment">-- Verify a view is secure</span>
+<span class="keyword">SHOW</span> VIEWS <span class="keyword">LIKE</span> <span class="string">'sv_%'</span> <span class="keyword">IN</span> SCHEMA sales_db.public;
+<span class="comment">-- Check 'is_secure' column = 'true'</span></code></pre>
+
+  <h3>Query Optimization Implications</h3>
+
+  <div class="callout callout-warn">
+    <div class="callout-title">Performance Trade-off</div>
+    <p>Secure views disable the optimizer's ability to push predicates and pruning logic into the view definition. This means:</p>
+    <ul>
+      <li><strong>Predicate pushdown is blocked:</strong> A consumer's WHERE clause cannot be optimized past the view boundary</li>
+      <li><strong>Potential performance impact:</strong> The view must materialize its full result set before the consumer's filters apply</li>
+      <li><strong>No access to internal functions:</strong> Functions like <code>CURRENT_ACCOUNT()</code> work correctly inside secure views for row-level filtering</li>
+    </ul>
+  </div>
+
+  <h3>Secure View + Multi-Tenant Sharing Pattern</h3>
+  <pre><code><span class="comment">-- Multi-tenant secure view using CURRENT_ACCOUNT()</span>
+<span class="keyword">CREATE</span> <span class="keyword">SECURE</span> VIEW shared_data.public.sv_tenant_sales <span class="keyword">AS</span>
+<span class="keyword">SELECT</span> order_id, product, quantity, amount
+<span class="keyword">FROM</span> internal.dw.fact_sales
+<span class="keyword">WHERE</span> tenant_account = <span class="keyword">CURRENT_ACCOUNT</span>();
+<span class="comment">-- Each consumer only sees their own rows</span></code></pre>
+
+  <div class="callout callout-exam">
+    <div class="callout-title">Exam Tip</div>
+    <p><strong>You CANNOT share regular (non-secure) views.</strong> Snowflake enforces this — attempting to grant a non-secure view to a share will fail. This is a frequently tested point. Always use <code>CREATE SECURE VIEW</code> for any view intended for sharing.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 4: Secure UDFs -->
+<!-- ============================================================ -->
+<h2>4. Secure UDFs</h2>
+
+<div class="section-card">
+  <h3>Why Secure UDFs?</h3>
+  <p>Similar to secure views, <strong>Secure UDFs</strong> hide the function's internal logic (source code) from consumers. Without the <code>SECURE</code> keyword, any user with USAGE on a UDF can view its definition, potentially exposing proprietary algorithms or business logic.</p>
+
+  <pre><code><span class="comment">-- Create a secure scalar UDF</span>
+<span class="keyword">CREATE</span> <span class="keyword">OR REPLACE</span> <span class="keyword">SECURE</span> FUNCTION pricing.public.calculate_discount(
+    base_price NUMBER(10,2),
+    customer_tier VARCHAR
+)
+RETURNS NUMBER(10,2)
+LANGUAGE SQL
+<span class="keyword">AS</span>
+$$
+  CASE customer_tier
+    WHEN 'PLATINUM' THEN base_price * 0.75
+    WHEN 'GOLD'     THEN base_price * 0.85
+    WHEN 'SILVER'   THEN base_price * 0.92
+    ELSE base_price
+  END
+$$;
+
+<span class="comment">-- Grant UDF usage to a share</span>
+<span class="keyword">GRANT</span> USAGE <span class="keyword">ON</span> FUNCTION pricing.public.calculate_discount(NUMBER, VARCHAR)
+  <span class="keyword">TO</span> SHARE partner_share;</code></pre>
+
+  <h3>Secure UDF Behavior</h3>
+  <table>
+    <thead>
+      <tr><th>Aspect</th><th>Regular UDF</th><th>Secure UDF</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Source code visibility</td><td>Visible via <code>GET_DDL()</code></td><td>Hidden from non-owners</td></tr>
+      <tr><td>Can be shared</td><td>Yes, but logic exposed</td><td>Yes, logic protected</td></tr>
+      <tr><td>Optimizer behavior</td><td>Inline expansion possible</td><td>Treated as opaque/black-box</td></tr>
+      <tr><td>Error messages</td><td>May reveal internal details</td><td>Generic error messages only</td></tr>
+      <tr><td>Supported languages</td><td>SQL, JavaScript, Python, Java, Scala</td><td>Same — all languages supported</td></tr>
+    </tbody>
+  </table>
+
+  <pre><code><span class="comment">-- Convert existing UDF to secure</span>
+<span class="keyword">ALTER</span> FUNCTION pricing.public.calculate_discount(NUMBER, VARCHAR) <span class="keyword">SET</span> SECURE;
+
+<span class="comment">-- Secure table function (UDTF) example</span>
+<span class="keyword">CREATE</span> <span class="keyword">OR REPLACE</span> <span class="keyword">SECURE</span> FUNCTION analytics.public.get_risk_scores(acct_id VARCHAR)
+RETURNS TABLE (risk_category VARCHAR, score FLOAT)
+LANGUAGE SQL
+<span class="keyword">AS</span>
+$$
+  SELECT category, calculated_score
+  FROM internal.ml.risk_model_output
+  WHERE account_id = acct_id
+$$;</code></pre>
+
+  <div class="callout callout-info">
+    <div class="callout-title">Key Point</div>
+    <p>Secure UDFs are commonly used in sharing to provide <strong>derived/computed values</strong> to consumers without exposing the underlying formula or source data. The consumer can call the function but cannot reverse-engineer how it works.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 5: Reader Accounts -->
+<!-- ============================================================ -->
+<h2>5. Reader Accounts (Managed Accounts)</h2>
+
+<div class="section-card">
+  <h3>What Are Reader Accounts?</h3>
+  <p>Reader accounts (also called <strong>Managed Accounts</strong>) are Snowflake accounts created <em>by</em> a data provider specifically for consumers who <strong>do not have their own Snowflake account</strong>. They allow non-Snowflake organizations to access shared data.</p>
+
+  <div class="diagram-box">
+┌─────────────────────────────────────────────────────┐
+│                  DATA PROVIDER                       │
+│                                                     │
+│   ┌──────────┐      ┌──────────────────────────┐   │
+│   │  Share   │─────►│  Reader Account           │   │
+│   │  Object  │      │  (managed by provider)    │   │
+│   └──────────┘      │                           │   │
+│                      │  - Provider pays compute  │   │
+│                      │  - Limited functionality  │   │
+│                      │  - Read-only access       │   │
+│                      │  - Uses resource monitors │   │
+│                      └──────────────────────────┘   │
+└─────────────────────────────────────────────────────┘
+  </div>
+
+  <pre><code><span class="comment">-- Create a reader (managed) account</span>
+<span class="keyword">CREATE</span> MANAGED ACCOUNT partner_reader
+  ADMIN_NAME = <span class="string">'reader_admin'</span>,
+  ADMIN_PASSWORD = <span class="string">'StrongP@ss123!'</span>,
+  TYPE = READER;
+
+<span class="comment">-- Add the reader account to a share</span>
+<span class="keyword">ALTER</span> SHARE sales_share <span class="keyword">ADD</span> ACCOUNTS = &lt;reader_account_locator&gt;;
+
+<span class="comment">-- Show managed accounts</span>
+<span class="keyword">SHOW</span> MANAGED ACCOUNTS;</code></pre>
+
+  <h3>Who Pays?</h3>
+  <div class="callout callout-warn">
+    <div class="callout-title">Critical for Exam</div>
+    <p><strong>The PROVIDER pays for all compute (warehouse) costs</strong> consumed by reader accounts. This is the single most important fact about reader accounts. The provider should set up resource monitors to control costs.</p>
+  </div>
+
+  <h3>Reader Accounts vs Full Accounts</h3>
+  <table>
+    <thead>
+      <tr><th>Capability</th><th>Reader Account</th><th>Full Snowflake Account</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Query shared data</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Create own databases/tables</td><td>No (read-only)</td><td>Yes</td></tr>
+      <tr><td>Load data</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Create shares (re-share)</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Access Marketplace</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Data replication</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Who pays compute</td><td><strong>Provider</strong></td><td>Consumer (self)</td></tr>
+      <tr><td>Warehouse control</td><td>Provider sets resource monitors</td><td>Full self-service</td></tr>
+      <tr><td>User management</td><td>Limited (provider controls)</td><td>Full RBAC</td></tr>
+      <tr><td>Can receive multiple shares</td><td>Only from creating provider</td><td>From any provider</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-exam">
+    <div class="callout-title">Exam Tip</div>
+    <p>Reader accounts can ONLY consume data from the provider that created them. They cannot receive shares from other providers, cannot create their own data, and cannot share data with others. Think of them as <strong>read-only terminals</strong> into the provider's shared data.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 6: Listing Types -->
+<!-- ============================================================ -->
+<h2>6. Listing Types</h2>
+
+<div class="section-card">
+  <h3>Snowflake Marketplace &amp; Listings Overview</h3>
+  <p>Listings are the mechanism for publishing shared data (or apps) to consumers through Snowflake's collaboration features. There are three primary listing types:</p>
+
+  <table>
+    <thead>
+      <tr><th>Listing Type</th><th>Audience</th><th>Discovery</th><th>Pricing</th><th>Use Case</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Private Listing</strong></td>
+        <td>Specific, named accounts</td>
+        <td>Not discoverable; provider invites consumer</td>
+        <td>Free (no commercial terms via Snowflake)</td>
+        <td>B2B data sharing with known partners, subsidiaries, or teams in different accounts</td>
+      </tr>
+      <tr>
+        <td><strong>Personalized Listing</strong></td>
+        <td>Any consumer who requests access</td>
+        <td>Visible in Marketplace; requires approval</td>
+        <td>Free or Paid (custom commercial terms)</td>
+        <td>Data products needing provider approval before access (compliance, onboarding)</td>
+      </tr>
+      <tr>
+        <td><strong>Marketplace Listing</strong></td>
+        <td>All Snowflake customers (public)</td>
+        <td>Discoverable in Snowflake Marketplace</td>
+        <td>Free or Paid</td>
+        <td>Public data products (weather, financial, demographics, etc.)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Free vs Paid Listings</h3>
+  <div class="two-col">
+    <div>
+      <h3>Free Listings</h3>
+      <ul>
+        <li>Consumer gets instant access (or after approval for Personalized)</li>
+        <li>No payment flow through Snowflake</li>
+        <li>Provider may have external billing arrangements</li>
+        <li>Common for: open data, freemium models, internal org sharing</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Paid Listings</h3>
+      <ul>
+        <li>Commercial terms defined in the listing</li>
+        <li>Snowflake handles billing/payment</li>
+        <li>Provider receives payment via Snowflake</li>
+        <li>Common for: premium data providers, data-as-a-service products</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Listing Workflow</h3>
+  <ol>
+    <li><strong>Provider</strong> creates a share (data) or application package (app)</li>
+    <li><strong>Provider</strong> creates a listing in the Snowflake UI or via SQL/API, selecting type and terms</li>
+    <li><strong>Consumer</strong> discovers the listing (via Marketplace or direct invitation)</li>
+    <li><strong>Consumer</strong> requests access (Personalized) or gets instant access (Private/Public Free)</li>
+    <li><strong>Consumer</strong> creates a database from the share in their account</li>
+  </ol>
+
+  <div class="callout callout-info">
+    <div class="callout-title">Cross-Cloud &amp; Cross-Region Sharing</div>
+    <p>Listings can be configured for <strong>cross-cloud/cross-region auto-fulfillment</strong>. Snowflake uses database replication behind the scenes to serve consumers in different regions. The provider sets replication policies; costs apply for cross-region data replication.</p>
+  </div>
+
+  <div class="callout callout-exam">
+    <div class="callout-title">Exam Tip</div>
+    <p>Know the differences: <strong>Private = invitation-only, no Marketplace visibility. Personalized = visible in Marketplace but requires approval. Standard Marketplace = open to all.</strong> Private listings use direct shares; Marketplace listings use the Snowflake Marketplace infrastructure.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 7: What Can Be Shared -->
+<!-- ============================================================ -->
+<h2>7. What Can Be Shared (and What Cannot)</h2>
+
+<div class="section-card">
+  <h3>Shareable Objects</h3>
+  <table>
+    <thead>
+      <tr><th>Object Type</th><th>Shareable?</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Tables</td><td><span class="tag tag-blue">YES</span></td><td>Standard, dynamic, external, and Iceberg tables</td></tr>
+      <tr><td>Secure Views</td><td><span class="tag tag-blue">YES</span></td><td>Required — non-secure views cannot be shared</td></tr>
+      <tr><td>Secure Materialized Views</td><td><span class="tag tag-blue">YES</span></td><td>Must be marked SECURE</td></tr>
+      <tr><td>Secure UDFs</td><td><span class="tag tag-blue">YES</span></td><td>All languages (SQL, JS, Python, Java, Scala)</td></tr>
+      <tr><td>Secure UDTFs</td><td><span class="tag tag-blue">YES</span></td><td>Table functions with SECURE keyword</td></tr>
+      <tr><td>Databases (USAGE)</td><td><span class="tag tag-blue">YES</span></td><td>Required grant for any sharing</td></tr>
+      <tr><td>Schemas (USAGE)</td><td><span class="tag tag-blue">YES</span></td><td>Required grant for any sharing</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Objects That CANNOT Be Shared</h3>
+  <table>
+    <thead>
+      <tr><th>Object Type</th><th>Shareable?</th><th>Why Not</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Stages (Internal/External)</td><td><span class="tag tag-indigo">NO</span></td><td>Files in stages are not queryable objects; use tables instead</td></tr>
+      <tr><td>Pipes (Snowpipe)</td><td><span class="tag tag-indigo">NO</span></td><td>Ingestion infrastructure; not data objects</td></tr>
+      <tr><td>Tasks</td><td><span class="tag tag-indigo">NO</span></td><td>Scheduling/orchestration; consumer must create their own</td></tr>
+      <tr><td>Streams</td><td><span class="tag tag-indigo">NO</span></td><td>Change tracking metadata; specific to provider's operations</td></tr>
+      <tr><td>Sequences</td><td><span class="tag tag-indigo">NO</span></td><td>Auto-increment generators are account-level objects</td></tr>
+      <tr><td>Non-Secure Views</td><td><span class="tag tag-indigo">NO</span></td><td>Security risk — DDL would be exposed to consumers</td></tr>
+      <tr><td>Stored Procedures</td><td><span class="tag tag-indigo">NO</span></td><td>Cannot be granted to shares (use secure UDFs instead)</td></tr>
+      <tr><td>File Formats</td><td><span class="tag tag-indigo">NO</span></td><td>Metadata for staging; not data objects</td></tr>
+      <tr><td>Warehouses</td><td><span class="tag tag-indigo">NO</span></td><td>Compute resources cannot be shared across accounts</td></tr>
+      <tr><td>Users / Roles</td><td><span class="tag tag-indigo">NO</span></td><td>Identity and access are account-local</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-exam">
+    <div class="callout-title">Exam Tip</div>
+    <p>Memorize this list: <strong>Cannot share: Stages, Pipes, Tasks, Streams, Sequences, Non-secure Views, Stored Procedures, File Formats, Warehouses, Users/Roles.</strong> A common question format: "Which of the following can be included in a share?" — eliminate anything infrastructure/operational.</p>
+  </div>
+
+  <div class="callout callout-info">
+    <div class="callout-title">Mnemonic: "SPTSF" Cannot Be Shared</div>
+    <p><strong>S</strong>tages, <strong>P</strong>ipes, <strong>T</strong>asks, <strong>S</strong>treams, File <strong>F</strong>ormats — these are all operational/ingestion objects, not data objects. If it helps data get INTO a table (rather than being the table itself), it probably can't be shared.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 8: Features and Limitations -->
+<!-- ============================================================ -->
+<h2>8. 15 Key Features &amp; 15 Limitations</h2>
+
+<div class="section-card">
+  <h3>15 Key Features of Snowflake Data Sharing</h3>
+  <div class="feature-grid">
+    <div class="feature-item">
+      <div class="feature-icon icon-green">1</div>
+      <div><strong>Zero-Copy Architecture:</strong> No data duplication; consumers read from provider's storage</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-green">2</div>
+      <div><strong>Real-Time Access:</strong> Changes to provider data are instantly visible to consumers</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-green">3</div>
+      <div><strong>No ETL Required:</strong> Eliminates data pipelines between provider and consumer</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-green">4</div>
+      <div><strong>Secure by Default:</strong> Consumers cannot modify shared data; access is always read-only</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-green">5</div>
+      <div><strong>Granular Control:</strong> Share individual tables, views, or UDFs — not everything-or-nothing</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-green">6</div>
+      <div><strong>Multi-Tenant Views:</strong> <code>CURRENT_ACCOUNT()</code> enables row-level filtering per consumer</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-green">7</div>
+      <div><strong>Instant Provisioning:</strong> Consumers get access in seconds (no file transfers or setup)</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-green">8</div>
+      <div><strong>Consumer Pays Compute:</strong> Provider has zero compute cost for full-account consumers</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-green">9</div>
+      <div><strong>Reader Accounts:</strong> Share with non-Snowflake users via managed accounts</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-green">10</div>
+      <div><strong>Marketplace Distribution:</strong> Publish data products to all Snowflake customers globally</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-green">11</div>
+      <div><strong>Cross-Region Replication:</strong> Auto-fulfillment replicates data for cross-region consumers</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-green">12</div>
+      <div><strong>Revocable Access:</strong> Provider can remove accounts or objects from shares at any time</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-green">13</div>
+      <div><strong>No Vendor Lock-in for Consumer:</strong> Consumer uses standard SQL to query shared data</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-green">14</div>
+      <div><strong>Time Travel on Shared Data:</strong> Consumers can use Time Travel on shared tables (within provider's retention)</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-green">15</div>
+      <div><strong>Secure Function Sharing:</strong> Share computed results via secure UDFs without exposing algorithms</div>
+    </div>
+  </div>
+
+  <h3 style="margin-top: 2rem;">15 Limitations of Snowflake Data Sharing</h3>
+  <div class="feature-grid">
+    <div class="feature-item">
+      <div class="feature-icon icon-red">1</div>
+      <div><strong>Same Region Required:</strong> Direct sharing needs both accounts in same cloud/region (replication for cross-region)</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-red">2</div>
+      <div><strong>Read-Only Only:</strong> Consumers cannot write, update, or delete shared data</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-red">3</div>
+      <div><strong>No Operational Objects:</strong> Cannot share stages, pipes, tasks, streams, or sequences</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-red">4</div>
+      <div><strong>Secure Views Required:</strong> Non-secure views cannot be included in shares</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-red">5</div>
+      <div><strong>No Stored Procedures:</strong> Cannot share procedures; only UDFs (with SECURE) are supported</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-red">6</div>
+      <div><strong>Provider Storage Cost:</strong> Provider pays all storage regardless of how many consumers exist</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-red">7</div>
+      <div><strong>Reader Account Costs:</strong> Provider pays all compute for reader (managed) accounts</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-red">8</div>
+      <div><strong>ACCOUNTADMIN Required:</strong> Only ACCOUNTADMIN can create databases from shares (consumer side)</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-red">9</div>
+      <div><strong>No Cloning Shared DBs:</strong> Consumers cannot clone a database created from a share</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-red">10</div>
+      <div><strong>Secure View Performance:</strong> Optimizer restrictions on secure views can reduce query performance</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-red">11</div>
+      <div><strong>No Re-Sharing (Direct):</strong> Consumers cannot re-share data received from another provider's share</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-red">12</div>
+      <div><strong>Schema Evolution Risks:</strong> If provider drops a shared table, consumer queries break immediately</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-red">13</div>
+      <div><strong>No Cross-Database Views in Shares:</strong> Shared secure views cannot reference objects in other databases</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-red">14</div>
+      <div><strong>Limited Reader Functionality:</strong> Reader accounts cannot load data, create shares, or access Marketplace</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon icon-red">15</div>
+      <div><strong>Time Travel Limited:</strong> Consumer Time Travel is bounded by provider's DATA_RETENTION_TIME_IN_DAYS setting</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SUMMARY TABLE -->
+<!-- ============================================================ -->
+<h2>Quick Reference Summary</h2>
+
+<div class="section-card">
+  <table>
+    <thead>
+      <tr><th>Concept</th><th>Key Fact</th><th>Exam Relevance</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Zero-Copy Sharing</td><td>No data moves; consumer reads provider's micro-partitions</td><td>HIGH — definition question</td></tr>
+      <tr><td>Share Creation</td><td>ACCOUNTADMIN or CREATE SHARE privilege required</td><td>HIGH — permissions question</td></tr>
+      <tr><td>Grant Hierarchy</td><td>DB USAGE → Schema USAGE → Object SELECT (all three needed)</td><td>HIGH — troubleshooting question</td></tr>
+      <tr><td>Secure Views</td><td>Mandatory for sharing views; hides DDL and blocks optimizer pushdown</td><td>HIGH — multiple question types</td></tr>
+      <tr><td>Reader Accounts</td><td>Provider pays compute; consumer has no own Snowflake account</td><td>HIGH — cost/billing question</td></tr>
+      <tr><td>Listing: Private</td><td>Invitation-only; specific accounts; not in Marketplace</td><td>MEDIUM — comparison question</td></tr>
+      <tr><td>Listing: Personalized</td><td>Marketplace-visible but requires approval</td><td>MEDIUM — comparison question</td></tr>
+      <tr><td>Listing: Marketplace</td><td>Public discovery; free or paid; instant or request</td><td>MEDIUM — comparison question</td></tr>
+      <tr><td>Cannot Share</td><td>Stages, Pipes, Tasks, Streams, Sequences, Procedures</td><td>HIGH — elimination question</td></tr>
+      <tr><td>Cross-Region</td><td>Requires replication; not free direct sharing</td><td>MEDIUM — architecture question</td></tr>
+      <tr><td>Consumer Side</td><td><code>CREATE DATABASE ... FROM SHARE</code>; then GRANT IMPORTED PRIVILEGES</td><td>HIGH — workflow question</td></tr>
+      <tr><td>CURRENT_ACCOUNT()</td><td>Used in secure views for multi-tenant row filtering</td><td>HIGH — pattern question</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="callout callout-success" style="margin-top: 2rem;">
+  <div class="callout-title">Study Strategy</div>
+  <p>For the SnowPro Core exam, focus on: (1) what makes sharing "zero-copy", (2) the required privilege hierarchy for shares, (3) why secure views are mandatory, (4) who pays for reader accounts, and (5) what objects cannot be shared. These five areas cover roughly 80% of data sharing questions on the exam.</p>
+</div>
+
+</body>
+</html>

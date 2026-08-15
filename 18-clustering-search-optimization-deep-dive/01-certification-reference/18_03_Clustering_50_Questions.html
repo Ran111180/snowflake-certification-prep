@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>18.03 Clustering & Search Optimization - 50 Interactive Questions</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "18.03 Clustering 50 Questions",
+  "description": "50 interactive certification-prep questions covering clustering, SOS, QAS, and partition pruning",
+  "author": "Snowflake Certification Prep",
+  "created": "2025-01-01",
+  "tags": ["quiz", "clustering", "SOS", "QAS", "certification"],
+  "version": "1.0"
+}
+</script>
+<style>
+  :root {
+    --bg-primary: light-dark(#f0fdf4, #022c22);
+    --bg-secondary: light-dark(#dcfce7, #064e3b);
+    --bg-card: light-dark(#ffffff, #0f3d2e);
+    --text-primary: light-dark(#052e16, #ecfdf5);
+    --text-secondary: light-dark(#166534, #a7f3d0);
+    --accent: light-dark(#059669, #34d399);
+    --border: light-dark(#a7f3d0, #065f46);
+    --shadow: light-dark(rgba(5,150,105,0.1), rgba(0,0,0,0.3));
+    --code-bg: light-dark(#ecfdf5, #041f17);
+    --highlight: light-dark(#d1fae5, #064e3b);
+    --correct: light-dark(#16a34a, #4ade80);
+    --incorrect: light-dark(#dc2626, #f87171);
+    --correct-bg: light-dark(#dcfce7, #052e16);
+    --incorrect-bg: light-dark(#fef2f2, #450a0a);
+  }
+  html { color-scheme: light dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.7;
+    padding: 2rem;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 2rem;
+    color: var(--accent);
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .score-bar {
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border: 1px solid var(--border);
+  }
+  .score-bar span { font-weight: 600; color: var(--accent); }
+  .score-bar button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .question-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1.25rem 0;
+    box-shadow: 0 2px 8px var(--shadow);
+  }
+  .question-card h3 {
+    color: var(--accent);
+    margin-bottom: 1rem;
+    font-size: 1rem;
+  }
+  .question-card p {
+    margin-bottom: 1rem;
+    font-weight: 500;
+  }
+  .options { list-style: none; padding: 0; }
+  .options li {
+    padding: 0.75rem 1rem;
+    margin: 0.5rem 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .options li:hover { background: var(--highlight); }
+  .options li.selected { border-color: var(--accent); background: var(--highlight); }
+  .options li.correct { border-color: var(--correct); background: var(--correct-bg); }
+  .options li.incorrect { border-color: var(--incorrect); background: var(--incorrect-bg); }
+  .explanation {
+    display: none;
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--highlight);
+    border-left: 4px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    font-size: 0.9rem;
+  }
+  .explanation.visible { display: block; }
+  code {
+    background: var(--code-bg);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-family: 'Courier New', monospace;
+  }
+</style>
+</head>
+<body>
+
+<h1>18.03 Clustering &amp; Search Optimization — 50 Questions</h1>
+
+<div class="score-bar">
+  <span>Score: <span id="score">0</span> / <span id="total">0</span> (<span id="pct">0</span>%)</span>
+  <span>Answered: <span id="answered">0</span> / 50</span>
+  <button id="resetBtn">Reset All</button>
+</div>
+
+<div id="quiz-container"></div>
+
+<script>
+const questions = [
+  {
+    q: "What is the typical size range of a Snowflake micro-partition (uncompressed)?",
+    opts: ["1-10 MB", "50-500 MB", "1-4 GB", "500 MB - 2 GB"],
+    ans: 1,
+    exp: "Micro-partitions range from 50 to 500 MB of uncompressed data. On disk (compressed), they are typically around 16 MB."
+  },
+  {
+    q: "How is data stored within a micro-partition?",
+    opts: ["Row-oriented format", "Columnar format", "Key-value pairs", "Document format (JSON)"],
+    ans: 1,
+    exp: "Snowflake uses columnar storage within micro-partitions, enabling column pruning and better compression."
+  },
+  {
+    q: "Which metadata is automatically maintained for each micro-partition? (Choose the most complete answer)",
+    opts: ["Only row count", "Min/max values, distinct count, NULL count per column", "Only min/max values per column", "Index entries for each value"],
+    ans: 1,
+    exp: "Snowflake maintains min/max values, number of distinct values, and NULL count per column per micro-partition. No user-defined indexes exist."
+  },
+  {
+    q: "What is partition pruning?",
+    opts: ["Deleting old partitions", "Skipping irrelevant micro-partitions using metadata", "Compressing partitions to save space", "Splitting large partitions into smaller ones"],
+    ans: 1,
+    exp: "Partition pruning uses min/max metadata to skip micro-partitions that cannot contain matching rows, dramatically reducing I/O."
+  },
+  {
+    q: "What is 'natural clustering' in Snowflake?",
+    opts: ["Manually defining partition boundaries", "Data organization that results from load order", "Automatic indexing of all columns", "Clustering based on primary key"],
+    ans: 1,
+    exp: "Natural clustering occurs because data loaded sequentially ends up in the same partitions, creating implicit ordering (especially on timestamp/date columns)."
+  },
+  {
+    q: "When is a table a good candidate for explicit clustering? (Best answer)",
+    opts: ["Any table regardless of size", "Tables > 1 TB with known filter patterns and poor natural clustering", "All tables with more than 10 columns", "Only tables that have primary keys"],
+    ans: 1,
+    exp: "Explicit clustering is most beneficial for large tables (>1 TB) that have known, consistent query filter patterns and where natural clustering is insufficient."
+  },
+  {
+    q: "What is the recommended maximum number of columns in a clustering key?",
+    opts: ["1 column only", "2 columns", "3-4 columns", "Unlimited"],
+    ans: 2,
+    exp: "The practical limit is 3-4 columns. More columns yield diminishing returns and increase reclustering costs."
+  },
+  {
+    q: "Can you define a clustering key using an expression?",
+    opts: ["No, only raw columns are allowed", "Yes, expressions like TO_DATE(timestamp) are supported", "Only with Enterprise edition", "Only for numeric columns"],
+    ans: 1,
+    exp: "Clustering keys support expressions such as TO_DATE(ts), MONTH(date), TRUNC(amount, -3), SUBSTRING(col, 1, 4), etc."
+  },
+  {
+    q: "How many clustering keys can a single table have?",
+    opts: ["One", "Up to 3", "Up to 5", "Unlimited"],
+    ans: 0,
+    exp: "A table can only have ONE clustering key definition at a time. To change it, you must drop the existing key and define a new one."
+  },
+  {
+    q: "What happens immediately after you define a clustering key with ALTER TABLE ... CLUSTER BY?",
+    opts: ["The table is instantly reclustered", "A background reclustering process gradually reorganizes data", "All queries are paused until reclustering completes", "Nothing until you run RECLUSTER manually"],
+    ans: 1,
+    exp: "Defining a clustering key triggers automatic background reclustering that gradually reorganizes the data. It is not instant."
+  },
+  {
+    q: "What compute resource does automatic reclustering use?",
+    opts: ["The user's active virtual warehouse", "Serverless compute (no user warehouse required)", "A dedicated system warehouse", "The XS warehouse by default"],
+    ans: 1,
+    exp: "Automatic reclustering uses Snowflake's serverless compute model. No user warehouse is needed, and charges appear as separate serverless credits."
+  },
+  {
+    q: "Does reclustering block concurrent DML or queries?",
+    opts: ["Yes, the table is locked during reclustering", "No, it runs concurrently without blocking", "Only queries are blocked, not DML", "Only INSERT is blocked"],
+    ans: 1,
+    exp: "Reclustering runs in the background concurrently and does NOT block any DML operations or queries on the table."
+  },
+  {
+    q: "Which function shows clustering quality metrics for a table?",
+    opts: ["SYSTEM$CLUSTERING_DEPTH()", "SYSTEM$CLUSTERING_INFORMATION()", "DESCRIBE CLUSTERING()", "SHOW CLUSTERING STATUS"],
+    ans: 1,
+    exp: "SYSTEM$CLUSTERING_INFORMATION('table', '(columns)') returns JSON with average_depth, average_overlaps, and partition_depth_histogram."
+  },
+  {
+    q: "In SYSTEM$CLUSTERING_INFORMATION output, what does 'average_depth' represent?",
+    opts: ["Number of columns in the clustering key", "Average number of overlapping partitions for a given value", "Total number of partitions", "Average partition size in MB"],
+    ans: 1,
+    exp: "Average_depth indicates how many micro-partitions overlap for a given clustering key value. Lower values (close to 1) indicate better clustering."
+  },
+  {
+    q: "What is a good 'average_depth' value indicating well-clustered data?",
+    opts: ["Close to 0", "Close to 1", "Between 5-10", "Over 100"],
+    ans: 1,
+    exp: "An average_depth close to 1.0 means minimal partition overlap — each value range is concentrated in very few partitions. This enables effective pruning."
+  },
+  {
+    q: "High-cardinality columns (like UUIDs) make good clustering keys. True or False?",
+    opts: ["True — unique values ensure perfect partitioning", "False — high cardinality is ineffective for clustering", "True — but only for small tables", "It depends on the query pattern only"],
+    ans: 1,
+    exp: "False. High-cardinality columns (UUIDs, email addresses) are poor clustering keys because each partition would contain unique values, making range-based pruning impossible."
+  },
+  {
+    q: "Which column characteristic makes the best clustering key candidate?",
+    opts: ["Unique (high cardinality)", "Low-to-medium cardinality, frequently used in filters", "Any Boolean column", "The largest VARCHAR column"],
+    ans: 1,
+    exp: "Low-to-medium cardinality columns that are frequently used in WHERE clauses make the best clustering keys. This enables effective partition pruning."
+  },
+  {
+    q: "How do you suspend automatic reclustering to control costs?",
+    opts: ["DROP CLUSTERING KEY", "ALTER TABLE t SUSPEND RECLUSTER", "ALTER WAREHOUSE SUSPEND", "SET CLUSTERING_ENABLED = FALSE"],
+    ans: 1,
+    exp: "ALTER TABLE my_table SUSPEND RECLUSTER pauses automatic reclustering. Use RESUME RECLUSTER to restart it later."
+  },
+  {
+    q: "Which table function monitors reclustering credit consumption?",
+    opts: ["QUERY_HISTORY", "AUTOMATIC_CLUSTERING_HISTORY", "WAREHOUSE_METERING_HISTORY", "TABLE_STORAGE_METRICS"],
+    ans: 1,
+    exp: "INFORMATION_SCHEMA.AUTOMATIC_CLUSTERING_HISTORY() shows credits consumed by automatic reclustering for specific tables."
+  },
+  {
+    q: "What is the Search Optimization Service (SOS)?",
+    opts: ["A query rewriting engine", "A serverless service that builds search access paths for point lookups", "A caching layer for frequent queries", "An index you build manually"],
+    ans: 1,
+    exp: "SOS is a serverless, maintenance-free feature that builds persistent search access paths, enabling efficient point lookups without full partition scans."
+  },
+  {
+    q: "Which predicate types does SOS support? (Best answer)",
+    opts: ["Only equality (=)", "Equality, IN, LIKE/substring, range, GEOGRAPHY, VARIANT fields", "Only range predicates", "All predicate types including full-text search"],
+    ans: 1,
+    exp: "SOS supports equality, IN lists, substring/LIKE, selective ranges, GEOGRAPHY functions, VARIANT field lookups, and IS NULL/IS NOT NULL."
+  },
+  {
+    q: "How do you enable SOS for specific columns only?",
+    opts: ["ALTER TABLE t ADD INDEX ON (col)", "ALTER TABLE t ADD SEARCH OPTIMIZATION ON EQUALITY(col)", "CREATE SEARCH INDEX ON t(col)", "SET SEARCH_OPTIMIZATION = TRUE FOR col"],
+    ans: 1,
+    exp: "Use ALTER TABLE t ADD SEARCH OPTIMIZATION ON EQUALITY(col1), ON SUBSTRING(col2) to enable SOS selectively on specific columns and predicate types."
+  },
+  {
+    q: "Does SOS require a user's virtual warehouse for maintenance?",
+    opts: ["Yes, it uses the current warehouse", "No, it uses serverless compute for background maintenance", "Yes, a dedicated XS warehouse", "Only for initial build"],
+    ans: 1,
+    exp: "SOS is fully serverless. Background maintenance of search access paths uses Snowflake's serverless compute, requiring no user warehouse."
+  },
+  {
+    q: "Does SOS incur costs even when no queries use it?",
+    opts: ["No — only charged per query", "Yes — background maintenance runs after DML regardless of queries", "No — it's included in storage costs", "Only during the initial build phase"],
+    ans: 1,
+    exp: "SOS has ongoing maintenance costs because the background service continuously updates search access paths after DML operations, regardless of whether queries leverage it."
+  },
+  {
+    q: "SOS is best suited for which query pattern?",
+    opts: ["Full table scans for analytics", "Point lookups on high-cardinality columns in large tables", "Broad range queries on dates", "Queries returning most rows in the table"],
+    ans: 1,
+    exp: "SOS excels at point lookups (equality/IN) on high-cardinality columns where clustering alone cannot help, in large tables."
+  },
+  {
+    q: "What does the Query Acceleration Service (QAS) do?",
+    opts: ["Caches query results", "Offloads scan portions of eligible queries to serverless compute", "Rewrites queries for optimization", "Adds more nodes to the warehouse"],
+    ans: 1,
+    exp: "QAS identifies the scan-heavy portions of eligible queries and distributes that work to additional serverless compute resources, reducing query wall-clock time."
+  },
+  {
+    q: "QAS is enabled at what level?",
+    opts: ["Table level", "Database level", "Warehouse level", "Account level"],
+    ans: 2,
+    exp: "QAS is enabled per warehouse using ALTER WAREHOUSE ... SET ENABLE_QUERY_ACCELERATION = TRUE. All queries on that warehouse may benefit."
+  },
+  {
+    q: "What does QUERY_ACCELERATION_MAX_SCALE_FACTOR control?",
+    opts: ["The warehouse size multiplier", "Maximum additional serverless compute QAS can use", "Number of retry attempts", "Cache size for accelerated queries"],
+    ans: 1,
+    exp: "SCALE_FACTOR controls how much additional serverless compute can be allocated. A value of 8 means up to 8x the warehouse compute can be added. 0 = unlimited."
+  },
+  {
+    q: "A SCALE_FACTOR of 0 means:",
+    opts: ["QAS is disabled", "No limit on additional compute — Snowflake uses as much as beneficial", "Only 1x additional compute", "QAS operates in test mode"],
+    ans: 1,
+    exp: "A scale factor of 0 means Snowflake can use unlimited additional serverless compute for query acceleration — no cap on resources."
+  },
+  {
+    q: "Which queries are eligible for QAS? (Best answer)",
+    opts: ["All queries", "Large scans with selective filters, queries with LIMIT, aggregations over large datasets", "Only simple SELECT statements", "Only queries under 10 seconds"],
+    ans: 1,
+    exp: "QAS helps queries that scan many partitions but return relatively few rows — high scan volume with selective output. Also aggregations and queries with LIMIT over large data."
+  },
+  {
+    q: "Which operations are NOT eligible for QAS?",
+    opts: ["SELECT with GROUP BY", "INSERT, UPDATE, DELETE, MERGE", "SELECT with WHERE clause", "SELECT with LIMIT"],
+    ans: 1,
+    exp: "DML operations (INSERT, UPDATE, DELETE, MERGE) are not eligible for QAS. It only accelerates SELECT query scan operations."
+  },
+  {
+    q: "Does QAS incur idle costs when no queries use it?",
+    opts: ["Yes — it pre-allocates compute", "No — only charged per query that actually uses acceleration", "Yes — background indexing runs constantly", "Depends on scale factor setting"],
+    ans: 1,
+    exp: "QAS has no idle cost. You are only charged serverless compute credits when queries actually benefit from and use the acceleration."
+  },
+  {
+    q: "How can you check which queries are eligible for QAS?",
+    opts: ["SHOW ACCELERATABLE QUERIES", "Check eligible_query_acceleration_time in QUERY_HISTORY", "Run EXPLAIN on each query", "It's not possible to check in advance"],
+    ans: 1,
+    exp: "The eligible_query_acceleration_time column in SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY shows estimated time savings. Also SYSTEM$ESTIMATE_QUERY_ACCELERATION('query_id')."
+  },
+  {
+    q: "In the Query Profile, what does 'Partitions scanned: 50, Partitions total: 1000' indicate?",
+    opts: ["5% of data was relevant", "95% partition pruning efficiency", "The query was slow", "50 partitions were created"],
+    ans: 1,
+    exp: "Pruning efficiency = (1000-50)/1000 = 95%. Only 50 of 1000 partitions were read — excellent pruning."
+  },
+  {
+    q: "In the Query Profile, 'Bytes spilled to remote storage' indicates:",
+    opts: ["Normal operation — data is being cached", "Severe memory pressure — consider upsizing warehouse", "The query uses temporary tables", "Data is being written to a stage"],
+    ans: 1,
+    exp: "Spilling to remote storage (S3/Azure) indicates the warehouse memory is severely insufficient. Local spilling is moderate; remote spilling is a significant performance issue."
+  },
+  {
+    q: "What is the difference between spilling to local vs remote storage?",
+    opts: ["No difference — both are equally slow", "Local = SSD overflow (moderate impact); Remote = cloud storage overflow (severe impact)", "Local = faster recovery; Remote = data loss risk", "Local = free; Remote = extra charges"],
+    ans: 1,
+    exp: "Local spilling goes to the warehouse node's SSD (moderate impact). Remote spilling goes to cloud object storage (S3/Azure Blob) and has severe performance impact — usually means the warehouse needs upsizing."
+  },
+  {
+    q: "A pruning efficiency below 50% typically suggests:",
+    opts: ["The query is well optimized", "The clustering key should be reviewed or changed", "The table is too small", "SOS needs to be disabled"],
+    ans: 1,
+    exp: "Less than 50% pruning means most partitions are being scanned. This suggests the clustering key doesn't align with query filter predicates and should be reviewed."
+  },
+  {
+    q: "Can clustering and SOS be used together on the same table?",
+    opts: ["No — they conflict with each other", "Yes — they complement each other for different query patterns", "Only on Enterprise edition", "Only if the table is under 1 TB"],
+    ans: 1,
+    exp: "Yes! Clustering handles range queries on its key columns, while SOS handles point lookups on other columns. They address different optimization needs."
+  },
+  {
+    q: "Can clustering and QAS benefit the same query?",
+    opts: ["No — QAS only works on unclustered tables", "Yes — clustering reduces scan volume, QAS parallelizes remaining scans", "They cancel each other out", "Only one can be active at a time"],
+    ans: 1,
+    exp: "They are complementary. Clustering reduces the number of partitions to scan (via pruning), and QAS can further accelerate the scanning of remaining partitions."
+  },
+  {
+    q: "What happens to existing data when you change a clustering key?",
+    opts: ["Data is immediately re-sorted", "Background reclustering gradually reorganizes the data over time", "The table is truncated", "A new copy of the table is created"],
+    ans: 1,
+    exp: "Changing the clustering key starts a gradual background reclustering process. Existing data is not immediately reorganized — it happens over time."
+  },
+  {
+    q: "Which column order is correct for CLUSTER BY if queries mostly filter on date, then sometimes also on region?",
+    opts: ["CLUSTER BY (region, date)", "CLUSTER BY (date, region)", "CLUSTER BY (region)", "Order doesn't matter"],
+    ans: 1,
+    exp: "Put the most commonly filtered column first. Since queries mostly filter on date (and sometimes also region), CLUSTER BY (date, region) is optimal."
+  },
+  {
+    q: "Why is clustering on a BOOLEAN column generally ineffective?",
+    opts: ["Booleans aren't supported", "Too few distinct values (2) — almost every partition contains both", "Booleans take too much storage", "It would cause lock conflicts"],
+    ans: 1,
+    exp: "With only 2 distinct values, every micro-partition likely contains both TRUE and FALSE values, making it impossible to prune any partitions based on the boolean filter."
+  },
+  {
+    q: "Which is more cost-effective for enabling SOS?",
+    opts: ["Adding SOS to all columns at once", "Adding SOS selectively on specific columns and predicate types", "Using a larger warehouse instead", "Enabling SOS only during business hours"],
+    ans: 1,
+    exp: "Selective SOS (ON EQUALITY(col1), ON SUBSTRING(col2)) is more cost-effective because maintenance only runs for specified columns, reducing ongoing serverless compute charges."
+  },
+  {
+    q: "The constant_partition_count in SYSTEM$CLUSTERING_INFORMATION represents:",
+    opts: ["Partitions that never change", "Partitions with no overlap for the clustering key values", "Partitions created during initial load", "Partitions that are fully compressed"],
+    ans: 1,
+    exp: "Constant partitions have non-overlapping clustering key ranges — they contain values that don't appear in any other partition. Higher count = better clustering."
+  },
+  {
+    q: "What does the clustering ratio (constant/total) tell you?",
+    opts: ["Compression efficiency", "How well data is sorted by the clustering key (closer to 1 = better)", "Table fragmentation level", "Time Travel storage overhead"],
+    ans: 1,
+    exp: "Clustering ratio = constant_partition_count / total_partition_count. A value close to 1.0 means excellent clustering; below 0.5 suggests reclustering is needed."
+  },
+  {
+    q: "Automatic reclustering runs more frequently (costs more) when:",
+    opts: ["The table has many columns", "The table experiences heavy DML churn (frequent INSERT/UPDATE/DELETE)", "The warehouse is large", "More users query the table"],
+    ans: 1,
+    exp: "Heavy DML operations create new partitions that may not align with the clustering key, triggering more frequent reclustering to restore order."
+  },
+  {
+    q: "Can you cluster on VARIANT/semi-structured fields directly?",
+    opts: ["Yes, using path notation directly in CLUSTER BY", "Yes, but you must use an expression like CAST(data:field AS type)", "No, VARIANT columns cannot be clustered", "Only with the Enterprise edition"],
+    ans: 1,
+    exp: "You can cluster on VARIANT fields using expressions: CLUSTER BY (CAST(data:region AS VARCHAR), TO_DATE(data:event_time)). The expression must produce a scalar value."
+  },
+  {
+    q: "Which view shows historical SOS credit consumption?",
+    opts: ["WAREHOUSE_METERING_HISTORY", "SEARCH_OPTIMIZATION_HISTORY table function", "QUERY_HISTORY", "STORAGE_USAGE"],
+    ans: 1,
+    exp: "INFORMATION_SCHEMA.SEARCH_OPTIMIZATION_HISTORY() shows credits consumed by SOS maintenance for specific tables over time."
+  },
+  {
+    q: "QAS is most beneficial when the query bottleneck is:",
+    opts: ["Network transfer", "The scan/filter phase (reading many partitions)", "Join operations", "Result set serialization"],
+    ans: 1,
+    exp: "QAS offloads the scan-heavy portion of queries. If the bottleneck is scanning/filtering large amounts of data, QAS can parallelize this across serverless compute."
+  },
+  {
+    q: "You have a 5 TB table queried primarily by customer_id (high cardinality) lookups. Best optimization?",
+    opts: ["CLUSTER BY (customer_id)", "Search Optimization Service on EQUALITY(customer_id)", "Query Acceleration Service", "No optimization needed"],
+    ans: 1,
+    exp: "For point lookups on high-cardinality columns, SOS is ideal. Clustering on customer_id would be ineffective due to high cardinality. SOS builds access paths for efficient lookups."
+  },
+  {
+    q: "You have a 3 TB table filtered by date ranges and region. Best optimization?",
+    opts: ["SOS on date and region", "CLUSTER BY (date, region)", "QAS with scale factor 10", "Drop the table and recreate with partitioning"],
+    ans: 1,
+    exp: "Range queries on known filter columns are the ideal use case for clustering keys. CLUSTER BY (date, region) enables excellent partition pruning for these patterns."
+  }
+];
+
+function renderQuiz() {
+  const container = document.getElementById('quiz-container');
+  container.innerHTML = '';
+  questions.forEach((q, i) => {
+    const card = document.createElement('div');
+    card.className = 'question-card';
+    card.id = 'q' + i;
+    card.innerHTML = `
+      <h3>Question ${i + 1} of 50</h3>
+      <p>${q.q}</p>
+      <ul class="options">
+        ${q.opts.map((opt, j) => `<li data-q="${i}" data-opt="${j}">${opt}</li>`).join('')}
+      </ul>
+      <div class="explanation" id="exp-${i}"><strong>Explanation:</strong> ${q.exp}</div>
+    `;
+    container.appendChild(card);
+  });
+  document.querySelectorAll('.options li').forEach(li => {
+    li.addEventListener('click', handleAnswer);
+  });
+}
+
+let answered = new Set();
+let correct = 0;
+
+function handleAnswer(e) {
+  const li = e.currentTarget;
+  const qi = parseInt(li.dataset.q);
+  const oi = parseInt(li.dataset.opt);
+  if (answered.has(qi)) return;
+  answered.add(qi);
+
+  const opts = document.querySelectorAll(`[data-q="${qi}"]`);
+  opts.forEach(o => {
+    const idx = parseInt(o.dataset.opt);
+    if (idx === questions[qi].ans) o.classList.add('correct');
+    else if (idx === oi) o.classList.add('incorrect');
+  });
+
+  if (oi === questions[qi].ans) correct++;
+  document.getElementById('exp-' + qi).classList.add('visible');
+  updateScore();
+}
+
+function updateScore() {
+  document.getElementById('score').textContent = correct;
+  document.getElementById('total').textContent = answered.size;
+  document.getElementById('answered').textContent = answered.size;
+  document.getElementById('pct').textContent = answered.size ? Math.round(correct / answered.size * 100) : 0;
+}
+
+function resetQuiz() {
+  answered = new Set();
+  correct = 0;
+  updateScore();
+  renderQuiz();
+}
+
+document.getElementById('resetBtn').addEventListener('click', resetQuiz);
+renderQuiz();
+</script>
+</body>
+</html>
