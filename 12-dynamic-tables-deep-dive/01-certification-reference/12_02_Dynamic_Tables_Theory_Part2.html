@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Dynamic Tables - Theory Part 2: Advanced Topics</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Dynamic Tables advanced: pipeline patterns, monitoring, optimization, RBAC, debugging, cost management",
+    "sections": [
+      { "id": "pipelines", "title": "Pipeline Patterns", "dataSources": [], "producerNotes": "Bronze/Silver/Gold, medallion" },
+      { "id": "monitoring", "title": "Monitoring & Observability", "dataSources": [], "producerNotes": "Refresh history, lag tracking, health" },
+      { "id": "optimization", "title": "Optimization", "dataSources": [], "producerNotes": "Cost, performance, incremental tips" },
+      { "id": "rbac", "title": "RBAC & Permissions", "dataSources": [], "producerNotes": "Roles, grants, ownership" },
+      { "id": "debugging", "title": "Debugging & Troubleshooting", "dataSources": [], "producerNotes": "Common issues and fixes" },
+      { "id": "advanced", "title": "Advanced Patterns", "dataSources": [], "producerNotes": "DT + Streams, DT + Tasks hybrid" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #0f172a); line-height: 1.6; }
+    h1 { font-size: 2rem; color: light-dark(#0f172a, #f8fafc); margin-bottom: 8px; border-bottom: 3px solid light-dark(#0d9488, #5eead4); padding-bottom: 12px; }
+    h2 { font-size: 1.5rem; color: light-dark(#115e59, #99f6e4); margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid light-dark(#ccfbf1, #134e4a); }
+    h3 { font-size: 1.15rem; color: light-dark(#0f766e, #a7f3d0); margin: 24px 0 12px; }
+    p { margin: 8px 0; }
+    .subtitle { color: light-dark(#6b7280, #9ca3af); font-size: 0.95rem; margin-bottom: 24px; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; }
+    th, td { border: 1px solid light-dark(#e5e7eb, #374151); padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: light-dark(#f0fdfa, #1e293b); font-weight: 600; color: light-dark(#115e59, #99f6e4); }
+    tr:nth-child(even) td { background: light-dark(#f9fafb, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
+    pre { background: light-dark(#1e293b, #0c1322); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; font-size: 0.85rem; line-height: 1.5; }
+    .card { background: light-dark(#f0fdfa, #1e293b); border: 1px solid light-dark(#99f6e4, #334155); border-radius: 8px; padding: 20px; margin: 16px 0; }
+    .card-title { font-weight: 700; color: light-dark(#115e59, #99f6e4); margin-bottom: 8px; }
+    .warning { background: light-dark(#fef3c7, #451a03); border-left: 4px solid light-dark(#f59e0b, #fbbf24); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .info { background: light-dark(#dbeafe, #172554); border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .success { background: light-dark(#d1fae5, #022c22); border-left: 4px solid light-dark(#10b981, #34d399); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .danger { background: light-dark(#fee2e2, #450a0a); border-left: 4px solid light-dark(#ef4444, #f87171); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .toc { background: light-dark(#f8fafc, #1e293b); border: 1px solid light-dark(#e2e8f0, #334155); border-radius: 8px; padding: 20px; margin: 24px 0; }
+    .toc a { color: light-dark(#0d9488, #5eead4); text-decoration: none; }
+    .toc ul { list-style: none; padding-left: 0; }
+    .toc li { padding: 4px 0; }
+    ul, ol { padding-left: 24px; margin: 8px 0; }
+    li { margin: 4px 0; }
+  </style>
+</head>
+<body>
+
+<h1>Dynamic Tables - Part 2: Advanced Topics</h1>
+<p class="subtitle">SnowPro Core Certification | Pipeline patterns, monitoring, optimization, RBAC | August 2026</p>
+
+<div class="toc">
+  <strong>Table of Contents</strong>
+  <ul>
+    <li><a href="#pipelines">1. Pipeline Patterns (Medallion Architecture)</a></li>
+    <li><a href="#monitoring">2. Monitoring & Observability</a></li>
+    <li><a href="#optimization">3. Optimization & Cost Management</a></li>
+    <li><a href="#rbac">4. RBAC & Permissions</a></li>
+    <li><a href="#debugging">5. Debugging & Troubleshooting</a></li>
+    <li><a href="#advanced">6. Advanced Hybrid Patterns</a></li>
+    <li><a href="#alter">7. ALTER DYNAMIC TABLE Operations</a></li>
+    <li><a href="#best-practices">8. Production Best Practices</a></li>
+  </ul>
+</div>
+
+<!-- SECTION 1 -->
+<h2 id="pipelines">1. Pipeline Patterns (Medallion Architecture)</h2>
+
+<div class="card">
+  <div class="card-title">The Medallion Architecture with Dynamic Tables</div>
+  <p>Dynamic Tables are ideal for implementing the Bronze → Silver → Gold pattern. Each layer is a DT that reads from the previous layer. Snowflake auto-detects the DAG and refreshes in order.</p>
+</div>
+
+<h3>Full Medallion Example</h3>
+<pre>-- ═══════════════════════════════════════════
+-- BRONZE: Raw ingestion (regular table, loaded by Snowpipe)
+-- ═══════════════════════════════════════════
+CREATE TABLE bronze_events (
+  raw_data VARIANT,
+  _loaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
+  _source_file VARCHAR DEFAULT METADATA$FILENAME
+);
+
+-- ═══════════════════════════════════════════
+-- SILVER: Cleaned & typed (Dynamic Table)
+-- ═══════════════════════════════════════════
+CREATE DYNAMIC TABLE silver_events
+  TARGET_LAG = '5 minutes'
+  WAREHOUSE = transform_wh
+AS
+  SELECT
+    raw_data:event_id::STRING AS event_id,
+    raw_data:user_id::INT AS user_id,
+    raw_data:event_type::STRING AS event_type,
+    raw_data:properties::VARIANT AS properties,
+    TRY_TO_TIMESTAMP(raw_data:timestamp::STRING) AS event_timestamp,
+    _loaded_at,
+    _source_file
+  FROM bronze_events
+  WHERE raw_data:event_id IS NOT NULL;
+
+-- ═══════════════════════════════════════════
+-- GOLD: Business-level aggregates (Dynamic Table)
+-- ═══════════════════════════════════════════
+CREATE DYNAMIC TABLE gold_user_activity
+  TARGET_LAG = '30 minutes'
+  WAREHOUSE = transform_wh
+AS
+  SELECT
+    user_id,
+    DATE_TRUNC('day', event_timestamp) AS activity_date,
+    COUNT(*) AS total_events,
+    COUNT(DISTINCT event_type) AS distinct_event_types,
+    MIN(event_timestamp) AS first_event,
+    MAX(event_timestamp) AS last_event,
+    COUNT_IF(event_type = 'purchase') AS purchases,
+    SUM(IFF(event_type = 'purchase',
+        properties:amount::DECIMAL(10,2), 0)) AS total_spend
+  FROM silver_events
+  GROUP BY 1, 2;</pre>
+
+<h3>Pipeline with DOWNSTREAM</h3>
+<pre>-- Only the FINAL layer has a time-based lag
+-- Intermediate layers use DOWNSTREAM (refresh only when needed)
+
+CREATE DYNAMIC TABLE staging_orders
+  TARGET_LAG = DOWNSTREAM  -- Won't refresh on its own
+  WAREHOUSE = wh AS SELECT ... FROM raw_orders;
+
+CREATE DYNAMIC TABLE staging_customers
+  TARGET_LAG = DOWNSTREAM  -- Won't refresh on its own
+  WAREHOUSE = wh AS SELECT ... FROM raw_customers;
+
+-- This DT drives the refresh of BOTH upstream DTs
+CREATE DYNAMIC TABLE reporting_orders
+  TARGET_LAG = '15 minutes'  -- This triggers the chain
+  WAREHOUSE = wh
+AS
+  SELECT o.*, c.customer_name, c.region
+  FROM staging_orders o
+  JOIN staging_customers c ON o.customer_id = c.customer_id;</pre>
+
+<h3>Fan-In Pattern (Multiple Sources → One DT)</h3>
+<pre>-- Combine data from multiple sources
+CREATE DYNAMIC TABLE unified_transactions
+  TARGET_LAG = '10 minutes'
+  WAREHOUSE = transform_wh
+AS
+  SELECT 'ONLINE' AS channel, order_id, amount, ts FROM online_orders
+  UNION ALL
+  SELECT 'STORE' AS channel, txn_id, amount, ts FROM store_sales
+  UNION ALL
+  SELECT 'MOBILE' AS channel, purchase_id, amount, ts FROM mobile_purchases;</pre>
+
+<!-- SECTION 2 -->
+<h2 id="monitoring">2. Monitoring & Observability</h2>
+
+<h3>Key Monitoring Queries</h3>
+<pre>-- 1. Check all Dynamic Tables and their status
+SHOW DYNAMIC TABLES;
+
+-- 2. Detailed metadata
+SELECT NAME, SCHEMA_NAME, DATABASE_NAME, TARGET_LAG, REFRESH_MODE,
+       WAREHOUSE, SCHEDULING_STATE, IS_CLONE, IS_REPLICA
+FROM TABLE(INFORMATION_SCHEMA.DYNAMIC_TABLES());
+
+-- 3. Refresh history (most important for debugging)
+SELECT NAME, STATE, STATE_MESSAGE, REFRESH_START_TIME, REFRESH_END_TIME,
+       DATEDIFF(second, REFRESH_START_TIME, REFRESH_END_TIME) AS duration_sec,
+       STATISTICS:numInsertedRows::INT AS rows_inserted,
+       STATISTICS:numDeletedRows::INT AS rows_deleted,
+       STATISTICS:numUpdatedRows::INT AS rows_updated
+FROM TABLE(INFORMATION_SCHEMA.DYNAMIC_TABLE_REFRESH_HISTORY())
+WHERE NAME = 'MY_DT'
+ORDER BY REFRESH_END_TIME DESC
+LIMIT 20;
+
+-- 4. Check current lag (how stale is the data?)
+SELECT NAME, DATA_TIMESTAMP, TARGET_LAG,
+       DATEDIFF(minute, DATA_TIMESTAMP, CURRENT_TIMESTAMP()) AS current_lag_minutes
+FROM TABLE(INFORMATION_SCHEMA.DYNAMIC_TABLES())
+WHERE SCHEMA_NAME = 'MY_SCHEMA';
+
+-- 5. Failed refreshes
+SELECT NAME, STATE, STATE_MESSAGE, REFRESH_START_TIME
+FROM TABLE(INFORMATION_SCHEMA.DYNAMIC_TABLE_REFRESH_HISTORY())
+WHERE STATE = 'FAILED'
+ORDER BY REFRESH_START_TIME DESC LIMIT 10;
+
+-- 6. Refresh cost estimation (warehouse usage)
+SELECT NAME,
+       COUNT(*) AS refresh_count,
+       AVG(DATEDIFF(second, REFRESH_START_TIME, REFRESH_END_TIME)) AS avg_duration_sec,
+       MAX(DATEDIFF(second, REFRESH_START_TIME, REFRESH_END_TIME)) AS max_duration_sec
+FROM TABLE(INFORMATION_SCHEMA.DYNAMIC_TABLE_REFRESH_HISTORY())
+WHERE REFRESH_START_TIME > DATEADD(day, -7, CURRENT_TIMESTAMP())
+GROUP BY NAME
+ORDER BY refresh_count DESC;</pre>
+
+<h3>Scheduling States</h3>
+<table>
+  <thead><tr><th>State</th><th>Meaning</th><th>Action</th></tr></thead>
+  <tbody>
+    <tr><td><code>ACTIVE</code></td><td>DT is being refreshed on schedule</td><td>Normal — no action needed</td></tr>
+    <tr><td><code>SUSPENDED</code></td><td>DT refresh is paused</td><td>ALTER DYNAMIC TABLE ... RESUME to reactivate</td></tr>
+    <tr><td><code>FAILED</code></td><td>Last refresh failed, waiting to retry</td><td>Check STATE_MESSAGE for error, fix root cause</td></tr>
+  </tbody>
+</table>
+
+<!-- SECTION 3 -->
+<h2 id="optimization">3. Optimization & Cost Management</h2>
+
+<h3>Cost Factors</h3>
+<table>
+  <thead><tr><th>Factor</th><th>Impact</th><th>Optimization</th></tr></thead>
+  <tbody>
+    <tr><td>Target lag (shorter)</td><td>More frequent refreshes → higher cost</td><td>Use the largest acceptable lag</td></tr>
+    <tr><td>Warehouse size</td><td>Larger WH = faster refresh but more credits/second</td><td>Right-size: don't over-provision</td></tr>
+    <tr><td>Full vs Incremental refresh</td><td>Full scans all data every time</td><td>Write queries that support incremental mode</td></tr>
+    <tr><td>Source data volume</td><td>More source data = longer refreshes</td><td>Filter early (WHERE clause) to reduce scan</td></tr>
+    <tr><td>Number of DTs in pipeline</td><td>Each DT uses warehouse for its refresh</td><td>Consolidate where possible</td></tr>
+    <tr><td>Warehouse auto-suspend</td><td>If WH suspends between refreshes, startup delay</td><td>Set auto-suspend ≥ refresh interval to keep warm</td></tr>
+  </tbody>
+</table>
+
+<h3>Optimization Tips</h3>
+<pre>-- TIP 1: Use DOWNSTREAM for intermediate layers (avoids unnecessary refreshes)
+CREATE DYNAMIC TABLE middle_layer TARGET_LAG = DOWNSTREAM ...;
+
+-- TIP 2: Use a dedicated warehouse (avoid contention with ad-hoc queries)
+CREATE WAREHOUSE dt_refresh_wh
+  WAREHOUSE_SIZE = 'SMALL'
+  AUTO_SUSPEND = 300        -- 5 min (keep warm between refreshes)
+  AUTO_RESUME = TRUE;
+
+-- TIP 3: Check if your query supports incremental
+SELECT NAME, REFRESH_MODE, REFRESH_MODE_REASON
+FROM TABLE(INFORMATION_SCHEMA.DYNAMIC_TABLES())
+WHERE NAME = 'MY_DT';
+-- If FULL and you want INCREMENTAL: rewrite query to avoid non-deterministic functions
+
+-- TIP 4: Add CLUSTER BY for downstream query performance
+CREATE DYNAMIC TABLE fact_sales
+  TARGET_LAG = '1 hour'
+  WAREHOUSE = transform_wh
+  CLUSTER BY (sale_date, region)  -- Optimize for common query patterns
+AS SELECT ...;
+
+-- TIP 5: Use INITIALIZE = ON_SCHEDULE for non-urgent DTs during migration
+CREATE DYNAMIC TABLE big_historical
+  TARGET_LAG = '24 hours'
+  WAREHOUSE = large_wh
+  INITIALIZE = ON_SCHEDULE  -- Don't block CREATE, populate later
+AS SELECT ... FROM billion_row_table;</pre>
+
+<!-- SECTION 4 -->
+<h2 id="rbac">4. RBAC & Permissions</h2>
+
+<h3>Required Privileges</h3>
+<table>
+  <thead><tr><th>Action</th><th>Privilege Needed</th><th>Granted To</th></tr></thead>
+  <tbody>
+    <tr><td>Create a DT</td><td>CREATE DYNAMIC TABLE on schema + USAGE on warehouse + SELECT on sources</td><td>Role that creates the DT</td></tr>
+    <tr><td>Query a DT</td><td>SELECT on the DT</td><td>Any role needing to read</td></tr>
+    <tr><td>Alter a DT (lag, warehouse)</td><td>OWNERSHIP or ALTER privilege on DT</td><td>DT owner role or granted role</td></tr>
+    <tr><td>Suspend/Resume</td><td>OWNERSHIP or OPERATE privilege on DT</td><td>Operations role</td></tr>
+    <tr><td>Drop a DT</td><td>OWNERSHIP on DT</td><td>Owner role</td></tr>
+    <tr><td>Monitor refresh history</td><td>OWNERSHIP or MONITOR on DT (or INFORMATION_SCHEMA access)</td><td>Monitoring role</td></tr>
+  </tbody>
+</table>
+
+<h3>RBAC Setup Example</h3>
+<pre>-- Create role for DT management
+CREATE ROLE dt_developer;
+GRANT USAGE ON DATABASE analytics_db TO ROLE dt_developer;
+GRANT USAGE ON SCHEMA analytics_db.transform TO ROLE dt_developer;
+GRANT CREATE DYNAMIC TABLE ON SCHEMA analytics_db.transform TO ROLE dt_developer;
+GRANT USAGE ON WAREHOUSE transform_wh TO ROLE dt_developer;
+GRANT SELECT ON ALL TABLES IN SCHEMA analytics_db.raw TO ROLE dt_developer;
+
+-- Separate role for consumers (read-only)
+CREATE ROLE dt_reader;
+GRANT USAGE ON DATABASE analytics_db TO ROLE dt_reader;
+GRANT USAGE ON SCHEMA analytics_db.transform TO ROLE dt_reader;
+GRANT SELECT ON ALL DYNAMIC TABLES IN SCHEMA analytics_db.transform TO ROLE dt_reader;
+
+-- Operations role (can suspend/resume but not modify)
+CREATE ROLE dt_operator;
+GRANT OPERATE ON ALL DYNAMIC TABLES IN SCHEMA analytics_db.transform TO ROLE dt_operator;
+GRANT MONITOR ON ALL DYNAMIC TABLES IN SCHEMA analytics_db.transform TO ROLE dt_operator;</pre>
+
+<!-- SECTION 5 -->
+<h2 id="debugging">5. Debugging & Troubleshooting</h2>
+
+<table>
+  <thead><tr><th>Problem</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>DT not refreshing</td>
+      <td>SUSPENDED state, warehouse suspended/dropped, or no source changes</td>
+      <td>Check SCHEDULING_STATE. ALTER DYNAMIC TABLE ... RESUME. Verify warehouse exists.</td>
+    </tr>
+    <tr>
+      <td>Refresh failing with error</td>
+      <td>Query error (missing table, permission denied, type mismatch)</td>
+      <td>Check STATE_MESSAGE in DYNAMIC_TABLE_REFRESH_HISTORY for exact error.</td>
+    </tr>
+    <tr>
+      <td>Data is stale (exceeding target lag)</td>
+      <td>Refresh takes too long, or warehouse too small, or source changes too frequent</td>
+      <td>Use larger warehouse, simplify query, or increase target lag.</td>
+    </tr>
+    <tr>
+      <td>Full refresh when expecting incremental</td>
+      <td>Query uses non-deterministic functions, external UDFs, or unsupported patterns</td>
+      <td>Check REFRESH_MODE_REASON. Rewrite query to support incremental.</td>
+    </tr>
+    <tr>
+      <td>High warehouse costs</td>
+      <td>Target lag too short, full refreshes on large data, warehouse oversized</td>
+      <td>Increase lag, optimize query for incremental, right-size warehouse.</td>
+    </tr>
+    <tr>
+      <td>DT shows wrong/stale data after ALTER</td>
+      <td>After changing the query (CREATE OR REPLACE), may need full initial refresh</td>
+      <td>Wait for next refresh cycle, or ALTER ... REFRESH to force immediate.</td>
+    </tr>
+    <tr>
+      <td>Dependency chain not refreshing</td>
+      <td>Intermediate DT set to DOWNSTREAM but no downstream DT has time-based lag</td>
+      <td>At least one DT in the chain must have a time-based TARGET_LAG.</td>
+    </tr>
+    <tr>
+      <td>Cannot create DT: "insufficient privileges"</td>
+      <td>Missing CREATE DYNAMIC TABLE on schema, USAGE on warehouse, or SELECT on source</td>
+      <td>Grant all required privileges (see RBAC section above).</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Debug Workflow</h3>
+<pre>-- Step 1: Check DT status
+SHOW DYNAMIC TABLES LIKE 'MY_DT%';
+-- Look at: scheduling_state, data_timestamp
+
+-- Step 2: Check refresh history for failures
+SELECT STATE, STATE_MESSAGE, REFRESH_START_TIME, REFRESH_END_TIME
+FROM TABLE(INFORMATION_SCHEMA.DYNAMIC_TABLE_REFRESH_HISTORY(NAME => 'MY_DT'))
+WHERE STATE != 'SUCCEEDED'
+ORDER BY REFRESH_START_TIME DESC LIMIT 5;
+
+-- Step 3: Check if source tables have been modified
+-- (If source dropped/replaced, DT will fail on next refresh)
+
+-- Step 4: Manually trigger a refresh to test
+ALTER DYNAMIC TABLE my_dt REFRESH;
+
+-- Step 5: Check the graph (which DTs depend on which)
+SELECT * FROM TABLE(INFORMATION_SCHEMA.DYNAMIC_TABLE_GRAPH_HISTORY())
+WHERE NAME = 'MY_DT';</pre>
+
+<!-- SECTION 6 -->
+<h2 id="advanced">6. Advanced Hybrid Patterns</h2>
+
+<h3>Pattern 1: Snowpipe → DT Pipeline</h3>
+<pre>-- Snowpipe loads raw data into a regular table
+CREATE PIPE ingest_pipe AUTO_INGEST = TRUE AS
+COPY INTO raw_events FROM @event_stage;
+
+-- DT handles all downstream transformation automatically
+CREATE DYNAMIC TABLE processed_events
+  TARGET_LAG = '5 minutes'
+  WAREHOUSE = transform_wh
+AS SELECT ... FROM raw_events WHERE ...;</pre>
+
+<h3>Pattern 2: DT + Stream (Track DT Output Changes)</h3>
+<pre>-- Create a stream ON a Dynamic Table
+CREATE STREAM dt_changes ON DYNAMIC TABLE gold_metrics;
+
+-- Use a task to push DT changes downstream (e.g., to external system)
+CREATE TASK export_changes
+  WAREHOUSE = export_wh
+  SCHEDULE = '5 MINUTE'
+  WHEN SYSTEM$STREAM_HAS_DATA('dt_changes')
+AS
+  INSERT INTO export_queue
+  SELECT * FROM dt_changes WHERE METADATA$ACTION = 'INSERT';</pre>
+
+<h3>Pattern 3: DT for Read, Stream+Task for Write</h3>
+<pre>-- DT handles complex READ transformations (JOINs, aggregations)
+CREATE DYNAMIC TABLE customer_360
+  TARGET_LAG = '10 minutes'
+  WAREHOUSE = wh
+AS SELECT ... FROM orders JOIN customers JOIN interactions ...;
+
+-- Stream+Task handles CDC WRITES (SCD Type 2, deletes)
+CREATE STREAM customer_changes ON TABLE customers;
+CREATE TASK apply_scd2
+  WAREHOUSE = wh
+  SCHEDULE = '1 MINUTE'
+  WHEN SYSTEM$STREAM_HAS_DATA('customer_changes')
+AS MERGE INTO dim_customer_history ...;</pre>
+
+<!-- SECTION 7 -->
+<h2 id="alter">7. ALTER DYNAMIC TABLE Operations</h2>
+
+<pre>-- Change target lag (more/less fresh)
+ALTER DYNAMIC TABLE my_dt SET TARGET_LAG = '30 minutes';
+
+-- Change warehouse
+ALTER DYNAMIC TABLE my_dt SET WAREHOUSE = bigger_wh;
+
+-- Suspend refreshes (stop spending credits)
+ALTER DYNAMIC TABLE my_dt SUSPEND;
+
+-- Resume refreshes
+ALTER DYNAMIC TABLE my_dt RESUME;
+
+-- Force immediate refresh (useful for debugging)
+ALTER DYNAMIC TABLE my_dt REFRESH;
+
+-- Change data retention
+ALTER DYNAMIC TABLE my_dt SET DATA_RETENTION_TIME_IN_DAYS = 7;
+
+-- Add/change clustering
+ALTER DYNAMIC TABLE my_dt CLUSTER BY (date_col, region);
+
+-- Drop clustering
+ALTER DYNAMIC TABLE my_dt DROP CLUSTERING KEY;
+
+-- CANNOT alter the query itself — must use CREATE OR REPLACE
+-- (This resets the DT: loses history, triggers full refresh)</pre>
+
+<div class="warning">
+  <strong>Important:</strong> Unlike tasks, you do NOT need to suspend a DT before ALTERing its lag or warehouse. The change takes effect on the next scheduled refresh. But to change the underlying query: must CREATE OR REPLACE (destructive).
+</div>
+
+<!-- SECTION 8 -->
+<h2 id="best-practices">8. Production Best Practices</h2>
+
+<div class="success">
+  <strong>Checklist for Production DT Pipelines:</strong>
+  <ol>
+    <li><strong>Dedicated warehouse</strong> — Don't share with ad-hoc queries. Set auto-suspend slightly above refresh interval.</li>
+    <li><strong>Use DOWNSTREAM</strong> for intermediate layers — Avoid paying for unnecessary refreshes.</li>
+    <li><strong>Monitor refresh history</strong> — Set up alerts on failed refreshes and lag exceeding target.</li>
+    <li><strong>Right-size target lag</strong> — Start generous (1 hour), tighten only if business requires it.</li>
+    <li><strong>Write incremental-friendly queries</strong> — Avoid CURRENT_TIMESTAMP, RANDOM(), volatile UDFs.</li>
+    <li><strong>Add CLUSTER BY</strong> — If downstream queries filter on specific columns, cluster the DT.</li>
+    <li><strong>Test with REFRESH_MODE = FULL first</strong> — Verify correctness, then check if AUTO picks INCREMENTAL.</li>
+    <li><strong>Use INFORMATION_SCHEMA views</strong> — DYNAMIC_TABLES, DYNAMIC_TABLE_REFRESH_HISTORY for monitoring.</li>
+    <li><strong>Version control your DT definitions</strong> — Store CREATE DYNAMIC TABLE in git (can't ALTER the query).</li>
+    <li><strong>Plan for CREATE OR REPLACE</strong> — When changing queries, coordinate with downstream consumers (DT goes empty briefly).</li>
+  </ol>
+</div>
+
+<p style="margin-top: 40px; padding-top: 20px; border-top: 1px solid light-dark(#e5e7eb, #374151); color: light-dark(#6b7280, #9ca3af); font-size: 0.85rem;">
+  Dynamic Tables Theory Part 2 - Advanced Topics | SnowPro Core Exam | August 15, 2026
+</p>
+
+</body>
+</html>

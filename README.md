@@ -33,9 +33,12 @@ Complete hands-on study material for the **Snowflake SnowPro Core Certification*
 ├── 10-snowpipe-deep-dive/         # Snowpipe: Auto-Ingest, Streaming, Kafka, RBAC, Debug
 │   ├── 01-certification-reference/ # Part 1 (Fundamentals), Part 2 (Advanced), 50 Questions
 │   └── 02-hands-on-practice/       # Hands-on lab with internal stage, error handling, dedup
-└── 11-streams-deep-dive/          # Streams: CDC, Offset, Staleness, Streams+Tasks, SCD
-    ├── 01-certification-reference/ # Part 1 (Fundamentals), Part 2 (Advanced), 50 Questions
-    └── 02-hands-on-practice/       # (Hands-on lab to be added)
+├── 11-streams-deep-dive/          # Streams: CDC, Offset, Staleness, Streams+Tasks, SCD
+│   ├── 01-certification-reference/ # Part 1, Part 2, 50 Questions, Edge Cases
+│   └── 02-hands-on-practice/       # Full lab: DML changes, consume, append-only, tasks
+└── 12-dynamic-tables-deep-dive/   # Dynamic Tables: Declarative Pipelines, Target Lag, Refresh
+    ├── 01-certification-reference/ # Part 1 (Fundamentals), Part 2 (Advanced), 50 Questions, Edge Cases
+    └── 02-hands-on-practice/       # Full lab: medallion pipeline, DOWNSTREAM, stream on DT
 ```
 
 Each folder contains:

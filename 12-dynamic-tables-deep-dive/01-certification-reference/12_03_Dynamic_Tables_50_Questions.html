@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Dynamic Tables - 50 Exam Questions</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "50 interactive certification questions on Snowflake Dynamic Tables",
+    "sections": [{ "id": "quiz", "title": "50 Questions", "dataSources": [], "producerNotes": "Click to answer, green=correct, red=wrong" }]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #0f172a); line-height: 1.6; }
+    h1 { font-size: 2rem; color: light-dark(#0f172a, #f8fafc); margin-bottom: 8px; border-bottom: 3px solid light-dark(#0d9488, #5eead4); padding-bottom: 12px; }
+    .subtitle { color: light-dark(#6b7280, #9ca3af); font-size: 0.95rem; margin-bottom: 24px; }
+    .score-bar { background: light-dark(#f0fdfa, #1e293b); border: 1px solid light-dark(#99f6e4, #334155); border-radius: 8px; padding: 16px; margin: 20px 0; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; }
+    .score-bar span { font-weight: 600; font-size: 1.1rem; }
+    .score-correct { color: light-dark(#059669, #34d399); }
+    .score-wrong { color: light-dark(#dc2626, #f87171); }
+    .score-total { color: light-dark(#115e59, #99f6e4); }
+    .reset-btn { background: light-dark(#0d9488, #14b8a6); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+    .reset-btn:hover { opacity: 0.85; }
+    .q-block { background: light-dark(#f8fafc, #1e293b); border: 1px solid light-dark(#e2e8f0, #334155); border-radius: 8px; padding: 20px; margin: 16px 0; }
+    .q-block h3 { color: light-dark(#115e59, #99f6e4); margin-bottom: 12px; font-size: 1rem; }
+    .q-block .option { display: block; padding: 10px 14px; margin: 6px 0; border: 1px solid light-dark(#d1d5db, #4b5563); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+    .q-block .option:hover:not(.disabled) { background: light-dark(#f0fdfa, #1a2e3b); border-color: light-dark(#0d9488, #5eead4); }
+    .q-block .option.correct { background: light-dark(#d1fae5, #064e3b); border-color: light-dark(#10b981, #34d399); color: light-dark(#065f46, #6ee7b7); }
+    .q-block .option.wrong { background: light-dark(#fee2e2, #450a0a); border-color: light-dark(#ef4444, #f87171); color: light-dark(#991b1b, #fca5a5); }
+    .q-block .option.disabled { cursor: default; opacity: 0.7; }
+    .q-block .explanation { display: none; margin-top: 12px; padding: 10px 14px; background: light-dark(#ecfdf5, #022c22); border-left: 3px solid light-dark(#10b981, #34d399); border-radius: 0 4px 4px 0; font-size: 0.9rem; }
+    .q-block .explanation.show { display: block; }
+  </style>
+</head>
+<body>
+
+<h1>Dynamic Tables - 50 Exam Questions</h1>
+<p class="subtitle">SnowPro Core Certification | Click an option to answer | August 2026</p>
+
+<div class="score-bar">
+  <span class="score-correct">Correct: <span id="correct-count">0</span></span>
+  <span class="score-wrong">Wrong: <span id="wrong-count">0</span></span>
+  <span class="score-total">Score: <span id="score-pct">0</span>%</span>
+  <button class="reset-btn" id="reset-btn">Reset Quiz</button>
+</div>
+
+<div id="quiz-container"></div>
+
+<script>
+(function(){
+  var questions = [
+    {q:"What does TARGET_LAG define in a Dynamic Table?",o:["The time it takes to create the DT","The maximum acceptable staleness of the DT's data","The schedule interval for refresh","The warehouse auto-suspend time"],a:1,e:"TARGET_LAG defines the maximum allowed staleness. Snowflake schedules refreshes to ensure data is never older than this value."},
+    {q:"What is the minimum TARGET_LAG value allowed?",o:["30 seconds","1 minute","5 minutes","1 second"],a:1,e:"The minimum target lag is 1 minute. For sub-second freshness, use Snowpipe Streaming."},
+    {q:"What does TARGET_LAG = DOWNSTREAM mean?",o:["Refresh every time downstream queries run","Only refresh when a downstream DT with a time-based lag needs this data","Never refresh automatically","Refresh at the same rate as downstream DTs"],a:1,e:"DOWNSTREAM means the DT only refreshes when needed by a downstream DT that has its own time-based target lag."},
+    {q:"Can you INSERT, UPDATE, or DELETE rows in a Dynamic Table?",o:["Yes, just like regular tables","Only INSERT is allowed","Only UPDATE is allowed","No — Dynamic Tables are read-only"],a:3,e:"Dynamic Tables are read-only. Their content is entirely defined by the AS SELECT query. No DML is allowed."},
+    {q:"What happens if a DT's source table is dropped?",o:["DT data remains but no further refreshes","DT is automatically dropped","DT refresh fails with an error","DT switches to full refresh mode"],a:2,e:"DT refresh will fail because the source no longer exists. The DT enters a FAILED scheduling state."},
+    {q:"Which refresh mode only processes changed data?",o:["FULL","INCREMENTAL","AUTO","DELTA"],a:1,e:"INCREMENTAL mode only processes rows that changed since the last refresh. FULL re-executes the entire query."},
+    {q:"What is the default REFRESH_MODE?",o:["FULL","INCREMENTAL","AUTO","MANUAL"],a:2,e:"AUTO is the default. Snowflake decides whether to use INCREMENTAL or FULL based on the query pattern."},
+    {q:"Which function forces a DT into FULL refresh mode?",o:["COUNT(*)","SUM(amount)","CURRENT_TIMESTAMP()","COALESCE()"],a:2,e:"Non-deterministic functions like CURRENT_TIMESTAMP() produce different results each execution, making incremental refresh impossible."},
+    {q:"Can you create a stream on a Dynamic Table?",o:["No — streams don't work with DTs","Yes — both Standard and Append-only","Yes — but only Insert-only","Yes — but only Append-only"],a:1,e:"You can create Standard or Append-only streams on Dynamic Tables to track their output changes."},
+    {q:"Does a Dynamic Table require a warehouse?",o:["No — it's serverless like Snowpipe","Yes — you must specify a warehouse","Only for FULL refresh mode","Only if TARGET_LAG < 5 minutes"],a:1,e:"Dynamic Tables always require a specified warehouse for refresh operations. There is no serverless DT option."},
+    {q:"What SQL construct is a DT's body limited to?",o:["A single SELECT statement","Any DML statement","A stored procedure call","Multiple statements separated by semicolons"],a:0,e:"A DT body is a single SELECT statement. No DML, no procedures, no multi-statement blocks."},
+    {q:"Can a Dynamic Table JOIN multiple source tables?",o:["No — limited to one source","Yes — any SQL JOINs supported","Only LEFT JOINs","Only INNER JOINs"],a:1,e:"DTs support full SQL including any type of JOIN. This is a key advantage over Materialized Views (which are single-table only)."},
+    {q:"How does Snowflake determine refresh order in a multi-DT pipeline?",o:["Alphabetical order","Creation timestamp order","Automatically via dependency DAG detection","User must specify ORDER parameter"],a:2,e:"Snowflake automatically builds a dependency graph (DAG) and refreshes DTs in the correct topological order."},
+    {q:"What happens if a DT refresh takes longer than the target lag?",o:["DT is dropped","Refresh is cancelled","DT temporarily exceeds target lag (logged but continues)","Warehouse auto-scales up"],a:2,e:"Snowflake logs that the target lag was exceeded but continues. The DT is temporarily staler than desired."},
+    {q:"Can you use CLUSTER BY with a Dynamic Table?",o:["No — clustering not supported for DTs","Yes — specified at creation or via ALTER","Only if REFRESH_MODE = FULL","Only for DTs with TARGET_LAG > 1 hour"],a:1,e:"CLUSTER BY is supported on DTs. Clustering is applied during refresh to optimize downstream query performance."},
+    {q:"What privilege is needed to create a Dynamic Table?",o:["CREATE TABLE on schema","CREATE DYNAMIC TABLE on schema","CREATE VIEW on schema","MANAGE DYNAMIC TABLES on account"],a:1,e:"The specific privilege is CREATE DYNAMIC TABLE on the target schema, plus USAGE on warehouse and SELECT on sources."},
+    {q:"What is INITIALIZE = ON_SCHEDULE?",o:["The DT populates immediately on creation","The DT waits until the first scheduled refresh to populate","The DT initializes on a custom schedule","The DT never initializes automatically"],a:1,e:"ON_SCHEDULE delays initial population until the first scheduled refresh cycle. ON_CREATE (default) populates immediately."},
+    {q:"How do you change a DT's target lag without recreating it?",o:["ALTER DYNAMIC TABLE my_dt SET TARGET_LAG = '30 minutes'","DROP and recreate the DT","CREATE OR REPLACE DYNAMIC TABLE","You cannot change target lag after creation"],a:0,e:"ALTER DYNAMIC TABLE ... SET TARGET_LAG allows changing the lag without recreating. No need to suspend first."},
+    {q:"Do you need to SUSPEND a DT before ALTERing its target lag?",o:["Yes — must suspend first, like tasks","No — ALTER takes effect on next refresh","Only for DOWNSTREAM DTs","Only if reducing the lag"],a:1,e:"Unlike tasks, DTs do NOT need to be suspended before ALTER. Changes take effect on the next scheduled refresh."},
+    {q:"How do you force an immediate refresh of a DT?",o:["EXECUTE DYNAMIC TABLE my_dt","ALTER DYNAMIC TABLE my_dt REFRESH","CALL SYSTEM$REFRESH_DYNAMIC_TABLE('my_dt')","SELECT * FROM my_dt WITH REFRESH"],a:1,e:"ALTER DYNAMIC TABLE ... REFRESH forces an immediate refresh regardless of the target lag schedule."},
+    {q:"What replaces Streams + Tasks in the DT paradigm?",o:["Nothing — you still need streams","The DT's internal change tracking replaces streams; auto-scheduling replaces tasks","Only streams are replaced, tasks still needed","DTs use streams internally but you must create them"],a:1,e:"DTs handle change tracking internally (no explicit streams) and scheduling automatically (no explicit tasks)."},
+    {q:"Can a Dynamic Table reference another Dynamic Table as a source?",o:["No — DTs cannot chain","Yes — this is how multi-layer pipelines work","Only with DOWNSTREAM lag","Only in the same schema"],a:1,e:"DT-to-DT chaining is a core feature. This enables multi-layer medallion pipelines."},
+    {q:"What happens when a DT source has no changes?",o:["DT still refreshes (full re-scan)","Refresh is skipped — no compute cost","DT enters SUSPENDED state","Depends on REFRESH_MODE setting"],a:1,e:"Snowflake is smart enough to skip refresh if source data hasn't changed. No unnecessary compute is used."},
+    {q:"What warehouse state is needed for DT refresh to work?",o:["Must be STARTED at all times","Can be SUSPENDED — Snowflake auto-resumes it","Must be XL or larger","Must have auto-suspend disabled"],a:1,e:"The warehouse can be suspended. Snowflake will auto-resume it when a refresh is needed (if AUTO_RESUME=TRUE)."},
+    {q:"Which INFORMATION_SCHEMA view shows DT refresh history?",o:["DYNAMIC_TABLE_HISTORY","DYNAMIC_TABLE_REFRESH_HISTORY","TABLE_REFRESH_LOG","TASK_HISTORY"],a:1,e:"INFORMATION_SCHEMA.DYNAMIC_TABLE_REFRESH_HISTORY() shows refresh states, durations, and row counts."},
+    {q:"Can you use Time Travel (AT/BEFORE) with Dynamic Tables?",o:["No — DTs don't support Time Travel","Yes — same as regular tables","Only if DATA_RETENTION > 0","Only with FULL refresh mode"],a:1,e:"DTs support Time Travel just like regular tables. You can query historical states with AT/BEFORE."},
+    {q:"If all DTs in a pipeline use DOWNSTREAM, what happens?",o:["They all refresh every minute","Nothing refreshes — no time-based driver exists","Snowflake picks a default lag of 1 hour","Error at creation time"],a:1,e:"At least one DT in the pipeline must have a time-based target lag. Otherwise, there's no trigger to drive refreshes."},
+    {q:"What is the difference between a Dynamic Table and a Materialized View?",o:["DTs support JOINs; MVs do not","MVs are faster to query","DTs are always serverless","There is no difference"],a:0,e:"The key difference: DTs support full SQL (JOINs, complex aggregations). MVs are limited to single-table queries."},
+    {q:"Can you share a Dynamic Table via Secure Data Sharing?",o:["No — DTs cannot be shared","Yes — DTs can be shared like regular tables","Only if TARGET_LAG > 1 hour","Only the DT definition, not the data"],a:1,e:"Dynamic Tables can be shared with other accounts via Secure Data Sharing, just like regular tables."},
+    {q:"What does REFRESH_MODE_REASON tell you?",o:["Why the DT was created","Why Snowflake chose FULL vs INCREMENTAL for this DT","The reason for the last failure","The schedule calculation logic"],a:1,e:"REFRESH_MODE_REASON explains why Snowflake selected the current refresh mode (e.g., 'query uses non-deterministic function')."},
+    {q:"Can you ALTER a DT's SELECT query?",o:["Yes, with ALTER DYNAMIC TABLE SET AS","No — must use CREATE OR REPLACE (destructive)","Yes, with ALTER DYNAMIC TABLE MODIFY QUERY","Only if DT is SUSPENDED"],a:1,e:"You cannot alter the underlying query. CREATE OR REPLACE is required, which resets history and triggers a full re-initialization."},
+    {q:"How are DT refreshes billed?",o:["Per-row processed","Serverless credits (like Snowpipe)","Warehouse credits during refresh runtime","Flat monthly fee per DT"],a:2,e:"DT refreshes use the specified warehouse, so billing is standard warehouse credits for the duration of each refresh."},
+    {q:"Can Dynamic Tables read from external tables?",o:["No — external tables are not supported","Yes — DTs can read any queryable object","Only with FULL refresh mode","Only for INSERT-only patterns"],a:1,e:"DTs can read from external tables, views, other DTs, and regular tables — any queryable source object."},
+    {q:"What scheduling state means the DT is actively being refreshed?",o:["RUNNING","ACTIVE","REFRESHING","STARTED"],a:1,e:"ACTIVE means the DT's scheduling is enabled and refreshes are happening. SUSPENDED means paused."},
+    {q:"LATERAL FLATTEN in a DT query — incremental or full refresh?",o:["Always FULL","Always INCREMENTAL","Supported for INCREMENTAL","Not allowed in DTs"],a:2,e:"LATERAL FLATTEN is supported for incremental refresh in DTs."},
+    {q:"What happens to a DT if its warehouse is dropped?",o:["DT is dropped too","DT refreshes fail until a new warehouse is assigned","DT switches to serverless","DT goes into DOWNSTREAM mode"],a:1,e:"DT refresh fails because there's no compute available. Fix by ALTER DYNAMIC TABLE ... SET WAREHOUSE = new_wh."},
+    {q:"Can two DTs use the same warehouse?",o:["No — one warehouse per DT","Yes — multiple DTs can share a warehouse","Only if they have the same target lag","Only if they're in the same schema"],a:1,e:"Multiple DTs can share a warehouse. Refreshes queue/compete for resources like any other queries."},
+    {q:"What is the maximum number of DTs in a pipeline chain?",o:["5","10","No explicit limit (practical limit by dependency depth)","100"],a:2,e:"There's no hard limit on chain depth. Practical limits are determined by cumulative refresh latency and dependency resolution."},
+    {q:"Does CREATE OR REPLACE DYNAMIC TABLE preserve refresh history?",o:["Yes — history is preserved","No — history is reset, DT reinitializes from scratch","Only the last 24 hours are kept","Depends on INITIALIZE setting"],a:1,e:"CREATE OR REPLACE resets everything: history, data, and forces a full re-initialization."},
+    {q:"Can you CLONE a Dynamic Table?",o:["No — DTs cannot be cloned","Yes — creates a point-in-time snapshot","Only as a regular table (loses DT behavior)","Only within the same database"],a:1,e:"DTs can be cloned. The clone is also a DT with the same definition and target lag."},
+    {q:"What happens if a DT's refresh consistently fails?",o:["DT is automatically dropped after 3 failures","DT enters FAILED state, retries on next schedule","Snowflake sends an automatic email alert","DT switches to FULL refresh mode"],a:1,e:"The DT enters a FAILED scheduling state and retries on the next scheduled refresh cycle. No auto-drop occurs."},
+    {q:"Can governance policies (masking, row access) be applied to DTs?",o:["No — policies only work on regular tables","Yes — full governance support","Only masking policies","Only row access policies"],a:1,e:"DTs support masking policies, row access policies, and tags — full governance integration."},
+    {q:"What is the relationship between DT target lag and cost?",o:["No relationship","Shorter lag = lower cost","Shorter lag = higher cost (more frequent refreshes)","Longer lag = higher cost"],a:2,e:"Shorter target lag means more frequent refreshes, which means more warehouse compute time = higher cost."},
+    {q:"Can a DT use window functions like ROW_NUMBER()?",o:["No — window functions not supported","Yes — all window functions supported incrementally","Yes — but may force FULL refresh for complex windows","Only RANK and DENSE_RANK"],a:2,e:"Window functions are supported in DTs, but complex window operations may force FULL refresh mode."},
+    {q:"How do you suspend refreshes for a Dynamic Table?",o:["ALTER DYNAMIC TABLE my_dt SUSPEND","DROP DYNAMIC TABLE my_dt","SET TARGET_LAG = NULL","ALTER DYNAMIC TABLE my_dt SET SCHEDULE = NEVER"],a:0,e:"ALTER DYNAMIC TABLE ... SUSPEND stops all refresh scheduling. ALTER ... RESUME reactivates it."},
+    {q:"What is the OPERATE privilege used for on DTs?",o:["Creating new DTs","Querying DT data","Suspending and resuming DT refresh","Dropping the DT"],a:2,e:"OPERATE allows suspending/resuming refresh scheduling without requiring full OWNERSHIP."},
+    {q:"If a DT reads from a view, what must be true about the view's base tables?",o:["They must be in the same schema","They must have CHANGE_TRACKING enabled for incremental refresh","They must be permanent tables","They must be clustered"],a:1,e:"For incremental refresh to work when reading through a view, underlying base tables typically need change tracking."},
+    {q:"Can UNION ALL be used in a DT query with incremental refresh?",o:["No — UNION ALL forces FULL","Yes — each branch is processed independently","Only with 2 branches maximum","Only if all branches have the same schema"],a:1,e:"UNION ALL is supported for incremental refresh. Each branch is tracked and processed independently."},
+    {q:"What replaces the MERGE statement in the Dynamic Table paradigm?",o:["You still write MERGE in the DT body","DTs materialize full state — no MERGE needed (entire result replaces previous)","INSERT ON CONFLICT","UPSERT keyword"],a:1,e:"DTs don't need MERGE. Each refresh produces the complete current state of the query result. Old state is replaced entirely."},
+    {q:"Which is more cost-effective for a query that rarely changes: TARGET_LAG = '1 minute' or '24 hours'?",o:["1 minute — fewer total refreshes","24 hours — refreshes less often, uses less compute","Same cost regardless","Depends on warehouse size only"],a:1,e:"24 hours is more cost-effective because Snowflake refreshes less frequently. If source rarely changes, Snowflake may skip refreshes entirely, but 1-minute lag still checks more often."}
+  ];
+
+  var correct = 0, wrong = 0, answered = 0;
+  var container = document.getElementById('quiz-container');
+
+  function render() {
+    container.innerHTML = '';
+    questions.forEach(function(q, i) {
+      var div = document.createElement('div');
+      div.className = 'q-block';
+      div.setAttribute('data-answer', q.a);
+      div.setAttribute('data-index', i);
+      var html = '<h3>Q' + (i+1) + '. ' + q.q + '</h3>';
+      q.o.forEach(function(opt, j) {
+        html += '<div class="option" data-opt="' + j + '">' + String.fromCharCode(65+j) + '. ' + opt + '</div>';
+      });
+      html += '<div class="explanation">' + q.e + '</div>';
+      div.innerHTML = html;
+      container.appendChild(div);
+    });
+  }
+
+  function updateScore() {
+    document.getElementById('correct-count').textContent = correct;
+    document.getElementById('wrong-count').textContent = wrong;
+    var pct = answered > 0 ? Math.round((correct / answered) * 100) : 0;
+    document.getElementById('score-pct').textContent = pct;
+  }
+
+  container.addEventListener('click', function(e) {
+    var opt = e.target.closest('.option');
+    if (!opt || opt.classList.contains('disabled')) return;
+    var block = opt.closest('.q-block');
+    var options = block.querySelectorAll('.option');
+    var correctIdx = parseInt(block.getAttribute('data-answer'));
+    var selected = parseInt(opt.getAttribute('data-opt'));
+
+    options.forEach(function(o) { o.classList.add('disabled'); });
+
+    if (selected === correctIdx) {
+      opt.classList.add('correct');
+      correct++;
+    } else {
+      opt.classList.add('wrong');
+      options[correctIdx].classList.add('correct');
+      wrong++;
+    }
+    answered++;
+    block.querySelector('.explanation').classList.add('show');
+    updateScore();
+  });
+
+  document.getElementById('reset-btn').addEventListener('click', function() {
+    correct = 0; wrong = 0; answered = 0;
+    updateScore();
+    render();
+  });
+
+  render();
+})();
+</script>
+
+</body>
+</html>

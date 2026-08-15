@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Dynamic Tables - Theory Part 1: Fundamentals</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Dynamic Tables fundamentals: declarative pipelines, target lag, refresh modes, syntax, architecture",
+    "sections": [
+      { "id": "overview", "title": "What Are Dynamic Tables?", "dataSources": [], "producerNotes": "Core concept and motivation" },
+      { "id": "syntax", "title": "Syntax & Creation", "dataSources": [], "producerNotes": "CREATE DYNAMIC TABLE, parameters" },
+      { "id": "target-lag", "title": "Target Lag Deep Dive", "dataSources": [], "producerNotes": "DOWNSTREAM, time-based, behavior" },
+      { "id": "refresh", "title": "Refresh Modes", "dataSources": [], "producerNotes": "Incremental vs full, AUTO vs FULL" },
+      { "id": "architecture", "title": "Architecture & Internals", "dataSources": [], "producerNotes": "How DTs work under the hood" },
+      { "id": "features", "title": "Features & Limitations", "dataSources": [], "producerNotes": "15 features, 15 limitations" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #0f172a); line-height: 1.6; }
+    h1 { font-size: 2rem; color: light-dark(#0f172a, #f8fafc); margin-bottom: 8px; border-bottom: 3px solid light-dark(#0d9488, #5eead4); padding-bottom: 12px; }
+    h2 { font-size: 1.5rem; color: light-dark(#115e59, #99f6e4); margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid light-dark(#ccfbf1, #134e4a); }
+    h3 { font-size: 1.15rem; color: light-dark(#0f766e, #a7f3d0); margin: 24px 0 12px; }
+    p { margin: 8px 0; }
+    .subtitle { color: light-dark(#6b7280, #9ca3af); font-size: 0.95rem; margin-bottom: 24px; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; }
+    th, td { border: 1px solid light-dark(#e5e7eb, #374151); padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: light-dark(#f0fdfa, #1e293b); font-weight: 600; color: light-dark(#115e59, #99f6e4); }
+    tr:nth-child(even) td { background: light-dark(#f9fafb, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
+    pre { background: light-dark(#1e293b, #0c1322); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; font-size: 0.85rem; line-height: 1.5; }
+    .card { background: light-dark(#f0fdfa, #1e293b); border: 1px solid light-dark(#99f6e4, #334155); border-radius: 8px; padding: 20px; margin: 16px 0; }
+    .card-title { font-weight: 700; color: light-dark(#115e59, #99f6e4); margin-bottom: 8px; }
+    .warning { background: light-dark(#fef3c7, #451a03); border-left: 4px solid light-dark(#f59e0b, #fbbf24); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .info { background: light-dark(#dbeafe, #172554); border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .success { background: light-dark(#d1fae5, #022c22); border-left: 4px solid light-dark(#10b981, #34d399); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .danger { background: light-dark(#fee2e2, #450a0a); border-left: 4px solid light-dark(#ef4444, #f87171); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .toc { background: light-dark(#f8fafc, #1e293b); border: 1px solid light-dark(#e2e8f0, #334155); border-radius: 8px; padding: 20px; margin: 24px 0; }
+    .toc a { color: light-dark(#0d9488, #5eead4); text-decoration: none; }
+    .toc ul { list-style: none; padding-left: 0; }
+    .toc li { padding: 4px 0; }
+    ul, ol { padding-left: 24px; margin: 8px 0; }
+    li { margin: 4px 0; }
+    .vs-table td:first-child { font-weight: 600; width: 30%; }
+  </style>
+</head>
+<body>
+
+<h1>Dynamic Tables - Part 1: Fundamentals</h1>
+<p class="subtitle">SnowPro Core Certification | Declarative data pipelines | August 2026</p>
+
+<div class="toc">
+  <strong>Table of Contents</strong>
+  <ul>
+    <li><a href="#overview">1. What Are Dynamic Tables?</a></li>
+    <li><a href="#syntax">2. Syntax & Creation</a></li>
+    <li><a href="#target-lag">3. Target Lag Deep Dive</a></li>
+    <li><a href="#refresh">4. Refresh Modes (Incremental vs Full)</a></li>
+    <li><a href="#architecture">5. Architecture & Internals</a></li>
+    <li><a href="#comparison">6. Dynamic Tables vs Other Approaches</a></li>
+    <li><a href="#features">7. Features (15 Key Points)</a></li>
+    <li><a href="#limitations">8. Limitations (15 Key Points)</a></li>
+  </ul>
+</div>
+
+<!-- SECTION 1 -->
+<h2 id="overview">1. What Are Dynamic Tables?</h2>
+
+<div class="card">
+  <div class="card-title">The Core Concept</div>
+  <p>A Dynamic Table is a <strong>declarative, materialized query result</strong> that Snowflake automatically keeps up to date. You define WHAT you want (the SQL query) and HOW FRESH you need it (target lag), and Snowflake handles WHEN and HOW to refresh it.</p>
+</div>
+
+<h3>The Problem They Solve</h3>
+<table>
+  <thead><tr><th>Traditional Approach</th><th>Dynamic Tables</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Write CREATE TABLE + INSERT/MERGE statements</td>
+      <td>Write only the SELECT query — Snowflake handles materialization</td>
+    </tr>
+    <tr>
+      <td>Create Streams to track changes</td>
+      <td>No streams needed — DT tracks source changes internally</td>
+    </tr>
+    <tr>
+      <td>Create Tasks to schedule refresh</td>
+      <td>No tasks needed — DT auto-refreshes based on target lag</td>
+    </tr>
+    <tr>
+      <td>Manage dependencies manually (DAG order)</td>
+      <td>DTs auto-detect dependencies and refresh in correct order</td>
+    </tr>
+    <tr>
+      <td>Handle failure/retry logic in tasks</td>
+      <td>Snowflake handles failures and retries automatically</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="success">
+  <strong>One-Line Summary:</strong> Dynamic Tables replace the entire Stream + Task + MERGE pattern with a single declarative SQL statement + a freshness target.
+</div>
+
+<h3>When to Use Dynamic Tables</h3>
+<ul>
+  <li>Multi-step data transformation pipelines (bronze → silver → gold)</li>
+  <li>Materialized views that need JOINs (MVs don't support JOINs)</li>
+  <li>ELT pipelines where you define the target state, not the transformation steps</li>
+  <li>Teams that want less operational overhead (no task monitoring, stream management)</li>
+  <li>Continuous data freshness requirements (minutes to hours, not real-time)</li>
+</ul>
+
+<!-- SECTION 2 -->
+<h2 id="syntax">2. Syntax & Creation</h2>
+
+<h3>Basic Syntax</h3>
+<pre>CREATE [ OR REPLACE ] DYNAMIC TABLE &lt;name&gt;
+  TARGET_LAG = '&lt;time&gt;' | DOWNSTREAM
+  WAREHOUSE = &lt;warehouse_name&gt;
+  [ REFRESH_MODE = AUTO | FULL | INCREMENTAL ]
+  [ INITIALIZE = ON_CREATE | ON_SCHEDULE ]
+  [ CLUSTER BY ( &lt;expr&gt; [, ...] ) ]
+  [ DATA_RETENTION_TIME_IN_DAYS = &lt;n&gt; ]
+  [ COMMENT = '...' ]
+AS
+  &lt;select_statement&gt;;</pre>
+
+<h3>Simple Example</h3>
+<pre>-- Source table (raw data)
+CREATE TABLE raw_orders (
+  order_id INT,
+  customer_id INT,
+  product VARCHAR,
+  amount DECIMAL(10,2),
+  order_date TIMESTAMP,
+  status VARCHAR
+);
+
+-- Dynamic Table: aggregated daily revenue
+CREATE DYNAMIC TABLE daily_revenue
+  TARGET_LAG = '10 minutes'
+  WAREHOUSE = transform_wh
+AS
+  SELECT
+    DATE_TRUNC('day', order_date) AS revenue_date,
+    COUNT(*) AS total_orders,
+    SUM(amount) AS total_revenue,
+    AVG(amount) AS avg_order_value
+  FROM raw_orders
+  WHERE status = 'COMPLETED'
+  GROUP BY 1;</pre>
+
+<h3>Multi-Layer Pipeline Example</h3>
+<pre>-- Layer 1: Clean raw data (Bronze → Silver)
+CREATE DYNAMIC TABLE orders_cleaned
+  TARGET_LAG = '5 minutes'
+  WAREHOUSE = transform_wh
+AS
+  SELECT
+    order_id,
+    customer_id,
+    UPPER(TRIM(product)) AS product,
+    amount,
+    order_date,
+    status
+  FROM raw_orders
+  WHERE order_id IS NOT NULL AND amount > 0;
+
+-- Layer 2: Enrich with customer data (Silver → Gold)
+CREATE DYNAMIC TABLE orders_enriched
+  TARGET_LAG = DOWNSTREAM  -- refreshes only when needed by downstream
+  WAREHOUSE = transform_wh
+AS
+  SELECT
+    o.*,
+    c.customer_name,
+    c.region,
+    c.segment
+  FROM orders_cleaned o
+  JOIN customers c ON o.customer_id = c.customer_id;
+
+-- Layer 3: Final reporting table (Gold)
+CREATE DYNAMIC TABLE revenue_by_region
+  TARGET_LAG = '30 minutes'
+  WAREHOUSE = transform_wh
+AS
+  SELECT
+    region,
+    segment,
+    DATE_TRUNC('day', order_date) AS report_date,
+    SUM(amount) AS revenue,
+    COUNT(DISTINCT customer_id) AS unique_customers
+  FROM orders_enriched
+  GROUP BY 1, 2, 3;</pre>
+
+<h3>Key Parameters</h3>
+<table>
+  <thead><tr><th>Parameter</th><th>Required</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>TARGET_LAG</code></td><td>YES</td><td>Maximum staleness allowed. Time string ('5 minutes', '1 hour') or DOWNSTREAM.</td></tr>
+    <tr><td><code>WAREHOUSE</code></td><td>YES</td><td>Warehouse used for refresh operations. Must be running or auto-resume enabled.</td></tr>
+    <tr><td><code>REFRESH_MODE</code></td><td>No (default AUTO)</td><td>AUTO (Snowflake decides), FULL (always full refresh), INCREMENTAL (delta only).</td></tr>
+    <tr><td><code>INITIALIZE</code></td><td>No (default ON_CREATE)</td><td>ON_CREATE: populate immediately. ON_SCHEDULE: wait for first refresh cycle.</td></tr>
+    <tr><td><code>CLUSTER BY</code></td><td>No</td><td>Clustering keys for the materialized data. Applied during refresh.</td></tr>
+    <tr><td><code>DATA_RETENTION_TIME_IN_DAYS</code></td><td>No</td><td>Time Travel retention for the DT (0-90 days depending on edition).</td></tr>
+  </tbody>
+</table>
+
+<!-- SECTION 3 -->
+<h2 id="target-lag">3. Target Lag Deep Dive</h2>
+
+<div class="card">
+  <div class="card-title">What is Target Lag?</div>
+  <p>Target lag is the <strong>maximum acceptable staleness</strong> of the Dynamic Table's data. It tells Snowflake: "The data in this DT should never be more than X minutes/hours behind the source." Snowflake then schedules refreshes to meet this SLA.</p>
+</div>
+
+<h3>Time-Based Target Lag</h3>
+<table>
+  <thead><tr><th>Value</th><th>Meaning</th><th>Use Case</th></tr></thead>
+  <tbody>
+    <tr><td><code>'1 minute'</code></td><td>Minimum allowed. Near real-time freshness.</td><td>Operational dashboards, alerting</td></tr>
+    <tr><td><code>'5 minutes'</code></td><td>Refreshes every ~5 minutes or less</td><td>Near real-time analytics</td></tr>
+    <tr><td><code>'1 hour'</code></td><td>Refreshes at least every hour</td><td>Hourly reporting</td></tr>
+    <tr><td><code>'24 hours'</code></td><td>At most one day stale</td><td>Daily batch, cost-efficient</td></tr>
+  </tbody>
+</table>
+
+<h3>DOWNSTREAM Target Lag</h3>
+<pre>CREATE DYNAMIC TABLE middle_layer
+  TARGET_LAG = DOWNSTREAM  -- Don't refresh on your own schedule
+  WAREHOUSE = transform_wh
+AS SELECT ...;</pre>
+
+<div class="info">
+  <strong>DOWNSTREAM means:</strong> "Only refresh me when a downstream DT (that has a time-based target lag) needs fresh data from me." This avoids unnecessary refreshes for intermediate pipeline layers.
+</div>
+
+<h3>How Target Lag Affects Refresh Scheduling</h3>
+<table>
+  <thead><tr><th>Scenario</th><th>Behavior</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Source hasn't changed</td>
+      <td>No refresh triggered — Snowflake is smart enough to skip if data is unchanged.</td>
+    </tr>
+    <tr>
+      <td>Source changed, within lag window</td>
+      <td>Refresh may be deferred until approaching the lag deadline.</td>
+    </tr>
+    <tr>
+      <td>Source changed, lag window expiring</td>
+      <td>Refresh triggered immediately to meet freshness SLA.</td>
+    </tr>
+    <tr>
+      <td>Refresh takes longer than lag window</td>
+      <td>DT may temporarily exceed target lag. Snowflake logs this but continues.</td>
+    </tr>
+    <tr>
+      <td>Warehouse suspended</td>
+      <td>Refresh blocked until warehouse resumes. DT becomes stale beyond target lag.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="warning">
+  <strong>Cost Implication:</strong> Shorter target lag = more frequent refreshes = higher compute cost. A 1-minute lag on a complex query can be very expensive. Choose the largest acceptable lag for your use case.
+</div>
+
+<!-- SECTION 4 -->
+<h2 id="refresh">4. Refresh Modes</h2>
+
+<table>
+  <thead><tr><th>Mode</th><th>How It Works</th><th>When Used</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>INCREMENTAL</strong></td>
+      <td>Only processes changed data since last refresh (like a stream). Efficient for large tables with small deltas.</td>
+      <td>Simple queries (filter, project, join on keys). Snowflake auto-detects if possible.</td>
+    </tr>
+    <tr>
+      <td><strong>FULL</strong></td>
+      <td>Re-executes the entire query from scratch each refresh. Scans all source data.</td>
+      <td>Complex queries (non-deterministic functions, certain aggregations, UNION ALL).</td>
+    </tr>
+    <tr>
+      <td><strong>AUTO</strong> (default)</td>
+      <td>Snowflake chooses: INCREMENTAL if the query supports it, FULL otherwise. May switch between them.</td>
+      <td>Recommended — let Snowflake optimize.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>What Supports Incremental Refresh?</h3>
+<table>
+  <thead><tr><th>SQL Pattern</th><th>Incremental?</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>Simple SELECT with WHERE filters</td><td>YES</td><td>Standard projections and filters</td></tr>
+    <tr><td>JOIN (INNER, LEFT, RIGHT)</td><td>YES</td><td>Equi-joins on key columns</td></tr>
+    <tr><td>GROUP BY with SUM, COUNT, MIN, MAX, AVG</td><td>YES</td><td>Common aggregations supported incrementally</td></tr>
+    <tr><td>UNION ALL</td><td>YES</td><td>Each branch processed independently</td></tr>
+    <tr><td>Window functions (ROW_NUMBER, RANK, etc.)</td><td>DEPENDS</td><td>Some supported, complex windows may force FULL</td></tr>
+    <tr><td>Non-deterministic functions (CURRENT_TIMESTAMP, RANDOM)</td><td>NO → FULL</td><td>Result changes every execution, can't be incremental</td></tr>
+    <tr><td>LATERAL FLATTEN</td><td>YES</td><td>Supported for incremental</td></tr>
+    <tr><td>Subqueries (correlated)</td><td>DEPENDS</td><td>Simple subqueries OK, complex may force FULL</td></tr>
+    <tr><td>QUALIFY clause</td><td>YES</td><td>Supported with incremental</td></tr>
+    <tr><td>External functions (UDFs calling APIs)</td><td>NO → FULL</td><td>Can't determine incremental behavior for external calls</td></tr>
+  </tbody>
+</table>
+
+<h3>Checking Refresh Mode</h3>
+<pre>-- See what mode Snowflake chose
+SELECT NAME, REFRESH_MODE, REFRESH_MODE_REASON
+FROM TABLE(INFORMATION_SCHEMA.DYNAMIC_TABLES())
+WHERE NAME = 'MY_DYNAMIC_TABLE';
+
+-- Detailed refresh history
+SELECT *
+FROM TABLE(INFORMATION_SCHEMA.DYNAMIC_TABLE_REFRESH_HISTORY(
+  NAME => 'MY_DYNAMIC_TABLE'
+))
+ORDER BY REFRESH_END_TIME DESC
+LIMIT 10;</pre>
+
+<!-- SECTION 5 -->
+<h2 id="architecture">5. Architecture & Internals</h2>
+
+<div class="card">
+  <div class="card-title">How Dynamic Tables Work Under the Hood</div>
+  <ol>
+    <li><strong>Dependency Graph:</strong> Snowflake builds a DAG of all DTs and their source tables/DTs. This determines refresh order.</li>
+    <li><strong>Change Tracking:</strong> Snowflake internally tracks changes to source tables (similar to streams but fully managed).</li>
+    <li><strong>Scheduler:</strong> Based on target lag, Snowflake's orchestrator decides WHEN to refresh each DT.</li>
+    <li><strong>Execution:</strong> Refresh runs on the specified warehouse. For INCREMENTAL: only delta is processed. For FULL: entire query re-executes.</li>
+    <li><strong>Materialization:</strong> Results are stored as micro-partitions (just like a regular table). Queries against DTs are fast — they read materialized data.</li>
+  </ol>
+</div>
+
+<h3>Key Architecture Points</h3>
+<ul>
+  <li><strong>DTs are real tables</strong> — once materialized, querying them is as fast as querying any table (no re-computation)</li>
+  <li><strong>Automatic dependency detection</strong> — if DT_B reads from DT_A, Snowflake knows to refresh DT_A first</li>
+  <li><strong>No manual scheduling</strong> — Snowflake handles all timing based on target lag propagation through the DAG</li>
+  <li><strong>Warehouse required</strong> — unlike serverless tasks, DTs always need a specified warehouse</li>
+  <li><strong>Change tracking is internal</strong> — you don't see or manage streams; Snowflake handles CDC internally</li>
+</ul>
+
+<h3>Refresh Lifecycle</h3>
+<pre>Source table changes → Snowflake detects change
+  → Checks target lag deadline for all dependent DTs
+  → Schedules refresh (respecting dependency order)
+  → Starts warehouse (if suspended)
+  → Executes query (INCREMENTAL or FULL)
+  → Materializes results (replaces old micro-partitions)
+  → Updates refresh metadata
+  → DT is now fresh (lag clock resets)</pre>
+
+<!-- SECTION 6 -->
+<h2 id="comparison">6. Dynamic Tables vs Other Approaches</h2>
+
+<table class="vs-table">
+  <thead><tr><th>Aspect</th><th>Dynamic Tables</th><th>Streams + Tasks</th><th>Materialized Views</th></tr></thead>
+  <tbody>
+    <tr><td>Definition style</td><td>Declarative (WHAT)</td><td>Imperative (HOW)</td><td>Declarative</td></tr>
+    <tr><td>JOINs supported</td><td>YES — any SQL</td><td>YES (in task body)</td><td>NO — single table only</td></tr>
+    <tr><td>Aggregations</td><td>YES — full SQL</td><td>YES</td><td>Limited (no GROUP BY with JOIN)</td></tr>
+    <tr><td>Scheduling</td><td>Automatic (target lag)</td><td>Manual (CRON/interval)</td><td>Automatic (transparent)</td></tr>
+    <tr><td>Freshness control</td><td>Target lag (minutes to days)</td><td>Task schedule</td><td>Near real-time (auto)</td></tr>
+    <tr><td>Pipeline chaining</td><td>Automatic DAG detection</td><td>Manual AFTER clause</td><td>N/A (single-layer)</td></tr>
+    <tr><td>Failure handling</td><td>Automatic retry</td><td>Manual (SUSPEND_AFTER_NUM_FAILURES)</td><td>Automatic</td></tr>
+    <tr><td>Compute model</td><td>Specified warehouse</td><td>Warehouse or serverless</td><td>Serverless (automatic)</td></tr>
+    <tr><td>Cost visibility</td><td>Warehouse credits</td><td>Warehouse or serverless credits</td><td>Serverless credits (less control)</td></tr>
+    <tr><td>DML support</td><td>NO — read-only output</td><td>YES — full DML control</td><td>NO — read-only</td></tr>
+    <tr><td>Complex transformations</td><td>YES — any SELECT</td><td>YES — any DML</td><td>LIMITED</td></tr>
+    <tr><td>Operational overhead</td><td>LOW — Snowflake manages</td><td>HIGH — you manage everything</td><td>LOWEST — fully transparent</td></tr>
+  </tbody>
+</table>
+
+<div class="info">
+  <strong>When to choose each:</strong>
+  <ul>
+    <li><strong>Dynamic Tables:</strong> Multi-step transformation pipelines, team wants low ops overhead, minutes-to-hours freshness acceptable</li>
+    <li><strong>Streams + Tasks:</strong> Need UPDATEs/DELETEs, complex control flow, sub-minute CDC, custom error handling</li>
+    <li><strong>Materialized Views:</strong> Single-table aggregations, need real-time freshness, simple queries only</li>
+  </ul>
+</div>
+
+<!-- SECTION 7 -->
+<h2 id="features">7. Features (15 Key Points)</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Feature</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Declarative pipelines</td><td>Define target state with SQL SELECT. Snowflake handles the how/when.</td></tr>
+    <tr><td>2</td><td>Automatic dependency management</td><td>Multi-DT pipelines auto-refresh in correct order based on the DAG.</td></tr>
+    <tr><td>3</td><td>Incremental refresh</td><td>Only processes changed rows when query pattern supports it — saves compute.</td></tr>
+    <tr><td>4</td><td>Target lag SLA</td><td>Define maximum staleness. Snowflake guarantees data freshness within this window.</td></tr>
+    <tr><td>5</td><td>DOWNSTREAM lag</td><td>Intermediate DTs only refresh when needed, reducing unnecessary compute.</td></tr>
+    <tr><td>6</td><td>Full SQL support</td><td>JOINs, aggregations, window functions, CTEs, subqueries — nearly any SELECT works.</td></tr>
+    <tr><td>7</td><td>Clustering</td><td>CLUSTER BY supported — DT data is physically organized for fast queries.</td></tr>
+    <tr><td>8</td><td>Time Travel</td><td>DTs support Time Travel (AT/BEFORE) for historical queries.</td></tr>
+    <tr><td>9</td><td>Streams on DTs</td><td>You can create a stream ON a Dynamic Table to track its output changes.</td></tr>
+    <tr><td>10</td><td>Cloning</td><td>DTs can be cloned (creates a point-in-time copy).</td></tr>
+    <tr><td>11</td><td>Data sharing</td><td>DTs can be shared with other accounts via Secure Data Sharing.</td></tr>
+    <tr><td>12</td><td>Tags and policies</td><td>Governance: masking policies, row access policies, and tags work on DTs.</td></tr>
+    <tr><td>13</td><td>ALTER DYNAMIC TABLE</td><td>Change target lag, warehouse, or suspend/resume without recreating.</td></tr>
+    <tr><td>14</td><td>Monitoring views</td><td>INFORMATION_SCHEMA.DYNAMIC_TABLE_REFRESH_HISTORY for observability.</td></tr>
+    <tr><td>15</td><td>INITIALIZE option</td><td>Control whether DT populates immediately on creation or waits for first scheduled refresh.</td></tr>
+  </tbody>
+</table>
+
+<!-- SECTION 8 -->
+<h2 id="limitations">8. Limitations (15 Key Points)</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Limitation</th><th>Detail / Workaround</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Read-only output</td><td>Cannot INSERT/UPDATE/DELETE into a DT. It's purely defined by its query.</td></tr>
+    <tr><td>2</td><td>No DML allowed</td><td>If you need to modify data, use a regular table with Streams + Tasks.</td></tr>
+    <tr><td>3</td><td>Warehouse required</td><td>Must specify a warehouse. No serverless option (unlike serverless tasks).</td></tr>
+    <tr><td>4</td><td>Minimum lag = 1 minute</td><td>Cannot achieve sub-second freshness. Use Snowpipe Streaming for that.</td></tr>
+    <tr><td>5</td><td>Full refresh for complex queries</td><td>Non-deterministic functions, external UDFs, some window functions force FULL refresh.</td></tr>
+    <tr><td>6</td><td>No MERGE semantics</td><td>DTs are "full state" — the entire result is materialized, not incremental upserts.</td></tr>
+    <tr><td>7</td><td>Cannot reference temporary tables</td><td>Source objects must be persistent (permanent, transient, other DTs, views).</td></tr>
+    <tr><td>8</td><td>Cannot write to DT from external</td><td>No Snowpipe or COPY INTO pointing to a DT. Only the defining query populates it.</td></tr>
+    <tr><td>9</td><td>Warehouse costs during refresh</td><td>Refresh uses full warehouse. Long-running refreshes on large WHs can be expensive.</td></tr>
+    <tr><td>10</td><td>No procedural logic</td><td>DT body is a single SELECT. No IF/ELSE, loops, or multi-statement logic.</td></tr>
+    <tr><td>11</td><td>DOWNSTREAM not standalone</td><td>At least one DT in the pipeline must have a time-based lag to drive refreshes.</td></tr>
+    <tr><td>12</td><td>Schema evolution limited</td><td>Changing the SELECT (adding columns) requires CREATE OR REPLACE — loses history.</td></tr>
+    <tr><td>13</td><td>Cross-database references</td><td>Supported but cross-account/share sources have limitations.</td></tr>
+    <tr><td>14</td><td>Refresh can exceed target lag</td><td>If query is slow, DT may temporarily be staler than target. Snowflake logs this.</td></tr>
+    <tr><td>15</td><td>No triggers/events on refresh</td><td>Cannot fire a notification when DT finishes refreshing (unlike task AFTER completion).</td></tr>
+  </tbody>
+</table>
+
+<div class="warning">
+  <strong>The Big Trade-off:</strong> Dynamic Tables trade control for convenience. You get automatic orchestration and refresh management, but you lose the ability to do UPDATEs/DELETEs, custom error handling, and procedural logic. For simple pipelines: DTs win. For complex CDC with SCD Type 2: Streams + Tasks may still be better.
+</div>
+
+<p style="margin-top: 40px; padding-top: 20px; border-top: 1px solid light-dark(#e5e7eb, #374151); color: light-dark(#6b7280, #9ca3af); font-size: 0.85rem;">
+  Dynamic Tables Theory Part 1 - Fundamentals | SnowPro Core Exam | August 15, 2026
+</p>
+
+</body>
+</html>
