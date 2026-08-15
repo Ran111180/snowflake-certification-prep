@@ -36,9 +36,12 @@ Complete hands-on study material for the **Snowflake SnowPro Core Certification*
 ├── 11-streams-deep-dive/          # Streams: CDC, Offset, Staleness, Streams+Tasks, SCD
 │   ├── 01-certification-reference/ # Part 1, Part 2, 50 Questions, Edge Cases
 │   └── 02-hands-on-practice/       # Full lab: DML changes, consume, append-only, tasks
-└── 12-dynamic-tables-deep-dive/   # Dynamic Tables: Declarative Pipelines, Target Lag, Refresh
+├── 12-dynamic-tables-deep-dive/   # Dynamic Tables: Declarative Pipelines, Target Lag, Refresh
+│   ├── 01-certification-reference/ # Part 1 (Fundamentals), Part 2 (Advanced), 50 Questions, Edge Cases
+│   └── 02-hands-on-practice/       # Full lab: medallion pipeline, DOWNSTREAM, stream on DT
+└── 13-iceberg-tables-deep-dive/   # Iceberg Tables: Open Format, External Volumes, Catalog Integrations
     ├── 01-certification-reference/ # Part 1 (Fundamentals), Part 2 (Advanced), 50 Questions, Edge Cases
-    └── 02-hands-on-practice/       # Full lab: medallion pipeline, DOWNSTREAM, stream on DT
+    └── 02-hands-on-practice/       # Lab: create Iceberg table, DML, schema evolution, Time Travel
 ```
 
 Each folder contains:

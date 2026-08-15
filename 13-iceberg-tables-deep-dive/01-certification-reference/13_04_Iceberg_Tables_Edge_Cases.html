@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Iceberg Tables - Edge Cases & Recovery</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Iceberg edge cases: DDL impact, external volume failures, catalog issues, interop gotchas, recovery",
+    "sections": [
+      { "id": "supported", "title": "Supported Operations", "dataSources": [], "producerNotes": "What works on Iceberg" },
+      { "id": "ddl", "title": "DDL Impact", "dataSources": [], "producerNotes": "CREATE OR REPLACE, DROP, ALTER" },
+      { "id": "storage", "title": "Storage & Volume Edge Cases", "dataSources": [], "producerNotes": "Permissions, deletion, cross-region" },
+      { "id": "catalog", "title": "Catalog Edge Cases", "dataSources": [], "producerNotes": "Sync, refresh, drift" },
+      { "id": "recovery", "title": "Recovery Playbook", "dataSources": [], "producerNotes": "Step-by-step" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #0f172a); line-height: 1.6; }
+    h1 { font-size: 2rem; color: light-dark(#0f172a, #f8fafc); margin-bottom: 8px; border-bottom: 3px solid light-dark(#7c3aed, #a78bfa); padding-bottom: 12px; }
+    h2 { font-size: 1.5rem; color: light-dark(#5b21b6, #c4b5fd); margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid light-dark(#ede9fe, #2e1065); }
+    h3 { font-size: 1.15rem; color: light-dark(#4c1d95, #ddd6fe); margin: 24px 0 12px; }
+    p { margin: 8px 0; }
+    .subtitle { color: light-dark(#6b7280, #9ca3af); font-size: 0.95rem; margin-bottom: 24px; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; }
+    th, td { border: 1px solid light-dark(#e5e7eb, #374151); padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: light-dark(#f5f3ff, #1e293b); font-weight: 600; color: light-dark(#5b21b6, #c4b5fd); }
+    tr:nth-child(even) td { background: light-dark(#f9fafb, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
+    pre { background: light-dark(#1e293b, #0c1322); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; font-size: 0.85rem; line-height: 1.5; }
+    .warning { background: light-dark(#fef3c7, #451a03); border-left: 4px solid light-dark(#f59e0b, #fbbf24); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .info { background: light-dark(#dbeafe, #172554); border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .danger { background: light-dark(#fee2e2, #450a0a); border-left: 4px solid light-dark(#ef4444, #f87171); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .toc { background: light-dark(#f8fafc, #1e293b); border: 1px solid light-dark(#e2e8f0, #334155); border-radius: 8px; padding: 20px; margin: 24px 0; }
+    .toc a { color: light-dark(#7c3aed, #a78bfa); text-decoration: none; }
+    .toc ul { list-style: none; padding-left: 0; }
+    .toc li { padding: 4px 0; }
+    ul, ol { padding-left: 24px; margin: 8px 0; }
+    li { margin: 4px 0; }
+    .status-safe { color: light-dark(#059669, #34d399); font-weight: 600; }
+    .status-danger { color: light-dark(#dc2626, #f87171); font-weight: 600; }
+    .status-warn { color: light-dark(#d97706, #fbbf24); font-weight: 600; }
+    .recovery-box { background: light-dark(#f0fdf4, #022c22); border: 2px solid light-dark(#86efac, #166534); border-radius: 12px; padding: 24px; margin: 20px 0; }
+    .recovery-box h3 { color: light-dark(#065f46, #6ee7b7); margin-top: 0; }
+  </style>
+</head>
+<body>
+
+<h1>Iceberg Tables - Edge Cases & Recovery</h1>
+<p class="subtitle">SnowPro Core Certification | Storage, catalog, and interoperability issues | August 2026</p>
+
+<div class="toc">
+  <strong>Table of Contents</strong>
+  <ul>
+    <li><a href="#supported">1. Supported & Unsupported Operations</a></li>
+    <li><a href="#ddl">2. DDL Impact</a></li>
+    <li><a href="#storage">3. Storage & External Volume Edge Cases</a></li>
+    <li><a href="#catalog">4. Catalog & Metadata Edge Cases</a></li>
+    <li><a href="#interop">5. Interoperability Edge Cases</a></li>
+    <li><a href="#recovery">6. Recovery Playbook</a></li>
+    <li><a href="#exam-scenarios">7. Exam Scenario Questions</a></li>
+  </ul>
+</div>
+
+<!-- SECTION 1 -->
+<h2 id="supported">1. Supported & Unsupported Operations</h2>
+
+<h3>What Works on Iceberg Tables</h3>
+<table>
+  <thead><tr><th>Feature</th><th>Snowflake-Managed</th><th>Externally-Managed</th></tr></thead>
+  <tbody>
+    <tr><td>SELECT queries</td><td><span class="status-safe">YES</span></td><td><span class="status-safe">YES</span></td></tr>
+    <tr><td>INSERT</td><td><span class="status-safe">YES</span></td><td><span class="status-danger">NO</span></td></tr>
+    <tr><td>UPDATE</td><td><span class="status-safe">YES</span></td><td><span class="status-danger">NO</span></td></tr>
+    <tr><td>DELETE</td><td><span class="status-safe">YES</span></td><td><span class="status-danger">NO</span></td></tr>
+    <tr><td>MERGE</td><td><span class="status-safe">YES</span></td><td><span class="status-danger">NO</span></td></tr>
+    <tr><td>COPY INTO (load)</td><td><span class="status-safe">YES</span></td><td><span class="status-danger">NO</span></td></tr>
+    <tr><td>Snowpipe loading</td><td><span class="status-safe">YES</span></td><td><span class="status-danger">NO</span></td></tr>
+    <tr><td>Time Travel</td><td><span class="status-safe">YES</span></td><td><span class="status-warn">LIMITED</span></td></tr>
+    <tr><td>Clustering</td><td><span class="status-safe">YES</span></td><td><span class="status-danger">NO</span></td></tr>
+    <tr><td>Streams</td><td><span class="status-safe">YES</span></td><td><span class="status-warn">LIMITED</span></td></tr>
+    <tr><td>Dynamic Table source</td><td><span class="status-safe">YES</span></td><td><span class="status-safe">YES</span></td></tr>
+    <tr><td>Data Sharing</td><td><span class="status-safe">YES</span></td><td><span class="status-safe">YES</span></td></tr>
+    <tr><td>Masking policies</td><td><span class="status-safe">YES</span></td><td><span class="status-safe">YES</span></td></tr>
+    <tr><td>Row access policies</td><td><span class="status-safe">YES</span></td><td><span class="status-safe">YES</span></td></tr>
+    <tr><td>Clone</td><td><span class="status-safe">YES</span></td><td><span class="status-warn">LIMITED</span></td></tr>
+    <tr><td>Fail-safe</td><td><span class="status-danger">NO</span></td><td><span class="status-danger">NO</span></td></tr>
+    <tr><td>Materialized Views on Iceberg</td><td><span class="status-danger">NO</span></td><td><span class="status-danger">NO</span></td></tr>
+    <tr><td>Temporary / Transient</td><td><span class="status-danger">NO</span></td><td><span class="status-danger">NO</span></td></tr>
+  </tbody>
+</table>
+
+<div class="danger">
+  <strong>Key Distinctions:</strong> Snowflake-managed = full DML + clustering + Time Travel. Externally-managed = READ-ONLY (just SELECT + governance). No Iceberg table gets fail-safe or materialized views.
+</div>
+
+<!-- SECTION 2 -->
+<h2 id="ddl">2. DDL Impact</h2>
+
+<table>
+  <thead><tr><th>Operation</th><th>Data Files on Storage</th><th>Metadata</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>CREATE OR REPLACE ICEBERG TABLE</code></td>
+      <td><span class="status-warn">Old files may remain on storage</span></td>
+      <td><span class="status-danger">Reset</span></td>
+      <td>New table starts fresh. Old Parquet files may linger (orphaned) on your storage.</td>
+    </tr>
+    <tr>
+      <td><code>DROP ICEBERG TABLE</code></td>
+      <td><span class="status-warn">Files remain on storage (not auto-deleted)</span></td>
+      <td><span class="status-danger">Removed from Snowflake</span></td>
+      <td>You must manually clean up orphaned files from your external volume.</td>
+    </tr>
+    <tr>
+      <td><code>UNDROP TABLE</code></td>
+      <td><span class="status-safe">Files still there</span></td>
+      <td><span class="status-safe">Restored</span></td>
+      <td>Works within Time Travel retention (Snowflake-managed only).</td>
+    </tr>
+    <tr>
+      <td><code>ALTER TABLE ADD COLUMN</code></td>
+      <td><span class="status-safe">No file rewrite</span></td>
+      <td><span class="status-safe">Schema evolution</span></td>
+      <td>Iceberg's schema evolution — existing files unchanged, new column = NULL for old rows.</td>
+    </tr>
+    <tr>
+      <td><code>ALTER TABLE DROP COLUMN</code></td>
+      <td><span class="status-safe">No file rewrite</span></td>
+      <td><span class="status-safe">Updated</span></td>
+      <td>Column hidden from metadata. Old files still contain the data (not physically removed).</td>
+    </tr>
+    <tr>
+      <td><code>ALTER TABLE RENAME COLUMN</code></td>
+      <td><span class="status-safe">No file rewrite</span></td>
+      <td><span class="status-safe">Updated</span></td>
+      <td>Metadata-level rename. Data files unchanged.</td>
+    </tr>
+    <tr>
+      <td><code>TRUNCATE TABLE</code></td>
+      <td><span class="status-warn">Old files become orphaned</span></td>
+      <td><span class="status-safe">New empty snapshot</span></td>
+      <td>Table is empty. Old data files still on storage until compaction/cleanup.</td>
+    </tr>
+    <tr>
+      <td><code>ALTER TABLE CONVERT TO ICEBERG</code></td>
+      <td>Data migrated to external volume as Parquet</td>
+      <td>Iceberg metadata created</td>
+      <td>One-way conversion. Cannot convert back to native.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="warning">
+  <strong>Orphaned Files:</strong> Unlike native tables, Iceberg table operations (DROP, TRUNCATE, UPDATE/DELETE) can leave orphaned Parquet files on your storage. These don't auto-delete. You must manage storage lifecycle (cloud bucket policies or manual cleanup).
+</div>
+
+<!-- SECTION 3 -->
+<h2 id="storage">3. Storage & External Volume Edge Cases</h2>
+
+<table>
+  <thead><tr><th>Scenario</th><th>What Happens</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Storage bucket deleted</strong></td>
+      <td><span class="status-danger">All data LOST.</span> Queries fail. No recovery possible from Snowflake side.</td>
+      <td>Restore from cloud backup/versioning if enabled. This is YOUR responsibility.</td>
+    </tr>
+    <tr>
+      <td><strong>IAM role permissions revoked</strong></td>
+      <td>All queries fail with access denied. DML fails.</td>
+      <td>Re-grant permissions to the IAM role referenced in external volume.</td>
+    </tr>
+    <tr>
+      <td><strong>Storage in different region than Snowflake</strong></td>
+      <td>Works but SLOW (cross-region latency) + egress charges.</td>
+      <td>Move data to same region or accept the cost/latency trade-off.</td>
+    </tr>
+    <tr>
+      <td><strong>Storage encryption key rotated</strong></td>
+      <td>Old files become unreadable if previous key not retained.</td>
+      <td>Use cloud KMS with key rotation that retains old versions.</td>
+    </tr>
+    <tr>
+      <td><strong>External volume dropped while table exists</strong></td>
+      <td>Iceberg table becomes non-functional. Queries fail.</td>
+      <td>Recreate external volume with same name/config, or drop and recreate table.</td>
+    </tr>
+    <tr>
+      <td><strong>Cloud lifecycle policy deletes old files</strong></td>
+      <td>Time Travel fails for snapshots that referenced deleted files.</td>
+      <td>Set lifecycle retention longer than Iceberg snapshot retention.</td>
+    </tr>
+    <tr>
+      <td><strong>Concurrent writes from Snowflake + external engine</strong></td>
+      <td><span class="status-danger">CONFLICT.</span> Snowflake-managed Iceberg should NOT have external writers.</td>
+      <td>Use externally-managed mode if multiple writers exist. One writer per mode.</td>
+    </tr>
+    <tr>
+      <td><strong>Storage full / quota exceeded</strong></td>
+      <td>Write operations fail. Reads still work (existing data).</td>
+      <td>Increase storage quota or clean up orphaned files.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- SECTION 4 -->
+<h2 id="catalog">4. Catalog & Metadata Edge Cases</h2>
+
+<table>
+  <thead><tr><th>Scenario</th><th>What Happens</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Glue catalog table deleted externally</strong></td>
+      <td>Snowflake's externally-managed table becomes stale/fails on refresh.</td>
+      <td>Recreate in Glue, or drop the Snowflake table.</td>
+    </tr>
+    <tr>
+      <td><strong>External engine changes schema (add column)</strong></td>
+      <td>After REFRESH, new column appears in Snowflake. Auto schema evolution.</td>
+      <td>No fix needed — Iceberg handles this gracefully.</td>
+    </tr>
+    <tr>
+      <td><strong>External engine drops column</strong></td>
+      <td>After REFRESH, column disappears from Snowflake's view.</td>
+      <td>Update any queries that referenced the dropped column.</td>
+    </tr>
+    <tr>
+      <td><strong>Catalog integration credentials expire</strong></td>
+      <td>REFRESH and AUTO_REFRESH fail. Existing cached data still queryable (stale).</td>
+      <td>Update the catalog integration with new credentials.</td>
+    </tr>
+    <tr>
+      <td><strong>METADATA_FILE_PATH becomes invalid</strong></td>
+      <td>Table becomes unqueryable. All operations fail.</td>
+      <td>Update the metadata file path: ALTER ICEBERG TABLE ... SET METADATA_FILE_PATH = '...'</td>
+    </tr>
+    <tr>
+      <td><strong>Catalog and storage out of sync</strong></td>
+      <td>Catalog points to metadata that references missing/moved files.</td>
+      <td>Run table maintenance in the external engine (Spark rewrite_data_files).</td>
+    </tr>
+    <tr>
+      <td><strong>Multiple Snowflake accounts reading same external table</strong></td>
+      <td><span class="status-safe">Safe for reads.</span> Each account has independent catalog integration.</td>
+      <td>No issue — concurrent readers are fine.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- SECTION 5 -->
+<h2 id="interop">5. Interoperability Edge Cases</h2>
+
+<table>
+  <thead><tr><th>Scenario</th><th>What Happens</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Spark reads Snowflake-managed Iceberg directly from storage</strong></td>
+      <td><span class="status-safe">Works.</span> Parquet files are standard. Spark can read them with Iceberg connector pointed at the metadata.</td>
+    </tr>
+    <tr>
+      <td><strong>Spark writes to a Snowflake-managed Iceberg table</strong></td>
+      <td><span class="status-danger">CONFLICT.</span> Snowflake manages the catalog. External writes bypass Snowflake's tracking. Data corruption possible.</td>
+    </tr>
+    <tr>
+      <td><strong>Iceberg V2 features used by external engine</strong></td>
+      <td>Snowflake supports Iceberg V2 (row-level deletes, equality deletes). Most features work across engines.</td>
+    </tr>
+    <tr>
+      <td><strong>Data types not supported in Snowflake</strong></td>
+      <td>If external engine uses Iceberg types without Snowflake mapping, those columns may show as unsupported.</td>
+    </tr>
+    <tr>
+      <td><strong>Sort order (Iceberg SortOrder) set by external engine</strong></td>
+      <td>Snowflake respects file-level sort for pruning but doesn't enforce sort order on its own writes.</td>
+    </tr>
+    <tr>
+      <td><strong>Partition spec changed externally</strong></td>
+      <td>Snowflake handles partition evolution. After REFRESH, new partition spec is visible.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- SECTION 6 -->
+<h2 id="recovery">6. Recovery Playbook</h2>
+
+<div class="recovery-box">
+  <h3>Scenario A: Accidental DROP TABLE (Snowflake-Managed)</h3>
+  <pre>-- 1. UNDROP if within Time Travel retention
+UNDROP TABLE my_iceberg_table;
+
+-- 2. If beyond Time Travel but files still on storage:
+-- Files are still in the BASE_LOCATION on your external volume!
+-- Recreate table pointing to same location
+CREATE ICEBERG TABLE my_iceberg_table (...)
+  CATALOG = 'SNOWFLAKE'
+  EXTERNAL_VOLUME = 'my_vol'
+  BASE_LOCATION = 'same/path/as/before/';
+-- Note: Snowflake may need to rebuild metadata from data files</pre>
+</div>
+
+<div class="recovery-box">
+  <h3>Scenario B: External Volume Permissions Broken</h3>
+  <pre>-- 1. Check the error
+SELECT * FROM my_iceberg_table LIMIT 1;
+-- Error: "Access denied to storage location"
+
+-- 2. Verify external volume config
+DESC EXTERNAL VOLUME my_vol;
+-- Check the STORAGE_AWS_ROLE_ARN / Azure Tenant / GCS config
+
+-- 3. Fix in cloud provider (re-grant IAM role permissions):
+-- s3:GetObject, s3:PutObject, s3:DeleteObject, s3:ListBucket
+
+-- 4. Test
+SELECT * FROM my_iceberg_table LIMIT 1;  -- Should work now</pre>
+</div>
+
+<div class="recovery-box">
+  <h3>Scenario C: Externally-Managed Table Shows Stale Data</h3>
+  <pre>-- Spark wrote new data but Snowflake still shows old data
+
+-- 1. Manual refresh
+ALTER ICEBERG TABLE my_external_table REFRESH;
+
+-- 2. If using OBJECT_STORE, update metadata path
+ALTER ICEBERG TABLE my_external_table
+  SET METADATA_FILE_PATH = 'path/to/latest/v2.metadata.json';
+
+-- 3. Enable AUTO_REFRESH for future updates
+ALTER ICEBERG TABLE my_external_table SET AUTO_REFRESH = TRUE;
+
+-- 4. Verify
+SELECT COUNT(*) FROM my_external_table;  -- Should show new row count</pre>
+</div>
+
+<div class="recovery-box">
+  <h3>Scenario D: Orphaned Files Consuming Storage</h3>
+  <pre>-- After many UPDATE/DELETE operations, old data files accumulate
+
+-- For Snowflake-managed: Snowflake handles compaction automatically
+-- But old snapshots' files may linger
+
+-- Cloud-side cleanup options:
+-- AWS: S3 Lifecycle policy to delete objects older than X days in base_location
+-- Azure: Blob lifecycle management
+-- GCS: Object Lifecycle Management
+
+-- IMPORTANT: Don't delete files still referenced by active snapshots!
+-- Wait for Snowflake to expire snapshots (controlled by DATA_RETENTION_TIME)</pre>
+</div>
+
+<div class="recovery-box">
+  <h3>Scenario E: Convert Back from Iceberg to Native (Not Possible Directly)</h3>
+  <pre>-- There is NO ALTER TABLE ... CONVERT TO NATIVE command
+
+-- Workaround: Copy data to a new native table
+CREATE TABLE my_native_table AS
+SELECT * FROM my_iceberg_table;
+
+-- Drop the Iceberg table
+DROP TABLE my_iceberg_table;
+
+-- Rename native table
+ALTER TABLE my_native_table RENAME TO my_iceberg_table;
+
+-- Note: You lose Iceberg benefits (open format, portability)
+-- but gain fail-safe and slightly better performance</pre>
+</div>
+
+<!-- SECTION 7 -->
+<h2 id="exam-scenarios">7. Exam Scenario Questions</h2>
+
+<table>
+  <thead><tr><th>Scenario</th><th>Correct Answer</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>"Can you UPDATE rows in an externally-managed Iceberg table?"</td>
+      <td>NO. Externally-managed tables are READ-ONLY in Snowflake. Only the external engine can write.</td>
+    </tr>
+    <tr>
+      <td>"Do Iceberg tables have Snowflake fail-safe?"</td>
+      <td>NO. Neither Snowflake-managed nor externally-managed Iceberg tables have fail-safe. Only Time Travel (if Snowflake-managed).</td>
+    </tr>
+    <tr>
+      <td>"What happens when you DROP an Iceberg table?"</td>
+      <td>Snowflake removes its reference. Data files typically REMAIN on your external storage (not auto-deleted). You manage cleanup.</td>
+    </tr>
+    <tr>
+      <td>"Can Snowpipe load into an Iceberg table?"</td>
+      <td>YES — but only Snowflake-managed Iceberg tables. Not externally-managed (read-only).</td>
+    </tr>
+    <tr>
+      <td>"Where is Iceberg table data actually stored?"</td>
+      <td>On YOUR cloud storage (S3/Azure/GCS) in the external volume location. NOT on Snowflake's internal storage.</td>
+    </tr>
+    <tr>
+      <td>"Can you create a materialized view on an Iceberg table?"</td>
+      <td>NO. Materialized views are not supported on Iceberg tables.</td>
+    </tr>
+    <tr>
+      <td>"What format is Iceberg data stored in?"</td>
+      <td>Parquet (data files) + JSON (metadata) + Avro (manifests). All open formats.</td>
+    </tr>
+    <tr>
+      <td>"Can you convert an Iceberg table back to native Snowflake format?"</td>
+      <td>NOT directly. There's no CONVERT TO NATIVE command. Must copy data to a new native table (CTAS).</td>
+    </tr>
+    <tr>
+      <td>"What is an external volume?"</td>
+      <td>A Snowflake object that defines the cloud storage location (S3/Azure/GCS) and access credentials for Iceberg data.</td>
+    </tr>
+    <tr>
+      <td>"Can multiple engines write to the same Snowflake-managed Iceberg table?"</td>
+      <td>NO. Only Snowflake should write to Snowflake-managed tables. For multi-writer, use externally-managed with a shared catalog.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="danger">
+  <strong>Top 5 Iceberg Exam Traps:</strong>
+  <ol>
+    <li>NO fail-safe for any Iceberg table type</li>
+    <li>Externally-managed = STRICTLY read-only in Snowflake (no DML at all)</li>
+    <li>Data lives on YOUR storage, not Snowflake's — you manage costs and lifecycle</li>
+    <li>DROP TABLE does NOT auto-delete data files from your storage</li>
+    <li>Cannot convert Iceberg back to native (one-way conversion)</li>
+  </ol>
+</div>
+
+<p style="margin-top: 40px; padding-top: 20px; border-top: 1px solid light-dark(#e5e7eb, #374151); color: light-dark(#6b7280, #9ca3af); font-size: 0.85rem;">
+  Iceberg Tables Edge Cases & Recovery | SnowPro Core Exam | August 15, 2026
+</p>
+
+</body>
+</html>

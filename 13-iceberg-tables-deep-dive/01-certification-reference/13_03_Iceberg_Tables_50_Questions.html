@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Iceberg Tables - 50 Exam Questions</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "50 interactive certification questions on Snowflake Iceberg Tables",
+    "sections": [{ "id": "quiz", "title": "50 Questions", "dataSources": [], "producerNotes": "Click to answer" }]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #0f172a); line-height: 1.6; }
+    h1 { font-size: 2rem; color: light-dark(#0f172a, #f8fafc); margin-bottom: 8px; border-bottom: 3px solid light-dark(#7c3aed, #a78bfa); padding-bottom: 12px; }
+    .subtitle { color: light-dark(#6b7280, #9ca3af); font-size: 0.95rem; margin-bottom: 24px; }
+    .score-bar { background: light-dark(#f5f3ff, #1e293b); border: 1px solid light-dark(#c4b5fd, #334155); border-radius: 8px; padding: 16px; margin: 20px 0; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; }
+    .score-bar span { font-weight: 600; font-size: 1.1rem; }
+    .score-correct { color: light-dark(#059669, #34d399); }
+    .score-wrong { color: light-dark(#dc2626, #f87171); }
+    .score-total { color: light-dark(#5b21b6, #c4b5fd); }
+    .reset-btn { background: light-dark(#7c3aed, #8b5cf6); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+    .reset-btn:hover { opacity: 0.85; }
+    .q-block { background: light-dark(#f8fafc, #1e293b); border: 1px solid light-dark(#e2e8f0, #334155); border-radius: 8px; padding: 20px; margin: 16px 0; }
+    .q-block h3 { color: light-dark(#5b21b6, #c4b5fd); margin-bottom: 12px; font-size: 1rem; }
+    .q-block .option { display: block; padding: 10px 14px; margin: 6px 0; border: 1px solid light-dark(#d1d5db, #4b5563); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+    .q-block .option:hover:not(.disabled) { background: light-dark(#f5f3ff, #2d1b69); border-color: light-dark(#7c3aed, #a78bfa); }
+    .q-block .option.correct { background: light-dark(#d1fae5, #064e3b); border-color: light-dark(#10b981, #34d399); color: light-dark(#065f46, #6ee7b7); }
+    .q-block .option.wrong { background: light-dark(#fee2e2, #450a0a); border-color: light-dark(#ef4444, #f87171); color: light-dark(#991b1b, #fca5a5); }
+    .q-block .option.disabled { cursor: default; opacity: 0.7; }
+    .q-block .explanation { display: none; margin-top: 12px; padding: 10px 14px; background: light-dark(#ecfdf5, #022c22); border-left: 3px solid light-dark(#10b981, #34d399); border-radius: 0 4px 4px 0; font-size: 0.9rem; }
+    .q-block .explanation.show { display: block; }
+  </style>
+</head>
+<body>
+
+<h1>Iceberg Tables - 50 Exam Questions</h1>
+<p class="subtitle">SnowPro Core Certification | Click an option to answer | August 2026</p>
+
+<div class="score-bar">
+  <span class="score-correct">Correct: <span id="correct-count">0</span></span>
+  <span class="score-wrong">Wrong: <span id="wrong-count">0</span></span>
+  <span class="score-total">Score: <span id="score-pct">0</span>%</span>
+  <button class="reset-btn" id="reset-btn">Reset Quiz</button>
+</div>
+
+<div id="quiz-container"></div>
+
+<script>
+(function(){
+  var questions = [
+    {q:"What open file format does Snowflake Iceberg Tables use for data storage?",o:["CSV","Avro","Parquet","ORC"],a:2,e:"Apache Iceberg uses Parquet as the primary data file format. Metadata files use Avro/JSON."},
+    {q:"What is the primary benefit of Iceberg tables over native Snowflake tables?",o:["Faster query performance","No vendor lock-in (open format readable by any engine)","Lower compute costs","Built-in ML capabilities"],a:1,e:"Iceberg's key value is openness — data in Parquet format is readable by Spark, Trino, Flink, and others, eliminating vendor lock-in."},
+    {q:"Can you INSERT, UPDATE, and DELETE in a Snowflake-managed Iceberg table?",o:["No — Iceberg tables are always read-only","Yes — full DML supported","Only INSERT","Only INSERT and DELETE"],a:1,e:"Snowflake-managed Iceberg tables support full DML: INSERT, UPDATE, DELETE, and MERGE — same as native tables."},
+    {q:"Can you INSERT into an externally-managed Iceberg table from Snowflake?",o:["Yes — same as Snowflake-managed","No — externally-managed tables are read-only in Snowflake","Only with FORCE option","Only if the external catalog allows it"],a:1,e:"Externally-managed Iceberg tables are READ-ONLY in Snowflake. The external engine (Spark, etc.) handles all writes."},
+    {q:"What Snowflake object defines WHERE Iceberg data is stored?",o:["Stage","Storage Integration","External Volume","File Format"],a:2,e:"An External Volume defines the cloud storage location (S3/Azure/GCS) where Iceberg data files and metadata reside."},
+    {q:"Do Iceberg tables support Snowflake's Fail-safe?",o:["Yes — same 7-day fail-safe as native tables","No — Iceberg tables do not have fail-safe","Only for Snowflake-managed","Only with Enterprise edition"],a:1,e:"Iceberg tables do NOT have Snowflake's 7-day fail-safe. They support Time Travel but no post-TT safety net."},
+    {q:"Which catalog type means Snowflake manages the Iceberg metadata?",o:["CATALOG = 'GLUE'","CATALOG = 'SNOWFLAKE'","CATALOG = 'INTERNAL'","CATALOG = 'MANAGED'"],a:1,e:"CATALOG = 'SNOWFLAKE' means Snowflake manages the Iceberg catalog and metadata internally."},
+    {q:"What is Apache Iceberg's metadata hierarchy (top to bottom)?",o:["Data files → Manifests → Snapshots","Catalog → Metadata File → Manifest List → Manifest Files → Data Files","Schema → Partitions → Files","Catalog → Snapshots → Partitions → Rows"],a:1,e:"The hierarchy is: Catalog (pointer) → Metadata File (schema/snapshots) → Manifest List → Manifest Files (file stats) → Data Files (Parquet)."},
+    {q:"What does ALTER ICEBERG TABLE ... REFRESH do?",o:["Rebuilds all data files","Refreshes metadata to detect new data written by external engines","Clears the query cache","Reclusters the table"],a:1,e:"REFRESH updates Snowflake's metadata copy to detect new snapshots/data written by external engines (Spark, etc.)."},
+    {q:"Can you create a Stream on an Iceberg table?",o:["No — streams only work on native tables","Yes — streams work on Snowflake-managed Iceberg tables","Only append-only streams","Only insert-only streams"],a:1,e:"Streams can be created on Snowflake-managed Iceberg tables to track CDC changes, just like native tables."},
+    {q:"Can Snowpipe load into an Iceberg table?",o:["No — Snowpipe only supports native tables","Yes — Snowpipe can load into Snowflake-managed Iceberg tables","Only via REST API","Only for external Iceberg tables"],a:1,e:"Snowpipe can load data into Snowflake-managed Iceberg tables. The data is written as Parquet files on your external volume."},
+    {q:"What is Snowflake Open Catalog (formerly Polaris)?",o:["A data marketplace","An open-source Iceberg catalog for multi-engine access","A query optimizer","A storage tier"],a:1,e:"Polaris/Open Catalog is Snowflake's open-source Iceberg catalog that enables multiple engines to access the same Iceberg tables with centralized governance."},
+    {q:"Can you convert a native Snowflake table to Iceberg format?",o:["No — must recreate from scratch","Yes — ALTER TABLE ... CONVERT TO ICEBERG","Only empty tables can be converted","Only with ACCOUNTADMIN role"],a:1,e:"ALTER TABLE ... CONVERT TO ICEBERG converts an existing native table to Iceberg format, moving data to the external volume."},
+    {q:"Can you JOIN an Iceberg table with a native Snowflake table?",o:["No — different storage formats can't be joined","Yes — they can be joined seamlessly in the same query","Only with a VIEW wrapper","Only in stored procedures"],a:1,e:"Iceberg and native tables can be joined seamlessly in any SQL query. Snowflake handles the different storage formats transparently."},
+    {q:"What permissions does an external volume need for Snowflake-managed Iceberg?",o:["Read-only (GetObject, ListBucket)","Read-write (GetObject, PutObject, DeleteObject, ListBucket)","Full admin access to the cloud account","Only ListBucket"],a:1,e:"Snowflake-managed Iceberg needs WRITE permissions because Snowflake writes data files and metadata to your storage."},
+    {q:"What is the recommended Parquet file size for Iceberg tables?",o:["1-5 MB","10-50 MB","100-250 MB","1-5 GB"],a:2,e:"100-250 MB is optimal. Too small = too many files (metadata overhead). Too large = poor pruning granularity."},
+    {q:"Does clustering work on Iceberg tables?",o:["No — clustering is only for native tables","Yes — but only for Snowflake-managed Iceberg tables","Yes — for all Iceberg table types","Only manual reclustering"],a:1,e:"Automatic clustering is supported for Snowflake-managed Iceberg tables only. Snowflake controls the physical layout."},
+    {q:"Which catalog integration type is used for AWS Glue?",o:["CATALOG_SOURCE = AWS","CATALOG_SOURCE = GLUE","CATALOG_SOURCE = S3","CATALOG_SOURCE = ATHENA"],a:1,e:"CATALOG_SOURCE = GLUE is used for AWS Glue Data Catalog integration."},
+    {q:"Can Iceberg tables be shared via Secure Data Sharing?",o:["No — only native tables can be shared","Yes — Iceberg tables support data sharing","Only Snowflake-managed Iceberg","Only the metadata, not the data"],a:1,e:"Iceberg tables can be shared via Secure Data Sharing, just like native tables."},
+    {q:"What happens to existing data when you add a column to an Iceberg table?",o:["All data files are rewritten","Data files are unchanged — new column has NULL for existing rows","The table must be recreated","Existing rows get a default value"],a:1,e:"Schema evolution in Iceberg doesn't rewrite data files. Existing rows get NULL for the new column. This is a key Iceberg feature."},
+    {q:"Where does the actual data live in a Snowflake-managed Iceberg table?",o:["Snowflake's internal storage","Your cloud storage (external volume)","Shared between Snowflake and your storage","A temporary staging area"],a:1,e:"Even for Snowflake-managed Iceberg, the data lives on YOUR external volume (S3/Azure/GCS). You control and pay for that storage."},
+    {q:"What is the purpose of Iceberg manifest files?",o:["Store the actual row data","Track individual data files with column-level statistics (min/max)","Define the table schema","Store query plans"],a:1,e:"Manifest files track which data files belong to a snapshot and store column-level stats (min, max, null count) for file-level pruning."},
+    {q:"Can you create a Dynamic Table that reads from an Iceberg table?",o:["No — DTs only work with native tables","Yes — DTs can read from any queryable source including Iceberg","Only with FULL refresh mode","Only Snowflake-managed Iceberg"],a:1,e:"Dynamic Tables can read from Iceberg tables as a source, just like any other queryable object."},
+    {q:"What privilege is needed to create an external volume?",o:["CREATE STAGE","CREATE EXTERNAL VOLUME on account","SYSADMIN role only","CREATE INTEGRATION"],a:1,e:"CREATE EXTERNAL VOLUME on the account is required. This is typically granted to SYSADMIN or ACCOUNTADMIN."},
+    {q:"Do Iceberg tables support Time Travel?",o:["No — Time Travel is only for native tables","Yes — Snowflake-managed Iceberg supports Time Travel","Only externally-managed","Only up to 1 day"],a:1,e:"Snowflake-managed Iceberg tables support Time Travel (AT/BEFORE) for historical queries, based on Iceberg's snapshot mechanism."},
+    {q:"What is CATALOG_SOURCE = OBJECT_STORE used for?",o:["Storing catalog metadata in Snowflake","Pointing directly to a metadata.json file without a catalog server","Using cloud object storage as compute","Caching catalog responses"],a:1,e:"OBJECT_STORE allows you to point directly to an Iceberg metadata file path on storage, without needing a catalog server (simplest setup)."},
+    {q:"Can you create temporary or transient Iceberg tables?",o:["Yes — same as native tables","No — Iceberg tables are always permanent","Only transient is supported","Only temporary is supported"],a:1,e:"Iceberg tables are always permanent. The TEMPORARY and TRANSIENT modifiers are not supported."},
+    {q:"What is the performance difference between native and Iceberg tables?",o:["Iceberg is faster due to Parquet optimization","Native is typically 10-20% faster (optimized FDN format)","No difference","Iceberg is 50% slower"],a:1,e:"Native Snowflake tables use a proprietary optimized format (FDN) that is slightly faster than Parquet. The gap is typically 10-20%."},
+    {q:"What does ALLOW_WRITES mean in an external volume?",o:["Allows multiple accounts to write","Enables Snowflake to write data files to the storage location","Allows concurrent DML operations","Enables write-ahead logging"],a:1,e:"ALLOW_WRITES on an external volume location enables Snowflake to write data (required for Snowflake-managed Iceberg tables)."},
+    {q:"Which engines can read data from a Snowflake-managed Iceberg table?",o:["Only Snowflake","Any engine that supports reading Parquet/Iceberg (Spark, Trino, etc.)","Only Spark and Snowflake","Only engines with a Snowflake connector"],a:1,e:"Since data is stored as standard Parquet files with Iceberg metadata, ANY Iceberg-compatible engine can read it directly from your storage."},
+    {q:"What happens when you DROP an Iceberg table?",o:["Data files are deleted immediately from external storage","Table reference is removed from Snowflake; data files remain on external storage","Both metadata and data are purged","Data moves to fail-safe"],a:1,e:"Dropping an Iceberg table removes Snowflake's reference but data files typically remain on your external storage (depends on purge settings)."},
+    {q:"Can masking policies be applied to Iceberg table columns?",o:["No — governance only works on native tables","Yes — full governance support (masking, RAP, tags)","Only column-level security","Only row access policies"],a:1,e:"Iceberg tables support the full governance stack: masking policies, row access policies, and object tags."},
+    {q:"What is the role of a CATALOG INTEGRATION object?",o:["Manages warehouse compute for Iceberg queries","Connects Snowflake to an external Iceberg catalog (Glue, REST, Polaris)","Defines the file format for data files","Manages authentication tokens"],a:1,e:"A catalog integration tells Snowflake how to connect to an external Iceberg catalog to discover and read externally-managed tables."},
+    {q:"BASE_LOCATION in CREATE ICEBERG TABLE specifies what?",o:["The Snowflake database location","The subdirectory within the external volume where this table's files are stored","The catalog server URL","The primary key location"],a:1,e:"BASE_LOCATION is the path within the external volume's storage that this specific table uses for its data and metadata files."},
+    {q:"Can multiple Iceberg tables share the same external volume?",o:["No — one volume per table","Yes — each table uses a different BASE_LOCATION within the volume","Only if they're in the same schema","Only for read-only tables"],a:1,e:"Multiple tables can share an external volume. Each table specifies its own BASE_LOCATION (subdirectory) within the volume."},
+    {q:"AUTO_REFRESH on an externally-managed Iceberg table does what?",o:["Automatically rewrites data files","Automatically detects new snapshots written by external engines","Automatically creates new partitions","Automatically scales compute"],a:1,e:"AUTO_REFRESH periodically checks for new metadata/snapshots written by external engines and updates Snowflake's view of the table."},
+    {q:"What is partition evolution in Iceberg?",o:["Deleting old partitions automatically","Changing the partitioning strategy without rewriting existing data files","Adding more storage to partitions","Migrating partitions between regions"],a:1,e:"Partition evolution lets you change how the table is partitioned (e.g., daily→hourly) without rewriting existing files. New data uses the new scheme."},
+    {q:"Can you use COPY INTO to load data into a Snowflake-managed Iceberg table?",o:["No — only Snowpipe works","Yes — COPY INTO works same as native tables","Only from internal stages","Only in CSV format"],a:1,e:"COPY INTO works with Snowflake-managed Iceberg tables just like with native tables. Data is written as Parquet to your external volume."},
+    {q:"What is the difference between Iceberg tables and External Tables in Snowflake?",o:["They are the same thing","Iceberg has ACID transactions, schema evolution, DML support; External tables are simple file-based read-only access","External tables are faster","Iceberg tables can only be on AWS"],a:1,e:"Iceberg provides full table semantics (ACID, schema evolution, DML, Time Travel). External tables are simpler file-level access with no DML."},
+    {q:"Which Snowflake edition is required for Iceberg tables?",o:["Enterprise only","Business Critical only","Standard (all editions)","Any edition with additional license"],a:2,e:"Iceberg tables are available across all Snowflake editions (Standard, Enterprise, Business Critical)."},
+    {q:"Can you clone an Iceberg table?",o:["No — cloning only works on native tables","Yes — creates a metadata-level copy (zero-copy for unchanged data)","Only shallow clones","Only if table is empty"],a:1,e:"Iceberg tables support cloning. The clone initially shares data files with the original (copy-on-write semantics)."},
+    {q:"What happens if the external volume's storage bucket is deleted?",o:["Snowflake automatically recreates it","All queries fail — data is gone","Snowflake falls back to internal storage","Only metadata queries work"],a:1,e:"If the underlying storage is deleted, all data is lost. Iceberg tables depend entirely on your cloud storage being available."},
+    {q:"Can you run MERGE INTO on a Snowflake-managed Iceberg table?",o:["No — only basic INSERT/DELETE","Yes — full MERGE support (upserts)","Only WHEN MATCHED","Only with specific file formats"],a:1,e:"MERGE INTO is fully supported on Snowflake-managed Iceberg tables, enabling upsert patterns just like with native tables."},
+    {q:"What is the Iceberg catalog's primary responsibility?",o:["Storing data files","Tracking where the current metadata file is located for each table","Computing query results","Managing warehouse resources"],a:1,e:"The catalog's job is simple but critical: it's the root pointer that tells any engine 'the current metadata for table X is at this location.'"},
+    {q:"For externally-managed tables, how does Snowflake detect new data?",o:["Real-time streaming from the external engine","REFRESH command or AUTO_REFRESH setting","Polling the data files every second","Through a webhook from the catalog"],a:1,e:"Snowflake detects new data via manual ALTER ICEBERG TABLE ... REFRESH or the AUTO_REFRESH setting that periodically checks for new snapshots."},
+    {q:"Can row access policies work on Iceberg tables?",o:["No — security policies are native-table only","Yes — full support","Only for Snowflake-managed Iceberg","Only basic column masking"],a:1,e:"Row access policies work on both Snowflake-managed and externally-managed Iceberg tables, same as native tables."},
+    {q:"What format are Iceberg metadata files stored in?",o:["Parquet","JSON (metadata) and Avro (manifests)","XML","Binary proprietary format"],a:1,e:"Iceberg metadata files are JSON. Manifest lists and manifest files are Avro. Data files are Parquet. All open formats."},
+    {q:"Can Iceberg tables be used as sources for Dynamic Tables?",o:["No — DTs require native table sources","Yes — DTs can read from Iceberg tables","Only with FULL refresh mode forced","Only Snowflake-managed Iceberg"],a:1,e:"Dynamic Tables can use Iceberg tables as sources, building transformation pipelines on top of open-format data."},
+    {q:"What billing model applies to Iceberg table storage?",o:["Snowflake storage credits (same as native)","Your cloud provider's storage pricing (S3/Azure/GCS)","Hybrid: Snowflake for metadata, cloud for data","Free storage included with compute"],a:1,e:"You pay your cloud provider for the storage (S3/Azure/GCS bills). Snowflake only charges for compute when querying. Storage is NOT on Snowflake's bill."},
+    {q:"What is the simplest way to set up an externally-managed Iceberg table (no catalog server)?",o:["AWS Glue integration","REST catalog integration","OBJECT_STORE catalog with direct METADATA_FILE_PATH","Polaris catalog"],a:2,e:"OBJECT_STORE with METADATA_FILE_PATH is the simplest — you just point to the metadata JSON file directly. No catalog server needed."}
+  ];
+
+  var correct = 0, wrong = 0, answered = 0;
+  var container = document.getElementById('quiz-container');
+
+  function render() {
+    container.innerHTML = '';
+    questions.forEach(function(q, i) {
+      var div = document.createElement('div');
+      div.className = 'q-block';
+      div.setAttribute('data-answer', q.a);
+      var html = '<h3>Q' + (i+1) + '. ' + q.q + '</h3>';
+      q.o.forEach(function(opt, j) {
+        html += '<div class="option" data-opt="' + j + '">' + String.fromCharCode(65+j) + '. ' + opt + '</div>';
+      });
+      html += '<div class="explanation">' + q.e + '</div>';
+      div.innerHTML = html;
+      container.appendChild(div);
+    });
+  }
+
+  function updateScore() {
+    document.getElementById('correct-count').textContent = correct;
+    document.getElementById('wrong-count').textContent = wrong;
+    document.getElementById('score-pct').textContent = answered > 0 ? Math.round((correct / answered) * 100) : 0;
+  }
+
+  container.addEventListener('click', function(e) {
+    var opt = e.target.closest('.option');
+    if (!opt || opt.classList.contains('disabled')) return;
+    var block = opt.closest('.q-block');
+    var options = block.querySelectorAll('.option');
+    var correctIdx = parseInt(block.getAttribute('data-answer'));
+    var selected = parseInt(opt.getAttribute('data-opt'));
+    options.forEach(function(o) { o.classList.add('disabled'); });
+    if (selected === correctIdx) { opt.classList.add('correct'); correct++; }
+    else { opt.classList.add('wrong'); options[correctIdx].classList.add('correct'); wrong++; }
+    answered++;
+    block.querySelector('.explanation').classList.add('show');
+    updateScore();
+  });
+
+  document.getElementById('reset-btn').addEventListener('click', function() {
+    correct = 0; wrong = 0; answered = 0; updateScore(); render();
+  });
+
+  render();
+})();
+</script>
+
+</body>
+</html>

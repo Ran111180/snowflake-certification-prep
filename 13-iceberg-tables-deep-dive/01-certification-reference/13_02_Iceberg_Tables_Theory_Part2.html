@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Iceberg Tables - Theory Part 2: Advanced Topics</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Iceberg advanced: catalog integrations, Polaris, interoperability, optimization, RBAC, production patterns",
+    "sections": [
+      { "id": "catalogs", "title": "Catalog Integrations", "dataSources": [], "producerNotes": "Glue, REST, Polaris, Unity" },
+      { "id": "interop", "title": "Multi-Engine Interoperability", "dataSources": [], "producerNotes": "Spark, Trino, Flink" },
+      { "id": "optimization", "title": "Performance & Optimization", "dataSources": [], "producerNotes": "Clustering, pruning, compaction" },
+      { "id": "rbac", "title": "RBAC & Governance", "dataSources": [], "producerNotes": "Roles, policies, sharing" },
+      { "id": "patterns", "title": "Production Architecture Patterns", "dataSources": [], "producerNotes": "Lakehouse, hybrid" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #0f172a); line-height: 1.6; }
+    h1 { font-size: 2rem; color: light-dark(#0f172a, #f8fafc); margin-bottom: 8px; border-bottom: 3px solid light-dark(#7c3aed, #a78bfa); padding-bottom: 12px; }
+    h2 { font-size: 1.5rem; color: light-dark(#5b21b6, #c4b5fd); margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid light-dark(#ede9fe, #2e1065); }
+    h3 { font-size: 1.15rem; color: light-dark(#4c1d95, #ddd6fe); margin: 24px 0 12px; }
+    p { margin: 8px 0; }
+    .subtitle { color: light-dark(#6b7280, #9ca3af); font-size: 0.95rem; margin-bottom: 24px; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; }
+    th, td { border: 1px solid light-dark(#e5e7eb, #374151); padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: light-dark(#f5f3ff, #1e293b); font-weight: 600; color: light-dark(#5b21b6, #c4b5fd); }
+    tr:nth-child(even) td { background: light-dark(#f9fafb, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
+    pre { background: light-dark(#1e293b, #0c1322); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; font-size: 0.85rem; line-height: 1.5; }
+    .card { background: light-dark(#f5f3ff, #1e293b); border: 1px solid light-dark(#c4b5fd, #334155); border-radius: 8px; padding: 20px; margin: 16px 0; }
+    .card-title { font-weight: 700; color: light-dark(#5b21b6, #c4b5fd); margin-bottom: 8px; }
+    .warning { background: light-dark(#fef3c7, #451a03); border-left: 4px solid light-dark(#f59e0b, #fbbf24); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .info { background: light-dark(#dbeafe, #172554); border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .success { background: light-dark(#d1fae5, #022c22); border-left: 4px solid light-dark(#10b981, #34d399); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .danger { background: light-dark(#fee2e2, #450a0a); border-left: 4px solid light-dark(#ef4444, #f87171); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .toc { background: light-dark(#f8fafc, #1e293b); border: 1px solid light-dark(#e2e8f0, #334155); border-radius: 8px; padding: 20px; margin: 24px 0; }
+    .toc a { color: light-dark(#7c3aed, #a78bfa); text-decoration: none; }
+    .toc ul { list-style: none; padding-left: 0; }
+    .toc li { padding: 4px 0; }
+    ul, ol { padding-left: 24px; margin: 8px 0; }
+    li { margin: 4px 0; }
+  </style>
+</head>
+<body>
+
+<h1>Iceberg Tables - Part 2: Advanced Topics</h1>
+<p class="subtitle">SnowPro Core Certification | Catalog integrations, multi-engine patterns, optimization | August 2026</p>
+
+<div class="toc">
+  <strong>Table of Contents</strong>
+  <ul>
+    <li><a href="#catalogs">1. Catalog Integrations (Glue, REST, Polaris)</a></li>
+    <li><a href="#polaris">2. Snowflake Open Catalog (Polaris)</a></li>
+    <li><a href="#interop">3. Multi-Engine Interoperability</a></li>
+    <li><a href="#optimization">4. Performance & Optimization</a></li>
+    <li><a href="#rbac">5. RBAC & Governance</a></li>
+    <li><a href="#patterns">6. Production Architecture Patterns</a></li>
+    <li><a href="#monitoring">7. Monitoring & Operations</a></li>
+    <li><a href="#best-practices">8. Best Practices</a></li>
+  </ul>
+</div>
+
+<!-- SECTION 1 -->
+<h2 id="catalogs">1. Catalog Integrations</h2>
+
+<div class="card">
+  <div class="card-title">Why Do You Need a Catalog?</div>
+  <p>An Iceberg catalog is a <strong>registry that tracks which tables exist and where their current metadata file lives</strong>. For externally-managed tables, Snowflake needs a catalog integration to find and read tables managed by other engines.</p>
+</div>
+
+<h3>Supported Catalog Types</h3>
+<table>
+  <thead><tr><th>Catalog</th><th>Provider</th><th>Use Case</th><th>Integration Type</th></tr></thead>
+  <tbody>
+    <tr><td><strong>AWS Glue</strong></td><td>AWS</td><td>Spark on EMR/Glue writes Iceberg → Snowflake reads</td><td>CATALOG_SOURCE = GLUE</td></tr>
+    <tr><td><strong>Snowflake Open Catalog (Polaris)</strong></td><td>Snowflake</td><td>Multi-engine access with centralized governance</td><td>CATALOG_SOURCE = POLARIS</td></tr>
+    <tr><td><strong>REST Catalog</strong></td><td>Any (Tabular, custom)</td><td>Standard Iceberg REST API catalog</td><td>CATALOG_SOURCE = ICEBERG_REST</td></tr>
+    <tr><td><strong>Object Storage</strong></td><td>Any cloud</td><td>Direct path to metadata.json (no catalog server)</td><td>CATALOG_SOURCE = OBJECT_STORE</td></tr>
+    <tr><td><strong>Unity Catalog</strong></td><td>Databricks</td><td>Databricks manages tables → Snowflake reads</td><td>Via REST catalog API</td></tr>
+  </tbody>
+</table>
+
+<h3>Creating Catalog Integrations</h3>
+<pre>-- AWS Glue Catalog Integration
+CREATE OR REPLACE CATALOG INTEGRATION glue_int
+  CATALOG_SOURCE = GLUE
+  CATALOG_NAMESPACE = 'my_glue_database'
+  TABLE_FORMAT = ICEBERG
+  GLUE_AWS_ROLE_ARN = 'arn:aws:iam::123456789:role/snowflake-glue-access'
+  GLUE_CATALOG_ID = '123456789012'
+  GLUE_REGION = 'us-east-1'
+  ENABLED = TRUE;
+
+-- REST Catalog Integration (Polaris, Tabular, etc.)
+CREATE OR REPLACE CATALOG INTEGRATION rest_int
+  CATALOG_SOURCE = ICEBERG_REST
+  TABLE_FORMAT = ICEBERG
+  CATALOG_URI = 'https://my-polaris-server.com/api/catalog'
+  WAREHOUSE = 'my_warehouse_in_catalog'
+  ENABLED = TRUE;
+
+-- Object Store (direct metadata path — simplest, no catalog server)
+CREATE OR REPLACE CATALOG INTEGRATION object_store_int
+  CATALOG_SOURCE = OBJECT_STORE
+  TABLE_FORMAT = ICEBERG
+  ENABLED = TRUE;
+
+-- Using Object Store: point directly to metadata
+CREATE ICEBERG TABLE my_table
+  EXTERNAL_VOLUME = 'my_volume'
+  CATALOG = 'object_store_int'
+  METADATA_FILE_PATH = 'path/to/metadata/v1.metadata.json';</pre>
+
+<!-- SECTION 2 -->
+<h2 id="polaris">2. Snowflake Open Catalog (Polaris)</h2>
+
+<div class="card">
+  <div class="card-title">What is Polaris?</div>
+  <p>Polaris (now "Snowflake Open Catalog") is Snowflake's open-source Iceberg catalog implementation. It provides a central place to manage Iceberg tables that can be accessed by Snowflake, Spark, Trino, Flink, and other engines — all with centralized access control.</p>
+</div>
+
+<h3>Polaris Key Features</h3>
+<ul>
+  <li><strong>Open-source:</strong> Apache 2.0 licensed — no vendor lock-in for the catalog itself</li>
+  <li><strong>Multi-engine:</strong> Any Iceberg REST-compatible engine can connect</li>
+  <li><strong>Centralized access control:</strong> One place to manage who can read/write which tables</li>
+  <li><strong>Managed by Snowflake:</strong> Available as a managed service within Snowflake</li>
+  <li><strong>Namespace hierarchy:</strong> Organize tables in catalogs → namespaces → tables</li>
+</ul>
+
+<h3>Polaris Architecture</h3>
+<pre>┌─────────────────────────────────────────────┐
+│           Polaris Catalog Service            │
+│   (Tracks all Iceberg tables + metadata)    │
+└─────────────────┬───────────────────────────┘
+                  │ REST API (Iceberg Catalog Protocol)
+      ┌───────────┼───────────┬──────────────┐
+      │           │           │              │
+┌─────┴─────┐ ┌──┴───┐ ┌────┴────┐ ┌───────┴──────┐
+│ Snowflake │ │ Spark│ │  Trino  │ │ Flink/Other  │
+│ (query)   │ │(ETL) │ │(federate)│ │  (streaming) │
+└───────────┘ └──────┘ └─────────┘ └──────────────┘
+                  │
+      ┌───────────┴───────────────────┐
+      │  Cloud Storage (S3/Azure/GCS) │
+      │  Parquet data files           │
+      └───────────────────────────────┘</pre>
+
+<!-- SECTION 3 -->
+<h2 id="interop">3. Multi-Engine Interoperability</h2>
+
+<table>
+  <thead><tr><th>Engine</th><th>Read Iceberg</th><th>Write Iceberg</th><th>How It Works with Snowflake</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Apache Spark</strong></td><td>YES</td><td>YES</td><td>Spark writes → Glue/Polaris catalog → Snowflake reads as externally-managed</td></tr>
+    <tr><td><strong>Trino/Presto</strong></td><td>YES</td><td>YES</td><td>Shared catalog (REST/Glue) allows both engines to access same tables</td></tr>
+    <tr><td><strong>Apache Flink</strong></td><td>YES</td><td>YES</td><td>Flink streaming writes → catalog → Snowflake batch reads</td></tr>
+    <tr><td><strong>Dremio</strong></td><td>YES</td><td>YES</td><td>Shared Nessie/REST catalog with Snowflake</td></tr>
+    <tr><td><strong>Amazon Athena</strong></td><td>YES</td><td>YES (v3)</td><td>Both access same Glue-cataloged Iceberg tables</td></tr>
+    <tr><td><strong>DuckDB</strong></td><td>YES</td><td>YES</td><td>Local analysis of same Parquet files</td></tr>
+    <tr><td><strong>Pandas/PyArrow</strong></td><td>YES</td><td>Limited</td><td>Direct Parquet file reading for ML/data science</td></tr>
+  </tbody>
+</table>
+
+<h3>Common Multi-Engine Pattern</h3>
+<pre>-- Pattern: Spark writes, Snowflake reads
+-- 
+-- 1. Spark job writes Iceberg table to S3 (registered in Glue)
+-- 2. Snowflake has catalog integration pointing to Glue
+-- 3. Snowflake queries the same data without copying
+--
+-- Spark (PySpark):
+-- spark.sql("INSERT INTO glue_db.events VALUES ...")
+--
+-- Snowflake:
+SELECT * FROM external_events  -- reads same Parquet files
+WHERE event_date = CURRENT_DATE();
+
+-- Refresh if Spark wrote new data
+ALTER ICEBERG TABLE external_events REFRESH;</pre>
+
+<!-- SECTION 4 -->
+<h2 id="optimization">4. Performance & Optimization</h2>
+
+<h3>Performance Factors</h3>
+<table>
+  <thead><tr><th>Factor</th><th>Impact</th><th>Optimization</th></tr></thead>
+  <tbody>
+    <tr><td>File size</td><td>Too many small files = overhead; too few large = poor pruning</td><td>Target 100-250MB per Parquet file</td></tr>
+    <tr><td>Partition strategy</td><td>Good partitioning enables file skipping</td><td>Partition by date or high-cardinality filter columns</td></tr>
+    <tr><td>Clustering (Snowflake-managed)</td><td>Physical sort order for common query patterns</td><td>CLUSTER BY frequently-filtered columns</td></tr>
+    <tr><td>Metadata overhead</td><td>Many manifest files = slow planning</td><td>Compact metadata periodically</td></tr>
+    <tr><td>Cross-region access</td><td>Storage in different region = high latency + egress costs</td><td>Keep external volume in same region as Snowflake</td></tr>
+    <tr><td>File format</td><td>Parquet is columnar = good for analytics, bad for point lookups</td><td>Use native tables for OLTP-style queries</td></tr>
+  </tbody>
+</table>
+
+<h3>Optimization SQL</h3>
+<pre>-- Add clustering to Snowflake-managed Iceberg table
+ALTER ICEBERG TABLE my_iceberg_table CLUSTER BY (sale_date, region);
+
+-- Check clustering depth
+SELECT SYSTEM$CLUSTERING_INFORMATION('my_iceberg_table', '(sale_date, region)');
+
+-- Manual compaction (for Snowflake-managed)
+-- Snowflake handles this automatically, but you can influence via clustering
+
+-- For externally-managed: compaction must happen in the source engine (Spark)
+-- Spark: spark.sql("CALL catalog.system.rewrite_data_files('db.table')")</pre>
+
+<!-- SECTION 5 -->
+<h2 id="rbac">5. RBAC & Governance</h2>
+
+<h3>Required Privileges</h3>
+<table>
+  <thead><tr><th>Action</th><th>Privilege</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>Create Iceberg table</td><td>CREATE ICEBERG TABLE on schema</td><td>Plus USAGE on external volume</td></tr>
+    <tr><td>Query Iceberg table</td><td>SELECT on the table</td><td>Same as native table</td></tr>
+    <tr><td>DML (Snowflake-managed)</td><td>INSERT/UPDATE/DELETE on table</td><td>Only for Snowflake-managed</td></tr>
+    <tr><td>Create external volume</td><td>CREATE EXTERNAL VOLUME on account</td><td>Typically ACCOUNTADMIN or SYSADMIN</td></tr>
+    <tr><td>Use external volume</td><td>USAGE on external volume</td><td>Grant to roles that create Iceberg tables</td></tr>
+    <tr><td>Create catalog integration</td><td>CREATE INTEGRATION on account</td><td>ACCOUNTADMIN typically</td></tr>
+    <tr><td>Refresh externally-managed</td><td>OWNERSHIP or OPERATE on table</td><td>For ALTER ICEBERG TABLE ... REFRESH</td></tr>
+  </tbody>
+</table>
+
+<h3>Governance Features on Iceberg Tables</h3>
+<pre>-- Masking policy (works same as native tables)
+ALTER ICEBERG TABLE customer_iceberg
+  MODIFY COLUMN email SET MASKING POLICY email_mask;
+
+-- Row Access Policy
+ALTER ICEBERG TABLE sales_iceberg
+  ADD ROW ACCESS POLICY region_filter ON (region);
+
+-- Tags
+ALTER ICEBERG TABLE customer_iceberg
+  SET TAG pii_classification = 'SENSITIVE';
+
+-- Data sharing (Iceberg tables can be shared!)
+GRANT SELECT ON ICEBERG TABLE analytics_iceberg TO SHARE my_share;</pre>
+
+<!-- SECTION 6 -->
+<h2 id="patterns">6. Production Architecture Patterns</h2>
+
+<h3>Pattern 1: Lakehouse (Snowflake-Managed)</h3>
+<pre>-- All data in open format, Snowflake as primary engine
+-- Benefit: Portability + full Snowflake features
+
+-- Raw layer (Snowpipe loads into Iceberg)
+CREATE ICEBERG TABLE raw_events (...)
+  CATALOG = 'SNOWFLAKE'
+  EXTERNAL_VOLUME = 'my_vol'
+  BASE_LOCATION = 'raw/events/';
+
+CREATE PIPE raw_events_pipe AS
+  COPY INTO raw_events FROM @event_stage;
+
+-- Transform layer (DT reads from Iceberg)
+CREATE DYNAMIC TABLE clean_events
+  TARGET_LAG = '5 minutes'
+  WAREHOUSE = transform_wh
+AS SELECT ... FROM raw_events WHERE ...;
+
+-- Serve layer (Iceberg for portability)
+CREATE ICEBERG TABLE reporting_events (...)
+  CATALOG = 'SNOWFLAKE'
+  EXTERNAL_VOLUME = 'my_vol'
+  BASE_LOCATION = 'gold/reporting/';</pre>
+
+<h3>Pattern 2: Multi-Engine Data Lake</h3>
+<pre>-- Spark writes, Snowflake reads (shared Glue catalog)
+-- Benefit: Best-of-breed engines for different workloads
+
+-- Spark handles: streaming ingestion, ML training data prep
+-- Snowflake handles: ad-hoc analytics, dashboards, governance
+
+-- In Snowflake:
+CREATE ICEBERG TABLE ml_features
+  EXTERNAL_VOLUME = 'shared_vol'
+  CATALOG = 'glue_int'
+  CATALOG_TABLE_NAME = 'ml_features';
+
+-- Analytics team queries in Snowflake
+SELECT * FROM ml_features
+WHERE feature_date >= DATEADD(day, -7, CURRENT_DATE());
+
+-- ML team reads same data in Spark
+-- spark.read.format("iceberg").load("glue.ml_features")</pre>
+
+<h3>Pattern 3: Hybrid (Native + Iceberg)</h3>
+<pre>-- Critical performance tables: NATIVE (fastest queries)
+-- Archival/shared tables: ICEBERG (open format, cheaper storage)
+
+-- Hot data: Native Snowflake table (maximum performance)
+CREATE TABLE active_orders (...);  -- Last 30 days
+
+-- Cold data: Iceberg on cheap storage
+CREATE ICEBERG TABLE historical_orders (...)
+  CATALOG = 'SNOWFLAKE'
+  EXTERNAL_VOLUME = 'archive_vol'
+  BASE_LOCATION = 'archive/orders/';
+
+-- Query across both seamlessly
+SELECT * FROM active_orders
+UNION ALL
+SELECT * FROM historical_orders
+WHERE order_date BETWEEN '2025-01-01' AND '2025-12-31';</pre>
+
+<!-- SECTION 7 -->
+<h2 id="monitoring">7. Monitoring & Operations</h2>
+
+<pre>-- List all Iceberg tables
+SHOW ICEBERG TABLES;
+
+-- Describe table details
+DESC ICEBERG TABLE my_iceberg_table;
+
+-- Check external volume
+DESC EXTERNAL VOLUME my_vol;
+
+-- View table metadata (snapshots, manifests)
+SELECT * FROM TABLE(INFORMATION_SCHEMA.ICEBERG_TABLE_METADATA(
+  TABLE_NAME => 'MY_ICEBERG_TABLE'
+));
+
+-- Check storage footprint
+SELECT TABLE_NAME, ACTIVE_BYTES, TIME_TRAVEL_BYTES
+FROM INFORMATION_SCHEMA.TABLE_STORAGE_METRICS
+WHERE TABLE_CATALOG = 'MY_DB'
+  AND TABLE_SCHEMA = 'MY_SCHEMA'
+  AND TABLE_NAME = 'MY_ICEBERG_TABLE';
+
+-- For externally-managed: check last refresh time
+SHOW ICEBERG TABLES LIKE 'external%';
+-- Look at: last_refreshed_at, catalog_sync_status</pre>
+
+<!-- SECTION 8 -->
+<h2 id="best-practices">8. Best Practices</h2>
+
+<div class="success">
+  <strong>Production Checklist:</strong>
+  <ol>
+    <li><strong>Same region:</strong> Keep external volume in the same cloud region as your Snowflake account</li>
+    <li><strong>File sizing:</strong> Target 100-250MB Parquet files for optimal query performance</li>
+    <li><strong>Partition wisely:</strong> Partition by date/time for time-series data; by region for geo data</li>
+    <li><strong>Use CLUSTER BY:</strong> For Snowflake-managed tables, add clustering on frequently-filtered columns</li>
+    <li><strong>Set up AUTO_REFRESH:</strong> For externally-managed tables, enable auto-refresh to detect new snapshots</li>
+    <li><strong>Monitor storage costs:</strong> You manage cloud storage lifecycle (retention, tiering) — not Snowflake</li>
+    <li><strong>Separate volumes by environment:</strong> dev/staging/prod should use different external volumes</li>
+    <li><strong>Test interoperability:</strong> Verify other engines (Spark, Trino) can read your Snowflake-managed Iceberg data</li>
+    <li><strong>Document catalog strategy:</strong> Team should agree on one catalog (Glue, Polaris, or Snowflake internal)</li>
+    <li><strong>Plan for schema evolution:</strong> Use ADD COLUMN / RENAME instead of CREATE OR REPLACE when possible</li>
+  </ol>
+</div>
+
+<p style="margin-top: 40px; padding-top: 20px; border-top: 1px solid light-dark(#e5e7eb, #374151); color: light-dark(#6b7280, #9ca3af); font-size: 0.85rem;">
+  Iceberg Tables Theory Part 2 - Advanced Topics | SnowPro Core Exam | August 15, 2026
+</p>
+
+</body>
+</html>

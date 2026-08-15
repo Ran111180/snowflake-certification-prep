@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Iceberg Tables - Theory Part 1: Fundamentals</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Iceberg Tables fundamentals: Apache Iceberg format, Snowflake-managed vs external, external volumes, creation syntax",
+    "sections": [
+      { "id": "overview", "title": "What Are Iceberg Tables?", "dataSources": [], "producerNotes": "Core concept, open format" },
+      { "id": "architecture", "title": "Architecture & Format", "dataSources": [], "producerNotes": "Metadata, manifest, data files" },
+      { "id": "types", "title": "Snowflake-Managed vs Externally-Managed", "dataSources": [], "producerNotes": "Two modes" },
+      { "id": "external-volume", "title": "External Volumes", "dataSources": [], "producerNotes": "S3, Azure, GCS" },
+      { "id": "syntax", "title": "Creation Syntax", "dataSources": [], "producerNotes": "DDL, options" },
+      { "id": "features", "title": "Features & Limitations", "dataSources": [], "producerNotes": "15 each" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #0f172a); line-height: 1.6; }
+    h1 { font-size: 2rem; color: light-dark(#0f172a, #f8fafc); margin-bottom: 8px; border-bottom: 3px solid light-dark(#7c3aed, #a78bfa); padding-bottom: 12px; }
+    h2 { font-size: 1.5rem; color: light-dark(#5b21b6, #c4b5fd); margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid light-dark(#ede9fe, #2e1065); }
+    h3 { font-size: 1.15rem; color: light-dark(#4c1d95, #ddd6fe); margin: 24px 0 12px; }
+    p { margin: 8px 0; }
+    .subtitle { color: light-dark(#6b7280, #9ca3af); font-size: 0.95rem; margin-bottom: 24px; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; }
+    th, td { border: 1px solid light-dark(#e5e7eb, #374151); padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: light-dark(#f5f3ff, #1e293b); font-weight: 600; color: light-dark(#5b21b6, #c4b5fd); }
+    tr:nth-child(even) td { background: light-dark(#f9fafb, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
+    pre { background: light-dark(#1e293b, #0c1322); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; font-size: 0.85rem; line-height: 1.5; }
+    .card { background: light-dark(#f5f3ff, #1e293b); border: 1px solid light-dark(#c4b5fd, #334155); border-radius: 8px; padding: 20px; margin: 16px 0; }
+    .card-title { font-weight: 700; color: light-dark(#5b21b6, #c4b5fd); margin-bottom: 8px; }
+    .warning { background: light-dark(#fef3c7, #451a03); border-left: 4px solid light-dark(#f59e0b, #fbbf24); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .info { background: light-dark(#dbeafe, #172554); border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .success { background: light-dark(#d1fae5, #022c22); border-left: 4px solid light-dark(#10b981, #34d399); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .danger { background: light-dark(#fee2e2, #450a0a); border-left: 4px solid light-dark(#ef4444, #f87171); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .toc { background: light-dark(#f8fafc, #1e293b); border: 1px solid light-dark(#e2e8f0, #334155); border-radius: 8px; padding: 20px; margin: 24px 0; }
+    .toc a { color: light-dark(#7c3aed, #a78bfa); text-decoration: none; }
+    .toc ul { list-style: none; padding-left: 0; }
+    .toc li { padding: 4px 0; }
+    ul, ol { padding-left: 24px; margin: 8px 0; }
+    li { margin: 4px 0; }
+  </style>
+</head>
+<body>
+
+<h1>Iceberg Tables - Part 1: Fundamentals</h1>
+<p class="subtitle">SnowPro Core Certification | Open table format & lakehouse integration | August 2026</p>
+
+<div class="toc">
+  <strong>Table of Contents</strong>
+  <ul>
+    <li><a href="#overview">1. What Are Iceberg Tables?</a></li>
+    <li><a href="#why-iceberg">2. Why Iceberg? (The Problem It Solves)</a></li>
+    <li><a href="#architecture">3. Apache Iceberg Architecture</a></li>
+    <li><a href="#types">4. Snowflake-Managed vs Externally-Managed</a></li>
+    <li><a href="#external-volume">5. External Volumes</a></li>
+    <li><a href="#syntax">6. Creation Syntax & Examples</a></li>
+    <li><a href="#comparison">7. Iceberg Tables vs Native Tables vs External Tables</a></li>
+    <li><a href="#features">8. Features (15 Key Points)</a></li>
+    <li><a href="#limitations">9. Limitations (15 Key Points)</a></li>
+  </ul>
+</div>
+
+<!-- SECTION 1 -->
+<h2 id="overview">1. What Are Iceberg Tables?</h2>
+
+<div class="card">
+  <div class="card-title">The Core Concept</div>
+  <p><strong>Apache Iceberg</strong> is an open table format for large analytic datasets. Snowflake Iceberg Tables store data in Iceberg format (Parquet data files + Iceberg metadata) on your own cloud storage (S3, Azure Blob, GCS), while Snowflake provides the compute engine to query and manage them.</p>
+  <p>Think of it as: <strong>Your storage + Snowflake's compute + Open format = No vendor lock-in</strong></p>
+</div>
+
+<h3>Key Value Propositions</h3>
+<ul>
+  <li><strong>Open format:</strong> Data stored in Parquet — readable by Spark, Trino, Flink, Dremio, and others</li>
+  <li><strong>No vendor lock-in:</strong> Your data lives on YOUR cloud storage account</li>
+  <li><strong>Interoperability:</strong> Multiple engines can read/write the same data</li>
+  <li><strong>Full Snowflake features:</strong> Time Travel, RBAC, governance, joins with native tables</li>
+  <li><strong>Cost savings:</strong> Store once on cheap object storage, query with Snowflake or other engines</li>
+</ul>
+
+<!-- SECTION 2 -->
+<h2 id="why-iceberg">2. Why Iceberg? (The Problem It Solves)</h2>
+
+<table>
+  <thead><tr><th>Problem with Traditional Data Lakes</th><th>How Iceberg Solves It</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>No ACID transactions (corrupt reads during writes)</td>
+      <td>Iceberg provides snapshot isolation and atomic commits</td>
+    </tr>
+    <tr>
+      <td>No schema evolution (changing columns breaks everything)</td>
+      <td>Iceberg supports add/rename/drop columns safely</td>
+    </tr>
+    <tr>
+      <td>No Time Travel (can't query historical data)</td>
+      <td>Iceberg maintains snapshot history for time travel</td>
+    </tr>
+    <tr>
+      <td>File-level scanning (read all files to find rows)</td>
+      <td>Iceberg metadata enables partition pruning and file-level skipping</td>
+    </tr>
+    <tr>
+      <td>Vendor lock-in (Snowflake native = Snowflake only)</td>
+      <td>Open Parquet format readable by any engine</td>
+    </tr>
+    <tr>
+      <td>No UPDATE/DELETE on data lakes (append-only)</td>
+      <td>Iceberg supports row-level updates and deletes via merge-on-read or copy-on-write</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- SECTION 3 -->
+<h2 id="architecture">3. Apache Iceberg Architecture</h2>
+
+<h3>The Three-Layer Metadata Structure</h3>
+<pre>┌─────────────────────────────────────┐
+│         CATALOG (pointer)           │  → Points to current metadata file
+├─────────────────────────────────────┤
+│       METADATA FILE (.json)         │  → Schema, partition spec, snapshots list
+│  ┌─────────────────────────────┐    │
+│  │    SNAPSHOT → Manifest List │    │  → Each snapshot = state of table at a point in time
+│  └─────────────────────────────┘    │
+├─────────────────────────────────────┤
+│        MANIFEST LIST (.avro)        │  → List of manifest files for this snapshot
+├─────────────────────────────────────┤
+│      MANIFEST FILES (.avro)         │  → Tracks individual data files + stats (min/max/count)
+├─────────────────────────────────────┤
+│        DATA FILES (.parquet)        │  → Actual row data in columnar Parquet format
+└─────────────────────────────────────┘</pre>
+
+<h3>Key Components</h3>
+<table>
+  <thead><tr><th>Component</th><th>Format</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td>Catalog</td><td>External (Glue, REST, Snowflake)</td><td>Root pointer to current metadata location. "Where is this table?"</td></tr>
+    <tr><td>Metadata File</td><td>JSON</td><td>Schema definition, partition spec, properties, snapshot history</td></tr>
+    <tr><td>Manifest List</td><td>Avro</td><td>List of manifest files for a given snapshot</td></tr>
+    <tr><td>Manifest File</td><td>Avro</td><td>Tracks data files with column-level stats (min, max, null count)</td></tr>
+    <tr><td>Data Files</td><td>Parquet (or ORC/Avro)</td><td>Actual table data in columnar format</td></tr>
+  </tbody>
+</table>
+
+<div class="info">
+  <strong>Why This Matters for Queries:</strong> Snowflake reads the metadata to figure out WHICH data files contain relevant rows (file pruning). If your query filters on <code>WHERE date = '2026-08-15'</code>, Snowflake skips files that don't contain that date — without scanning them.
+</div>
+
+<!-- SECTION 4 -->
+<h2 id="types">4. Snowflake-Managed vs Externally-Managed</h2>
+
+<div class="card">
+  <div class="card-title">Two Ways to Use Iceberg in Snowflake</div>
+  <p>Snowflake supports two operational modes for Iceberg tables. The key difference is: <strong>who manages the Iceberg metadata and catalog?</strong></p>
+</div>
+
+<table>
+  <thead><tr><th>Aspect</th><th>Snowflake-Managed Iceberg</th><th>Externally-Managed Iceberg</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Who writes data?</strong></td><td>Snowflake (full read/write)</td><td>External engine (Spark, etc.)</td></tr>
+    <tr><td><strong>Who manages catalog?</strong></td><td>Snowflake (internal)</td><td>External catalog (AWS Glue, REST, Polaris)</td></tr>
+    <tr><td><strong>Snowflake access</strong></td><td>Full DML: INSERT, UPDATE, DELETE, MERGE</td><td>READ-ONLY (cannot write)</td></tr>
+    <tr><td><strong>Data location</strong></td><td>Your external volume (S3/Azure/GCS)</td><td>Your external storage (managed by external catalog)</td></tr>
+    <tr><td><strong>Time Travel</strong></td><td>YES (Snowflake manages snapshots)</td><td>LIMITED (depends on external catalog snapshot retention)</td></tr>
+    <tr><td><strong>Clustering</strong></td><td>YES</td><td>NO (Snowflake doesn't control physical layout)</td></tr>
+    <tr><td><strong>Use case</strong></td><td>Snowflake is primary engine but want open format for portability</td><td>Spark/Flink writes data, Snowflake reads for analytics</td></tr>
+    <tr><td><strong>Interoperability</strong></td><td>Other engines can read (Parquet files are open)</td><td>Full multi-engine read/write via shared catalog</td></tr>
+    <tr><td><strong>Catalog integration</strong></td><td>Not needed</td><td>REQUIRED (AWS Glue, Polaris, REST, etc.)</td></tr>
+    <tr><td><strong>External volume</strong></td><td>REQUIRED</td><td>REQUIRED</td></tr>
+  </tbody>
+</table>
+
+<div class="success">
+  <strong>When to Choose:</strong>
+  <ul>
+    <li><strong>Snowflake-Managed:</strong> Snowflake is your primary write engine. You want open format for future portability or compliance, but Snowflake handles day-to-day operations.</li>
+    <li><strong>Externally-Managed:</strong> Another engine (Spark, Flink) writes the data. You use Snowflake for querying/analytics on that same data without copying it.</li>
+  </ul>
+</div>
+
+<!-- SECTION 5 -->
+<h2 id="external-volume">5. External Volumes</h2>
+
+<div class="card">
+  <div class="card-title">What is an External Volume?</div>
+  <p>An External Volume is a Snowflake object that defines WHERE Iceberg data files and metadata are stored. It points to a cloud storage location (S3 bucket, Azure container, GCS bucket) and includes the IAM/access configuration.</p>
+</div>
+
+<h3>Creating External Volumes</h3>
+<pre>-- AWS S3 External Volume
+CREATE OR REPLACE EXTERNAL VOLUME my_s3_volume
+  STORAGE_LOCATIONS = (
+    (
+      NAME = 'my-s3-location'
+      STORAGE_BASE_URL = 's3://my-bucket/iceberg-data/'
+      STORAGE_PROVIDER = 'S3'
+      STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::123456789012:role/snowflake-iceberg-role'
+    )
+  );
+
+-- Azure External Volume
+CREATE OR REPLACE EXTERNAL VOLUME my_azure_volume
+  STORAGE_LOCATIONS = (
+    (
+      NAME = 'my-azure-location'
+      STORAGE_BASE_URL = 'azure://myaccount.blob.core.windows.net/iceberg-container/'
+      STORAGE_PROVIDER = 'AZURE'
+      AZURE_TENANT_ID = 'your-tenant-id'
+    )
+  );
+
+-- GCS External Volume
+CREATE OR REPLACE EXTERNAL VOLUME my_gcs_volume
+  STORAGE_LOCATIONS = (
+    (
+      NAME = 'my-gcs-location'
+      STORAGE_BASE_URL = 'gcs://my-gcs-bucket/iceberg-data/'
+      STORAGE_PROVIDER = 'GCS'
+    )
+  );
+
+-- Verify external volume
+DESC EXTERNAL VOLUME my_s3_volume;</pre>
+
+<h3>External Volume Requirements</h3>
+<table>
+  <thead><tr><th>Cloud</th><th>Access Method</th><th>Permissions Needed</th></tr></thead>
+  <tbody>
+    <tr><td>AWS S3</td><td>IAM Role (cross-account trust)</td><td>s3:GetObject, s3:PutObject, s3:DeleteObject, s3:ListBucket</td></tr>
+    <tr><td>Azure Blob</td><td>Service Principal + Tenant ID</td><td>Storage Blob Data Contributor role on container</td></tr>
+    <tr><td>GCS</td><td>Service Account</td><td>storage.objects.* on bucket</td></tr>
+  </tbody>
+</table>
+
+<div class="warning">
+  <strong>For Snowflake-Managed Iceberg:</strong> The external volume needs WRITE permissions (PutObject, DeleteObject) because Snowflake writes data files and metadata. For externally-managed: READ permissions may suffice (GetObject, ListBucket).
+</div>
+
+<!-- SECTION 6 -->
+<h2 id="syntax">6. Creation Syntax & Examples</h2>
+
+<h3>Snowflake-Managed Iceberg Table</h3>
+<pre>-- Create a Snowflake-managed Iceberg table
+CREATE OR REPLACE ICEBERG TABLE sales_iceberg (
+    sale_id INT,
+    product_name VARCHAR(100),
+    quantity INT,
+    unit_price DECIMAL(10,2),
+    sale_date DATE,
+    region VARCHAR(50)
+)
+  CATALOG = 'SNOWFLAKE'               -- Snowflake manages the catalog
+  EXTERNAL_VOLUME = 'my_s3_volume'    -- Where to store data
+  BASE_LOCATION = 'sales/'            -- Subdirectory within external volume
+;
+
+-- Insert data (full DML supported!)
+INSERT INTO sales_iceberg VALUES
+  (1, 'Laptop', 2, 999.99, '2026-08-15', 'US-West'),
+  (2, 'Monitor', 1, 499.99, '2026-08-15', 'EU-North');
+
+-- UPDATE works!
+UPDATE sales_iceberg SET quantity = 3 WHERE sale_id = 1;
+
+-- DELETE works!
+DELETE FROM sales_iceberg WHERE sale_id = 2;
+
+-- MERGE works!
+MERGE INTO sales_iceberg t
+USING staging s ON t.sale_id = s.sale_id
+WHEN MATCHED THEN UPDATE SET t.quantity = s.quantity
+WHEN NOT MATCHED THEN INSERT VALUES (s.*);</pre>
+
+<h3>Externally-Managed Iceberg Table (Read-Only in Snowflake)</h3>
+<pre>-- First: Create a catalog integration
+CREATE OR REPLACE CATALOG INTEGRATION glue_catalog_int
+  CATALOG_SOURCE = GLUE
+  CATALOG_NAMESPACE = 'my_database'
+  TABLE_FORMAT = ICEBERG
+  GLUE_AWS_ROLE_ARN = 'arn:aws:iam::123456789012:role/glue-access'
+  GLUE_CATALOG_ID = '123456789012'
+  GLUE_REGION = 'us-east-1'
+  ENABLED = TRUE;
+
+-- Create externally-managed Iceberg table
+CREATE OR REPLACE ICEBERG TABLE external_events
+  EXTERNAL_VOLUME = 'my_s3_volume'
+  CATALOG = 'glue_catalog_int'             -- Points to Glue catalog
+  CATALOG_TABLE_NAME = 'events'            -- Table name in Glue
+  -- AUTO_REFRESH = TRUE                   -- Optional: auto-detect new snapshots
+;
+
+-- Query (READ-ONLY — cannot INSERT/UPDATE/DELETE)
+SELECT * FROM external_events WHERE event_date = '2026-08-15';
+
+-- Refresh metadata manually (detect new data written by Spark)
+ALTER ICEBERG TABLE external_events REFRESH;</pre>
+
+<h3>Convert Native Table to Iceberg</h3>
+<pre>-- Convert an existing Snowflake native table to Iceberg format
+ALTER TABLE my_native_table
+  CONVERT TO ICEBERG
+  EXTERNAL_VOLUME = 'my_s3_volume'
+  BASE_LOCATION = 'converted/my_table/'
+  CATALOG = 'SNOWFLAKE';</pre>
+
+<!-- SECTION 7 -->
+<h2 id="comparison">7. Iceberg Tables vs Native Tables vs External Tables</h2>
+
+<table>
+  <thead><tr><th>Aspect</th><th>Native Snowflake Table</th><th>Iceberg Table (Snowflake-Managed)</th><th>External Table</th></tr></thead>
+  <tbody>
+    <tr><td>Data format</td><td>Snowflake proprietary (FDN)</td><td>Open Parquet + Iceberg metadata</td><td>Any (CSV, JSON, Parquet on stage)</td></tr>
+    <tr><td>Storage location</td><td>Snowflake-managed storage</td><td>YOUR cloud storage (external volume)</td><td>YOUR cloud storage (stage)</td></tr>
+    <tr><td>DML support</td><td>Full (INSERT, UPDATE, DELETE, MERGE)</td><td>Full (Snowflake-managed) / Read-only (external)</td><td>READ-ONLY (no DML)</td></tr>
+    <tr><td>Time Travel</td><td>YES (1-90 days)</td><td>YES (Snowflake-managed) / Limited (external)</td><td>NO</td></tr>
+    <tr><td>Fail-safe</td><td>YES (7 days)</td><td>NO</td><td>NO</td></tr>
+    <tr><td>Clustering</td><td>YES</td><td>YES (Snowflake-managed only)</td><td>NO</td></tr>
+    <tr><td>Performance</td><td>FASTEST (optimized storage format)</td><td>Fast (Parquet + metadata pruning)</td><td>SLOWEST (no optimization)</td></tr>
+    <tr><td>Interoperability</td><td>Snowflake only</td><td>Any Iceberg-compatible engine</td><td>Files accessible to any tool</td></tr>
+    <tr><td>Governance</td><td>Full (masking, RAP, tags)</td><td>Full (same as native)</td><td>Limited</td></tr>
+    <tr><td>Cost</td><td>Snowflake storage billing</td><td>YOUR cloud storage cost (cheaper)</td><td>YOUR cloud storage cost</td></tr>
+    <tr><td>Vendor lock-in</td><td>HIGH (proprietary format)</td><td>LOW (open format)</td><td>LOW (raw files)</td></tr>
+  </tbody>
+</table>
+
+<div class="info">
+  <strong>Decision Guide:</strong>
+  <ul>
+    <li><strong>Native table:</strong> Maximum performance, don't need interoperability, okay with Snowflake lock-in</li>
+    <li><strong>Iceberg (Snowflake-managed):</strong> Want open format + Snowflake features + cost savings on storage + portability</li>
+    <li><strong>Iceberg (externally-managed):</strong> Other engines write data, Snowflake reads for analytics</li>
+    <li><strong>External table:</strong> Simple file-based access, no schema enforcement needed, minimal Snowflake features</li>
+  </ul>
+</div>
+
+<!-- SECTION 8 -->
+<h2 id="features">8. Features (15 Key Points)</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Feature</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Open format (Parquet + Iceberg)</td><td>Data is readable by any Iceberg-compatible engine (Spark, Trino, Flink, etc.)</td></tr>
+    <tr><td>2</td><td>Full DML (Snowflake-managed)</td><td>INSERT, UPDATE, DELETE, MERGE all supported — same as native tables</td></tr>
+    <tr><td>3</td><td>Time Travel</td><td>Snowflake-managed Iceberg supports AT/BEFORE for historical queries</td></tr>
+    <tr><td>4</td><td>RBAC & Governance</td><td>Masking policies, row access policies, tags, object tagging all work</td></tr>
+    <tr><td>5</td><td>Clustering</td><td>Automatic clustering supported (Snowflake-managed only)</td></tr>
+    <tr><td>6</td><td>JOIN with native tables</td><td>Can join Iceberg tables with regular Snowflake tables in same query</td></tr>
+    <tr><td>7</td><td>Data sharing</td><td>Iceberg tables can be shared via Secure Data Sharing</td></tr>
+    <tr><td>8</td><td>Schema evolution</td><td>Add, drop, rename columns without rewriting data files</td></tr>
+    <tr><td>9</td><td>Partition evolution</td><td>Change partitioning strategy without rewriting existing data</td></tr>
+    <tr><td>10</td><td>Snowpipe loading</td><td>Snowpipe can load into Snowflake-managed Iceberg tables</td></tr>
+    <tr><td>11</td><td>Streams support</td><td>Can create streams on Iceberg tables for CDC tracking</td></tr>
+    <tr><td>12</td><td>Dynamic Tables source</td><td>DTs can read from Iceberg tables as a source</td></tr>
+    <tr><td>13</td><td>External volume flexibility</td><td>Data on YOUR cloud account — you control retention, encryption, access</td></tr>
+    <tr><td>14</td><td>Catalog integrations</td><td>AWS Glue, Polaris, REST catalogs for externally-managed tables</td></tr>
+    <tr><td>15</td><td>Convert from native</td><td>Existing native tables can be converted to Iceberg format in-place</td></tr>
+  </tbody>
+</table>
+
+<!-- SECTION 9 -->
+<h2 id="limitations">9. Limitations (15 Key Points)</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Limitation</th><th>Detail / Workaround</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>No Fail-safe</td><td>Iceberg tables do NOT have Snowflake's 7-day fail-safe period. Time Travel is available but no post-TT safety net.</td></tr>
+    <tr><td>2</td><td>Performance gap vs native</td><td>Parquet format is slightly slower to query than Snowflake's optimized FDN format. ~10-20% overhead for most queries.</td></tr>
+    <tr><td>3</td><td>External volume required</td><td>Must set up cloud storage + IAM permissions before creating Iceberg tables. More setup than native tables.</td></tr>
+    <tr><td>4</td><td>Externally-managed = read-only</td><td>Cannot INSERT/UPDATE/DELETE into externally-managed Iceberg tables from Snowflake.</td></tr>
+    <tr><td>5</td><td>No materialized views on Iceberg</td><td>Cannot create materialized views on Iceberg tables.</td></tr>
+    <tr><td>6</td><td>Limited search optimization</td><td>Search Optimization Service (SOS) support may be limited for Iceberg tables.</td></tr>
+    <tr><td>7</td><td>Metadata refresh lag (external)</td><td>Externally-managed tables need REFRESH to detect new data. Not instant.</td></tr>
+    <tr><td>8</td><td>Storage costs are separate</td><td>You pay your cloud provider for storage (not included in Snowflake billing). Must manage lifecycle yourself.</td></tr>
+    <tr><td>9</td><td>No temporary/transient Iceberg</td><td>Iceberg tables are always permanent. Cannot be temporary or transient.</td></tr>
+    <tr><td>10</td><td>Catalog integration complexity</td><td>Setting up Glue/REST/Polaris catalogs requires cross-service IAM configuration.</td></tr>
+    <tr><td>11</td><td>Partition evolution complexity</td><td>While supported, changing partitions on large tables can create mixed-format state.</td></tr>
+    <tr><td>12</td><td>Cross-cloud limitations</td><td>External volume must be in same cloud/region as Snowflake account for optimal performance.</td></tr>
+    <tr><td>13</td><td>No VARIANT columns</td><td>Iceberg tables use Iceberg schema types. Snowflake VARIANT must be mapped to Iceberg struct/list/map types.</td></tr>
+    <tr><td>14</td><td>Clone limitations</td><td>Cloning Iceberg tables creates a new table but still references same underlying data files until modified.</td></tr>
+    <tr><td>15</td><td>Compaction management</td><td>Snowflake-managed handles compaction automatically, but externally-managed tables need external compaction.</td></tr>
+  </tbody>
+</table>
+
+<div class="warning">
+  <strong>The Big Trade-off:</strong> Iceberg tables give you openness and portability at the cost of slightly reduced performance and no fail-safe. For most analytics workloads the performance difference is negligible, but for latency-sensitive dashboards hitting large tables, native format may still be better.
+</div>
+
+<p style="margin-top: 40px; padding-top: 20px; border-top: 1px solid light-dark(#e5e7eb, #374151); color: light-dark(#6b7280, #9ca3af); font-size: 0.85rem;">
+  Iceberg Tables Theory Part 1 - Fundamentals | SnowPro Core Exam | August 15, 2026
+</p>
+
+</body>
+</html>
