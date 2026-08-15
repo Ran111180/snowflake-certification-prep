@@ -61,6 +61,7 @@
 <div class="toc">
   <strong>Table of Contents</strong>
   <ul>
+    <li><a href="#supported-objects">0. What Can Snowpipe Load Into & From?</a></li>
     <li><a href="#pipe-ddl">1. Pipe DDL Impact (CREATE OR REPLACE, ALTER, DROP)</a></li>
     <li><a href="#file-edge-cases">2. File & Stage Edge Cases</a></li>
     <li><a href="#duplicates">3. Duplicate Loading Scenarios</a></li>
@@ -69,6 +70,108 @@
     <li><a href="#metadata">6. The 14-Day Metadata Window</a></li>
     <li><a href="#recovery">7. Recovery Playbook</a></li>
     <li><a href="#exam-scenarios">8. Exam Scenario Questions</a></li>
+  </ul>
+</div>
+
+<!-- SECTION 0: SUPPORTED OBJECTS -->
+<h2 id="supported-objects">0. What Can Snowpipe Load Into & From?</h2>
+
+<div class="info">
+  <strong>Key Rule:</strong> Snowpipe wraps a <code>COPY INTO &lt;table&gt; FROM &lt;stage&gt;</code> statement. The constraints are: what stages can be sources, and what tables can be targets.
+</div>
+
+<h3>Supported Source Stages</h3>
+<table>
+  <thead><tr><th>Stage Type</th><th>Auto-Ingest</th><th>REST API (insertFiles)</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Internal named stage</strong> (@my_stage)</td>
+      <td><span class="status-danger">NO</span></td>
+      <td><span class="status-safe">YES</span></td>
+      <td>No cloud event notifications for internal stages. Must use REST API to trigger.</td>
+    </tr>
+    <tr>
+      <td><strong>Internal user stage</strong> (@~)</td>
+      <td><span class="status-danger">NO</span></td>
+      <td><span class="status-safe">YES</span></td>
+      <td>Same as named internal — REST API only.</td>
+    </tr>
+    <tr>
+      <td><strong>Internal table stage</strong> (@%table)</td>
+      <td><span class="status-danger">NO</span></td>
+      <td><span class="status-safe">YES</span></td>
+      <td>Same — REST API only.</td>
+    </tr>
+    <tr>
+      <td><strong>External stage — S3</strong></td>
+      <td><span class="status-safe">YES (SQS)</span></td>
+      <td><span class="status-safe">YES</span></td>
+      <td>Event notifications via SQS queue. Most common auto-ingest pattern.</td>
+    </tr>
+    <tr>
+      <td><strong>External stage — GCS</strong></td>
+      <td><span class="status-safe">YES (Pub/Sub)</span></td>
+      <td><span class="status-safe">YES</span></td>
+      <td>Event notifications via GCS Pub/Sub subscription.</td>
+    </tr>
+    <tr>
+      <td><strong>External stage — Azure Blob</strong></td>
+      <td><span class="status-safe">YES (Event Grid)</span></td>
+      <td><span class="status-safe">YES</span></td>
+      <td>Event notifications via Azure Event Grid + Queue Storage.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Supported Target Objects (COPY INTO destination)</h3>
+<table>
+  <thead><tr><th>Target Object</th><th>Supported</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Permanent tables</strong></td><td><span class="status-safe">YES</span></td><td>Most common target. Full support.</td></tr>
+    <tr><td><strong>Transient tables</strong></td><td><span class="status-safe">YES</span></td><td>Supported — same as permanent for loading.</td></tr>
+    <tr><td><strong>Temporary tables</strong></td><td><span class="status-danger">NO</span></td><td>Pipe persists across sessions; temp table is session-scoped. Incompatible.</td></tr>
+    <tr><td><strong>External tables</strong></td><td><span class="status-danger">NO</span></td><td>External tables are read-only. Cannot COPY INTO them.</td></tr>
+    <tr><td><strong>Views</strong></td><td><span class="status-danger">NO</span></td><td>Cannot COPY INTO a view. Must target the underlying table.</td></tr>
+    <tr><td><strong>Dynamic tables</strong></td><td><span class="status-danger">NO</span></td><td>DTs are managed by Snowflake (auto-refresh). Cannot manually insert.</td></tr>
+    <tr><td><strong>Materialized views</strong></td><td><span class="status-danger">NO</span></td><td>MVs are auto-maintained. Cannot manually insert.</td></tr>
+    <tr><td><strong>Iceberg tables</strong></td><td><span class="status-safe">YES</span></td><td>Supported — Snowpipe can load into Snowflake-managed Iceberg tables.</td></tr>
+  </tbody>
+</table>
+
+<h3>Supported File Formats</h3>
+<table>
+  <thead><tr><th>Format</th><th>Supported</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>CSV / TSV</td><td><span class="status-safe">YES</span></td><td>Delimited text files. Most common.</td></tr>
+    <tr><td>JSON</td><td><span class="status-safe">YES</span></td><td>Loads into VARIANT column or structured columns.</td></tr>
+    <tr><td>Avro</td><td><span class="status-safe">YES</span></td><td>Schema embedded in file.</td></tr>
+    <tr><td>Parquet</td><td><span class="status-safe">YES</span></td><td>Columnar format. Efficient for large datasets.</td></tr>
+    <tr><td>ORC</td><td><span class="status-safe">YES</span></td><td>Columnar format (Hadoop ecosystem).</td></tr>
+    <tr><td>XML</td><td><span class="status-safe">YES</span></td><td>Loads into VARIANT column.</td></tr>
+  </tbody>
+</table>
+
+<h3>What Snowpipe CANNOT Do</h3>
+<table>
+  <thead><tr><th>Operation</th><th>Why</th><th>Alternative</th></tr></thead>
+  <tbody>
+    <tr><td>UPDATE existing rows</td><td>Snowpipe only does INSERT (COPY INTO is append-only)</td><td>Use Stream + Task + MERGE for upserts</td></tr>
+    <tr><td>DELETE rows</td><td>COPY INTO doesn't support DELETE</td><td>Use Stream + Task pattern</td></tr>
+    <tr><td>MERGE / Upsert</td><td>Snowpipe = COPY INTO only (no MERGE)</td><td>Load to staging table → MERGE via task</td></tr>
+    <tr><td>Transform during load</td><td>Limited — can do simple column mapping in COPY's SELECT</td><td>Load raw → transform with task/DT</td></tr>
+    <tr><td>Load to multiple tables</td><td>One pipe = one COPY INTO = one target table</td><td>Create multiple pipes or use Stream fan-out</td></tr>
+    <tr><td>Unload data (COPY INTO @stage)</td><td>Snowpipe is ingest-only</td><td>Use task with COPY INTO @stage for unloading</td></tr>
+  </tbody>
+</table>
+
+<div class="danger">
+  <strong>Exam Traps:</strong>
+  <ul>
+    <li>Internal stages do NOT support auto-ingest (no event notifications). REST API only.</li>
+    <li>Snowpipe cannot load into temporary tables (session mismatch).</li>
+    <li>Snowpipe cannot UPDATE/DELETE/MERGE — it's pure COPY INTO (append).</li>
+    <li>One pipe = one target table. Cannot fan out to multiple tables from one pipe.</li>
+    <li>Snowpipe does NOT use your warehouse — it's 100% serverless compute.</li>
   </ul>
 </div>
 

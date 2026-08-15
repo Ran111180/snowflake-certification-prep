@@ -61,6 +61,7 @@
 <div class="toc">
   <strong>Table of Contents</strong>
   <ul>
+    <li><a href="#supported-objects">0. What Can Tasks Execute & Operate On?</a></li>
     <li><a href="#task-ddl">1. Task DDL Impact (CREATE OR REPLACE, ALTER, DROP)</a></li>
     <li><a href="#dag-edge-cases">2. DAG / Task Graph Edge Cases</a></li>
     <li><a href="#scheduling">3. Scheduling & Execution Edge Cases</a></li>
@@ -71,6 +72,91 @@
     <li><a href="#exam-scenarios">8. Exam Scenario Questions</a></li>
   </ul>
 </div>
+
+<!-- SECTION 0: SUPPORTED OBJECTS -->
+<h2 id="supported-objects">0. What Can Tasks Execute & Operate On?</h2>
+
+<div class="info">
+  <strong>Key Rule:</strong> A Task's body (the AS clause) can contain a <strong>single SQL statement</strong> OR a call to a stored procedure. Tasks can interact with almost any Snowflake object — the constraint is on the TASK itself, not what it references.
+</div>
+
+<h3>What a Task Can Execute (AS clause)</h3>
+<table>
+  <thead><tr><th>Statement Type</th><th>Supported</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Single SQL statement</strong> (INSERT, MERGE, COPY, CREATE, etc.)</td><td><span class="status-safe">YES</span></td><td>Most common. One statement per task.</td></tr>
+    <tr><td><strong>Stored Procedure call</strong> (CALL my_proc())</td><td><span class="status-safe">YES</span></td><td>Procedure can contain multiple statements, loops, branching.</td></tr>
+    <tr><td><strong>Multiple SQL statements</strong> (without procedure)</td><td><span class="status-danger">NO</span></td><td>Only ONE statement allowed. Use a stored procedure to wrap multiple.</td></tr>
+    <tr><td><strong>Snowflake Scripting block</strong> (BEGIN...END)</td><td><span class="status-safe">YES</span></td><td>Anonymous block counts as single statement. Can contain logic.</td></tr>
+    <tr><td><strong>EXECUTE IMMEDIATE</strong></td><td><span class="status-safe">YES</span></td><td>Dynamic SQL within the task body.</td></tr>
+    <tr><td><strong>DDL statements</strong> (CREATE, ALTER, DROP)</td><td><span class="status-safe">YES</span></td><td>Tasks can create/modify objects. Be careful with permissions.</td></tr>
+  </tbody>
+</table>
+
+<h3>What a Task Can Reference (Source/Target Objects)</h3>
+<table>
+  <thead><tr><th>Object Type</th><th>As Source (Read)</th><th>As Target (Write)</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>Permanent tables</td><td><span class="status-safe">YES</span></td><td><span class="status-safe">YES</span></td><td>Full read/write support.</td></tr>
+    <tr><td>Transient tables</td><td><span class="status-safe">YES</span></td><td><span class="status-safe">YES</span></td><td>Same as permanent for tasks.</td></tr>
+    <tr><td>Temporary tables</td><td><span class="status-danger">NO</span></td><td><span class="status-danger">NO</span></td><td>Tasks run in their own session — can't see other session's temp tables.</td></tr>
+    <tr><td>Views / Secure views</td><td><span class="status-safe">YES</span></td><td>N/A</td><td>Can SELECT from views.</td></tr>
+    <tr><td>Dynamic tables</td><td><span class="status-safe">YES</span></td><td><span class="status-danger">NO (read-only)</span></td><td>Can read DT output, cannot write to DTs.</td></tr>
+    <tr><td>Streams</td><td><span class="status-safe">YES</span></td><td>N/A</td><td>Primary use case: consume streams in WHEN clause and body.</td></tr>
+    <tr><td>External tables</td><td><span class="status-safe">YES</span></td><td><span class="status-danger">NO</span></td><td>Read-only (external tables are read-only by design).</td></tr>
+    <tr><td>Stages (COPY INTO)</td><td><span class="status-safe">YES</span></td><td><span class="status-safe">YES</span></td><td>Tasks can run COPY INTO from stage or COPY INTO stage (unload).</td></tr>
+    <tr><td>Shared objects</td><td><span class="status-safe">YES</span></td><td><span class="status-danger">NO</span></td><td>Can read shared data, cannot write to provider's objects.</td></tr>
+    <tr><td>Materialized views</td><td><span class="status-safe">YES</span></td><td>N/A</td><td>Can SELECT from MVs.</td></tr>
+    <tr><td>Functions / UDFs</td><td><span class="status-safe">YES</span></td><td>N/A</td><td>Task SQL can call any UDF/UDTF the owner role has access to.</td></tr>
+  </tbody>
+</table>
+
+<h3>WHEN Clause — What Can Be Used as Condition</h3>
+<table>
+  <thead><tr><th>Condition Type</th><th>Supported</th><th>Example</th></tr></thead>
+  <tbody>
+    <tr><td><code>SYSTEM$STREAM_HAS_DATA('stream')</code></td><td><span class="status-safe">YES</span></td><td>Most common — only run when stream has data</td></tr>
+    <tr><td>Boolean expression</td><td><span class="status-safe">YES</span></td><td><code>WHEN CURRENT_DATE() = '2026-01-01'</code></td></tr>
+    <tr><td>Subquery</td><td><span class="status-danger">NO</span></td><td>Cannot use SELECT in WHEN clause</td></tr>
+    <tr><td>UDF call returning boolean</td><td><span class="status-safe">YES</span></td><td><code>WHEN my_check_udf()</code></td></tr>
+    <tr><td>Multiple conditions (AND/OR)</td><td><span class="status-safe">YES</span></td><td><code>WHEN SYSTEM$STREAM_HAS_DATA('s1') AND SYSTEM$STREAM_HAS_DATA('s2')</code></td></tr>
+  </tbody>
+</table>
+
+<div class="danger">
+  <strong>Key Limitation:</strong> A task body is exactly ONE SQL statement. If you need multiple statements, wrap them in a stored procedure or Snowflake Scripting anonymous block. Also: tasks run in their own session, so they cannot access temporary tables created in your interactive session.
+</div>
+
+<h3>Syntax Examples</h3>
+<pre>-- Single SQL statement
+CREATE TASK load_data WAREHOUSE = my_wh SCHEDULE = '5 MINUTE'
+AS INSERT INTO target SELECT * FROM source;
+
+-- Stored procedure call (for multi-step logic)
+CREATE TASK complex_etl WAREHOUSE = my_wh SCHEDULE = '1 HOUR'
+AS CALL my_etl_procedure();
+
+-- Snowflake Scripting block (anonymous block)
+CREATE TASK scripted_task WAREHOUSE = my_wh SCHEDULE = '10 MINUTE'
+AS
+BEGIN
+  LET row_count := (SELECT COUNT(*) FROM staging);
+  IF (row_count > 0) THEN
+    INSERT INTO target SELECT * FROM staging;
+    TRUNCATE TABLE staging;
+  END IF;
+END;
+
+-- WHEN clause with stream check
+CREATE TASK cdc_task WAREHOUSE = my_wh SCHEDULE = '1 MINUTE'
+  WHEN SYSTEM$STREAM_HAS_DATA('my_stream')
+AS MERGE INTO target USING my_stream src ON target.id = src.id ...;
+
+-- FAILS: Multiple statements without wrapper
+CREATE TASK bad_task WAREHOUSE = my_wh SCHEDULE = '5 MINUTE'
+AS
+  INSERT INTO t1 SELECT * FROM s1;  -- ERROR: only ONE statement allowed
+  INSERT INTO t2 SELECT * FROM s2;</pre>
 
 <!-- SECTION 1: TASK DDL -->
 <h2 id="task-ddl">1. Task DDL Impact</h2>

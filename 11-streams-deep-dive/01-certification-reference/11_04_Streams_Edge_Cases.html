@@ -61,6 +61,7 @@
 <div class="toc">
   <strong>Table of Contents</strong>
   <ul>
+    <li><a href="#supported-objects">0. Supported & Unsupported Source Objects</a></li>
     <li><a href="#source-changes">1. Source Table Changes (What Breaks Streams?)</a></li>
     <li><a href="#target-changes">2. Target Table Changes (Impact on Streams)</a></li>
     <li><a href="#staleness">3. Staleness Deep Dive (Causes, Detection, Prevention)</a></li>
@@ -68,6 +69,125 @@
     <li><a href="#edge-cases">5. Other Edge Cases (Rollback, Clone, Multi-Consumer)</a></li>
     <li><a href="#recovery">6. Recovery Playbook (Step-by-Step)</a></li>
     <li><a href="#exam-scenarios">7. Exam Scenario Questions</a></li>
+  </ul>
+</div>
+
+<!-- SECTION 0: SUPPORTED OBJECTS -->
+<h2 id="supported-objects">0. What Can You Create a Stream On?</h2>
+
+<div class="info">
+  <strong>Key Rule:</strong> Streams need a <strong>persistent source</strong> that outlives a single session. Any object that is session-scoped (temporary tables) cannot be a stream source because the stream would persist after the session ends with nothing to track.
+</div>
+
+<h3>Supported Source Objects</h3>
+<table>
+  <thead><tr><th>Source Object</th><th>Stream Types Supported</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Standard (permanent) tables</strong></td>
+      <td>Standard, Append-only</td>
+      <td>Most common use case. Full CDC support.</td>
+    </tr>
+    <tr>
+      <td><strong>Transient tables</strong></td>
+      <td>Standard, Append-only</td>
+      <td>Supported — shorter retention may increase staleness risk.</td>
+    </tr>
+    <tr>
+      <td><strong>External tables</strong></td>
+      <td>Insert-only ONLY</td>
+      <td>Detects new files added to stage. Cannot track UPDATE/DELETE (files are immutable).</td>
+    </tr>
+    <tr>
+      <td><strong>Directory tables</strong></td>
+      <td>Insert-only ONLY</td>
+      <td>Tracks files added/removed on a stage. Useful for file-processing pipelines.</td>
+    </tr>
+    <tr>
+      <td><strong>Views</strong> (including secure views)</td>
+      <td>Standard, Append-only</td>
+      <td>Stream tracks changes to ALL underlying tables. All underlying tables must have CHANGE_TRACKING=TRUE.</td>
+    </tr>
+    <tr>
+      <td><strong>Dynamic tables</strong></td>
+      <td>Standard, Append-only</td>
+      <td>Track changes to the DT's materialized output. Useful for chaining DT→Stream→Task patterns.</td>
+    </tr>
+    <tr>
+      <td><strong>Shared tables</strong> (data sharing)</td>
+      <td>Append-only ONLY</td>
+      <td>Consumer can track changes made by the provider. Standard streams not supported on shared objects.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>NOT Supported Source Objects</h3>
+<table>
+  <thead><tr><th>Source Object</th><th>Why Not Supported</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Temporary tables</strong></td>
+      <td>Temp tables are session-scoped; streams persist across sessions. When session ends, source vanishes but stream would still exist with nothing to track.</td>
+    </tr>
+    <tr>
+      <td><strong>Materialized views</strong></td>
+      <td>Not supported as a stream source. Use the underlying base table instead.</td>
+    </tr>
+    <tr>
+      <td><strong>Streams (chaining)</strong></td>
+      <td>You CANNOT create a stream on another stream. No stream-on-stream chaining.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Stream Type Compatibility Matrix</h3>
+<table>
+  <thead><tr><th>Source Object</th><th>Standard Stream</th><th>Append-Only Stream</th><th>Insert-Only Stream</th></tr></thead>
+  <tbody>
+    <tr><td>Permanent table</td><td><span class="status-safe">YES</span></td><td><span class="status-safe">YES</span></td><td><span class="status-danger">NO</span></td></tr>
+    <tr><td>Transient table</td><td><span class="status-safe">YES</span></td><td><span class="status-safe">YES</span></td><td><span class="status-danger">NO</span></td></tr>
+    <tr><td>External table</td><td><span class="status-danger">NO</span></td><td><span class="status-danger">NO</span></td><td><span class="status-safe">YES</span></td></tr>
+    <tr><td>Directory table</td><td><span class="status-danger">NO</span></td><td><span class="status-danger">NO</span></td><td><span class="status-safe">YES</span></td></tr>
+    <tr><td>View</td><td><span class="status-safe">YES</span></td><td><span class="status-safe">YES</span></td><td><span class="status-danger">NO</span></td></tr>
+    <tr><td>Dynamic table</td><td><span class="status-safe">YES</span></td><td><span class="status-safe">YES</span></td><td><span class="status-danger">NO</span></td></tr>
+    <tr><td>Shared table</td><td><span class="status-danger">NO</span></td><td><span class="status-safe">YES</span></td><td><span class="status-danger">NO</span></td></tr>
+    <tr><td>Temporary table</td><td><span class="status-danger">NO</span></td><td><span class="status-danger">NO</span></td><td><span class="status-danger">NO</span></td></tr>
+  </tbody>
+</table>
+
+<h3>Syntax Examples</h3>
+<pre>-- Permanent table (standard stream — default)
+CREATE STREAM my_stream ON TABLE my_table;
+
+-- View (tracks all underlying table changes)
+CREATE STREAM view_stream ON VIEW my_view;
+
+-- External table (insert-only — detects new files)
+CREATE STREAM ext_stream ON EXTERNAL TABLE my_ext_table INSERT_ONLY = TRUE;
+
+-- Directory table (insert-only — tracks file additions)
+CREATE STREAM dir_stream ON STAGE my_stage;
+
+-- Dynamic table
+CREATE STREAM dt_stream ON DYNAMIC TABLE my_dynamic_table;
+
+-- Shared table (append-only only)
+CREATE STREAM shared_stream ON TABLE shared_db.schema.shared_table APPEND_ONLY = TRUE;
+
+-- FAILS: Temporary table
+CREATE STREAM temp_stream ON TABLE my_temp_table;  -- ERROR: not supported
+
+-- FAILS: Stream on stream
+CREATE STREAM chained ON STREAM my_stream;  -- ERROR: not supported</pre>
+
+<div class="danger">
+  <strong>Exam Traps:</strong>
+  <ul>
+    <li>External tables ONLY support Insert-only streams (files are immutable, no UPDATE/DELETE)</li>
+    <li>Shared tables ONLY support Append-only streams (consumer can't see internal changes)</li>
+    <li>Views require CHANGE_TRACKING=TRUE on ALL underlying base tables</li>
+    <li>You CANNOT create a stream on another stream (no chaining)</li>
+    <li>Temporary tables are NEVER supported (session-scoped vs persistent stream)</li>
   </ul>
 </div>
 
