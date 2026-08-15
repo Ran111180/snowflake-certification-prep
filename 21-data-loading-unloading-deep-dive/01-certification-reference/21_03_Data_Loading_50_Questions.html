@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Loading & Unloading - 50 Practice Questions</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Data Loading & Unloading - 50 Practice Questions",
+  "description": "50 interactive certification-style questions on data loading, unloading, stages, COPY INTO, and related topics",
+  "author": "Snowflake Certification Prep",
+  "created": "2026-08-15",
+  "topic": "Data-Loading-Unloading",
+  "part": 3,
+  "certification_relevance": "high"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#fffdf5, #1a1708);
+  --bg-secondary: light-dark(#fff8e1, #2a2010);
+  --bg-card: light-dark(#ffffff, #1e1a0e);
+  --bg-code: light-dark(#fdf8e8, #2d2515);
+  --text-primary: light-dark(#2d1f0a, #fce4b0);
+  --text-secondary: light-dark(#5c3a1a, #f8d080);
+  --accent: light-dark(#f57f17, #ffb300);
+  --accent-secondary: light-dark(#e65100, #ff8f00);
+  --border: light-dark(#ffe082, #4a3a15);
+  --highlight: light-dark(#fff8e1, #3d3015);
+  --success: light-dark(#2e7d32, #66bb6a);
+  --error: light-dark(#c62828, #ef5350);
+  --shadow: light-dark(rgba(245, 127, 23, 0.1), rgba(0, 0, 0, 0.3));
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { color-scheme: light dark; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+h1 { font-size: 2.2rem; color: var(--accent); border-bottom: 3px solid var(--accent); padding-bottom: 0.8rem; margin-bottom: 1rem; }
+
+.score-bar {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin: 1rem 0 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.score-bar span { font-weight: 600; color: var(--accent); }
+#score-display { font-size: 1.3rem; }
+.score-bar button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 0.5rem 1.2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.score-bar button:hover { opacity: 0.9; }
+
+.question-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.8rem;
+  margin: 1.5rem 0;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.q-number {
+  display: inline-block;
+  background: var(--accent);
+  color: white;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 2rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-right: 0.8rem;
+}
+
+.q-text {
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin-bottom: 1rem;
+  display: inline;
+}
+
+.options { list-style: none; padding: 0; margin: 1rem 0; }
+.options li {
+  padding: 0.7rem 1rem;
+  margin: 0.5rem 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.options li:hover { background: var(--highlight); border-color: var(--accent); }
+.options li.selected { border-color: var(--accent); background: var(--highlight); }
+.options li.correct { border-color: var(--success); background: light-dark(#e8f5e9, #1b3d1f); }
+.options li.incorrect { border-color: var(--error); background: light-dark(#ffebee, #3d1b1b); }
+
+.explanation {
+  display: none;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border-left: 3px solid var(--accent);
+}
+.explanation.show { display: block; }
+
+code { background: var(--bg-code); padding: 0.2rem 0.5rem; border-radius: 4px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.88em; color: var(--accent); }
+pre { background: var(--bg-code); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 0.8rem 0; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.83rem; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<h1>21.03 Data Loading &amp; Unloading - 50 Practice Questions</h1>
+
+<div class="score-bar">
+  <span id="score-display">Score: 0 / 0</span>
+  <span id="percent-display"></span>
+  <button onclick="resetAll()">Reset All</button>
+</div>
+
+<div id="questions-container"></div>
+
+<script>
+const questions = [
+  {
+    q: "What is the default ON_ERROR option for a manual COPY INTO command?",
+    options: ["CONTINUE", "SKIP_FILE", "ABORT_STATEMENT", "SKIP_FILE_10%"],
+    answer: 2,
+    explanation: "The default ON_ERROR for manual COPY INTO is ABORT_STATEMENT. This means if any error occurs, the entire load is aborted and no data is loaded. For Snowpipe, the default is SKIP_FILE."
+  },
+  {
+    q: "Which stage type is referenced using the @~ notation?",
+    options: ["Named internal stage", "Table stage", "User stage", "External stage"],
+    answer: 2,
+    explanation: "The @~ notation references the user stage. Every Snowflake user has an automatically allocated user stage. Table stages use @%table_name, and named stages use @stage_name."
+  },
+  {
+    q: "How long does Snowflake track COPY load history to prevent duplicate file loading?",
+    options: ["14 days", "30 days", "64 days", "90 days"],
+    answer: 2,
+    explanation: "Snowflake tracks load metadata for 64 days. Within this period, if the same file (same name and checksum) is encountered, it is automatically skipped. After 64 days, the file can be reloaded without FORCE=TRUE."
+  },
+  {
+    q: "Which command uploads local files to an internal stage?",
+    options: ["UPLOAD", "COPY", "PUT", "INSERT"],
+    answer: 2,
+    explanation: "The PUT command uploads files from a local file system to an internal stage (user, table, or named). PUT cannot upload to external stages."
+  },
+  {
+    q: "What is the recommended compressed file size for optimal parallel loading?",
+    options: ["1-10 MB", "10-50 MB", "100-250 MB", "500 MB - 1 GB"],
+    answer: 2,
+    explanation: "Snowflake recommends files be 100-250 MB compressed for optimal loading performance. This allows the warehouse to distribute files across multiple nodes for parallel processing."
+  },
+  {
+    q: "Which option forces COPY INTO to reload files that were already loaded within the 64-day window?",
+    options: ["RELOAD = TRUE", "FORCE = TRUE", "IGNORE_HISTORY = TRUE", "PURGE = TRUE"],
+    answer: 1,
+    explanation: "FORCE = TRUE bypasses the 64-day load history check and reloads files regardless of whether they were previously loaded. This can lead to duplicate data if files haven't changed."
+  },
+  {
+    q: "What does PURGE = TRUE do in a COPY INTO command?",
+    options: ["Deletes the target table data before loading", "Removes files from the stage after successful load", "Clears the load history", "Drops the stage after loading"],
+    answer: 1,
+    explanation: "PURGE = TRUE automatically deletes (removes) files from the stage after they are successfully loaded. Only successfully loaded files are purged; failed files remain."
+  },
+  {
+    q: "Which VALIDATION_MODE option returns all errors without loading any data?",
+    options: ["RETURN_ERRORS", "RETURN_ALL_ERRORS", "RETURN_5_ROWS", "VALIDATE_ONLY"],
+    answer: 1,
+    explanation: "RETURN_ALL_ERRORS validates the entire data set and returns all errors found without loading any data. RETURN_ERRORS returns errors from the first file with errors. RETURN_n_ROWS validates n rows."
+  },
+  {
+    q: "Can you PUT files directly to an external stage (e.g., S3)?",
+    options: ["Yes, PUT works with all stage types", "Yes, but only with a storage integration", "No, PUT only works with internal stages", "Yes, but requires ACCOUNTADMIN role"],
+    answer: 2,
+    explanation: "PUT only works with internal stages (user, table, or named internal). For external stages, you must use the cloud provider's upload tools (aws s3 cp, azcopy, gsutil)."
+  },
+  {
+    q: "What is the default ON_ERROR option for Snowpipe?",
+    options: ["ABORT_STATEMENT", "CONTINUE", "SKIP_FILE", "SKIP_FILE_10%"],
+    answer: 2,
+    explanation: "Snowpipe defaults to SKIP_FILE, meaning it skips any file with errors and continues loading other files. This differs from manual COPY which defaults to ABORT_STATEMENT."
+  },
+  {
+    q: "Which METADATA$ column captures the row number within a staged file during COPY?",
+    options: ["METADATA$ROW_NUMBER", "METADATA$FILE_ROW_NUMBER", "METADATA$LINE_NUMBER", "METADATA$RECORD_NUM"],
+    answer: 1,
+    explanation: "METADATA$FILE_ROW_NUMBER returns the row number within the staged file being loaded. This is only available during COPY INTO operations, not in regular SELECT queries."
+  },
+  {
+    q: "What is the default MAX_FILE_SIZE when unloading data to CSV format?",
+    options: ["16 MB", "64 MB", "128 MB", "256 MB"],
+    answer: 0,
+    explanation: "The default MAX_FILE_SIZE for CSV unloading is 16 MB. For Parquet format, the default is 256 MB. Data is split into multiple files when the limit is exceeded."
+  },
+  {
+    q: "Which option in COPY INTO @stage produces exactly one output file?",
+    options: ["MAX_FILE_SIZE = UNLIMITED", "SINGLE = TRUE", "PARTITION BY = NONE", "FILE_COUNT = 1"],
+    answer: 1,
+    explanation: "SINGLE = TRUE tells COPY INTO (unload) to produce exactly one output file regardless of data size. When set, MAX_FILE_SIZE is effectively ignored."
+  },
+  {
+    q: "Can you set a default FILE_FORMAT on a user stage (@~)?",
+    options: ["Yes, using ALTER STAGE @~", "Yes, using ALTER USER", "No, user stages cannot have file formats", "Yes, using SET FILE_FORMAT command"],
+    answer: 2,
+    explanation: "User stages and table stages cannot have a file format assigned to them. You must specify the FILE_FORMAT in each COPY command. Only named stages (internal or external) support default file formats."
+  },
+  {
+    q: "What does MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE do?",
+    options: ["Matches columns by position ignoring names", "Matches file column headers to table columns by name (case-insensitive)", "Converts all column names to lowercase", "Only loads columns that match exactly"],
+    answer: 1,
+    explanation: "MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE matches columns in the data file to target table columns by their names, ignoring case differences. For CSV, requires PARSE_HEADER = TRUE."
+  },
+  {
+    q: "Which command downloads files from an internal stage to a local file system?",
+    options: ["DOWNLOAD", "GET", "COPY", "FETCH"],
+    answer: 1,
+    explanation: "The GET command downloads files from an internal stage to the local file system. Like PUT, it only works with internal stages and requires SnowSQL or a connector (not Snowsight UI)."
+  },
+  {
+    q: "What happens when COPY INTO encounters a file already loaded within 64 days and FORCE is FALSE (default)?",
+    options: ["Error is thrown", "File is loaded again (duplicates created)", "File is silently skipped", "Load pauses and asks for confirmation"],
+    answer: 2,
+    explanation: "With FORCE = FALSE (default), files that were successfully loaded within the past 64 days are silently skipped. The COPY command succeeds but reports 0 rows loaded for that file."
+  },
+  {
+    q: "Which privilege is required on a named stage to use it in a COPY INTO command?",
+    options: ["SELECT", "READ", "USAGE", "OPERATE"],
+    answer: 2,
+    explanation: "The USAGE privilege on a stage allows a role to reference it in COPY INTO, LIST, and GET/PUT commands. For writing to a stage (unload), both USAGE and WRITE are needed."
+  },
+  {
+    q: "What type of patterns does the PATTERN option in COPY INTO use?",
+    options: ["SQL LIKE patterns (% and _)", "Java regular expressions (regex)", "Unix glob patterns (* and ?)", "Simple file extensions only"],
+    answer: 1,
+    explanation: "The PATTERN option uses Java regular expressions (regex), not SQL LIKE patterns. For example, '.*sales.*[.]csv' matches files containing 'sales' with .csv extension. Use [.] for literal dots."
+  },
+  {
+    q: "What does OVERWRITE = FALSE (default) do during data unloading?",
+    options: ["Appends to existing files", "Raises an error if files already exist", "Skips existing files and writes new ones", "Creates versioned copies"],
+    answer: 1,
+    explanation: "With OVERWRITE = FALSE (default for unload), if files with the same names already exist in the stage, the COPY INTO (unload) operation fails. Set OVERWRITE = TRUE to replace existing files."
+  },
+  {
+    q: "Which FILE FORMAT type supports the STRIP_OUTER_ARRAY option?",
+    options: ["CSV", "JSON", "Parquet", "XML"],
+    answer: 1,
+    explanation: "STRIP_OUTER_ARRAY is a JSON-specific file format option. When TRUE, it removes the outer array brackets ([ ]) and loads each array element as a separate row."
+  },
+  {
+    q: "Can you reference METADATA$FILENAME in a regular SELECT query (not during COPY)?",
+    options: ["Yes, it works on any staged file reference", "Yes, but only with directory tables enabled", "No, METADATA$ columns are only available during COPY INTO", "Yes, with SELECT from @stage syntax"],
+    answer: 2,
+    explanation: "METADATA$ pseudo-columns (FILENAME, FILE_ROW_NUMBER, etc.) are only available in the context of a COPY INTO command's transformation SELECT. They cannot be used in regular SELECT queries."
+  },
+  {
+    q: "What is the AUTO_COMPRESS default for the PUT command?",
+    options: ["FALSE", "TRUE", "GZIP", "NONE"],
+    answer: 1,
+    explanation: "PUT defaults to AUTO_COMPRESS = TRUE, meaning files are automatically compressed with gzip before uploading to the internal stage. This reduces storage costs and transfer time."
+  },
+  {
+    q: "Which storage integration property restricts which cloud locations can be accessed?",
+    options: ["STORAGE_ALLOWED_LOCATIONS", "ALLOWED_PATHS", "URL_WHITELIST", "PERMITTED_LOCATIONS"],
+    answer: 0,
+    explanation: "STORAGE_ALLOWED_LOCATIONS explicitly lists the cloud storage paths (S3 buckets/prefixes, Azure containers, GCS buckets) that the integration can access. Combined with STORAGE_BLOCKED_LOCATIONS for deny-listing."
+  },
+  {
+    q: "What does VALIDATION_MODE do in a COPY INTO command?",
+    options: ["Validates and loads data simultaneously", "Loads data then validates it", "Validates data without loading it", "Validates the stage configuration only"],
+    answer: 2,
+    explanation: "VALIDATION_MODE performs a dry-run validation of the data files without actually loading any data into the table. It returns validation results (errors or sample rows) as a query result set."
+  },
+  {
+    q: "Which COPY INTO option limits the total amount of data loaded in one command execution?",
+    options: ["MAX_ROWS", "FILE_LIMIT", "SIZE_LIMIT", "BATCH_SIZE"],
+    answer: 2,
+    explanation: "SIZE_LIMIT specifies the maximum cumulative size (in bytes) of data files to be loaded in a single COPY command. Once the limit is reached, remaining files are not loaded in that execution."
+  },
+  {
+    q: "How are columns referenced from a staged file in a COPY transformation SELECT?",
+    options: ["By column name from header", "By $1, $2, $3... positional notation", "By c1, c2, c3... notation", "By column index (0-based)"],
+    answer: 1,
+    explanation: "In COPY transformations, staged file columns are referenced positionally: $1 is the first column, $2 the second, etc. This works for CSV. For semi-structured formats, $1 references the entire record."
+  },
+  {
+    q: "What role is required to create a STORAGE INTEGRATION?",
+    options: ["SYSADMIN", "SECURITYADMIN", "ACCOUNTADMIN", "Any role with CREATE INTEGRATION privilege"],
+    answer: 3,
+    explanation: "Creating a storage integration requires the CREATE INTEGRATION privilege, which by default is only granted to ACCOUNTADMIN. However, ACCOUNTADMIN can grant this privilege to other roles."
+  },
+  {
+    q: "What is the maximum number of files you can specify in the FILES option of COPY INTO?",
+    options: ["100", "500", "1000", "Unlimited"],
+    answer: 2,
+    explanation: "The FILES parameter accepts a maximum of 1000 file names. If you need to load more files, use PATTERN to filter or run multiple COPY commands."
+  },
+  {
+    q: "Which command lists the files in a stage?",
+    options: ["SHOW FILES IN @stage", "LIST @stage", "SELECT * FROM @stage", "DIR @stage"],
+    answer: 1,
+    explanation: "LIST (or its alias LS) shows files in a stage along with their size, MD5 hash, and last modified timestamp. SHOW FILES is not a valid command."
+  },
+  {
+    q: "What encryption type do internal stages use by default?",
+    options: ["AES-128", "SNOWFLAKE_FULL_CTL", "SNOWFLAKE_SSE (128-bit or 256-bit)", "Client-side encryption only"],
+    answer: 2,
+    explanation: "Internal stages use SNOWFLAKE_SSE (Snowflake Server-Side Encryption) by default. Named internal stages can also be configured for SNOWFLAKE_FULL_CTL with a master key."
+  },
+  {
+    q: "When unloading to Parquet format, what is the default MAX_FILE_SIZE?",
+    options: ["16 MB", "64 MB", "128 MB", "256 MB"],
+    answer: 3,
+    explanation: "For Parquet format, the default MAX_FILE_SIZE during unload is 256 MB (vs 16 MB for CSV). This is because Parquet is columnar and benefits from larger file sizes for query performance."
+  },
+  {
+    q: "What does INCLUDE_QUERY_ID = TRUE do during unloading?",
+    options: ["Adds query ID as a column in the output", "Includes query ID in the output filename", "Logs the query ID to the load history", "Adds query ID as a file header"],
+    answer: 1,
+    explanation: "INCLUDE_QUERY_ID = TRUE (the default) includes the query ID in the generated output filenames to ensure uniqueness. This prevents filename collisions across multiple unload operations."
+  },
+  {
+    q: "Which transformation is NOT allowed in a COPY INTO SELECT clause?",
+    options: ["UPPER($2)", "CAST($1 AS INTEGER)", "JOIN with another table", "CURRENT_TIMESTAMP()"],
+    answer: 2,
+    explanation: "COPY INTO transformations do NOT support JOINs, subqueries, aggregate functions, or window functions. Only simple column expressions, type casts, functions, and METADATA$ references are allowed."
+  },
+  {
+    q: "What is the PARALLEL parameter default for the PUT command?",
+    options: ["1", "4", "8", "16"],
+    answer: 1,
+    explanation: "PUT defaults to PARALLEL = 4, meaning up to 4 threads are used for uploading files simultaneously. The maximum allowed value is 99."
+  },
+  {
+    q: "If a CSV file has headers and you want to skip them during loading, which option do you use?",
+    options: ["IGNORE_HEADER = TRUE", "SKIP_HEADER = 1", "HEADER_ROWS = 1", "FIRST_ROW_IS_HEADER = TRUE"],
+    answer: 1,
+    explanation: "SKIP_HEADER = n (in the file format) tells COPY to skip the first n lines of the file. SKIP_HEADER = 1 is most common for files with a single header row."
+  },
+  {
+    q: "What does the LOAD_UNCERTAIN_FILES option do?",
+    options: ["Loads files with unknown formats", "Loads files whose load status is unclear (possibly loaded before)", "Loads encrypted files without keys", "Loads files from untrusted stages"],
+    answer: 1,
+    explanation: "LOAD_UNCERTAIN_FILES = TRUE forces loading of files whose status in the load history is ambiguous (e.g., file was modified after initial load). It's a less aggressive alternative to FORCE = TRUE."
+  },
+  {
+    q: "Which view provides load history for up to 365 days?",
+    options: ["INFORMATION_SCHEMA.COPY_HISTORY", "SNOWFLAKE.ACCOUNT_USAGE.LOAD_HISTORY", "SNOWFLAKE.ACCOUNT_USAGE.COPY_HISTORY", "INFORMATION_SCHEMA.LOAD_HISTORY"],
+    answer: 1,
+    explanation: "SNOWFLAKE.ACCOUNT_USAGE.LOAD_HISTORY retains data for 365 days but has up to 45-minute latency. The INFORMATION_SCHEMA.COPY_HISTORY table function provides real-time data but only for 14 days."
+  },
+  {
+    q: "What does TRUNCATECOLUMNS = TRUE do during COPY INTO?",
+    options: ["Truncates the table before loading", "Truncates strings that exceed target column length", "Removes trailing whitespace", "Limits number of columns loaded"],
+    answer: 1,
+    explanation: "TRUNCATECOLUMNS = TRUE silently truncates string values that exceed the target column's maximum length instead of raising an error. Default is FALSE (raises error on too-long strings)."
+  },
+  {
+    q: "For CSV files, which option wraps fields that contain the delimiter?",
+    options: ["FIELD_ENCLOSED_BY", "FIELD_OPTIONALLY_ENCLOSED_BY", "QUOTE_CHAR", "ESCAPE_CHAR"],
+    answer: 1,
+    explanation: "FIELD_OPTIONALLY_ENCLOSED_BY specifies the character used to enclose fields (typically double-quote). 'Optionally' means not every field needs to be enclosed, only those containing special characters."
+  },
+  {
+    q: "What compute resource does Snowpipe use for loading?",
+    options: ["User's virtual warehouse", "Snowflake-managed serverless compute", "Cloud Services layer only", "Shared compute pool"],
+    answer: 1,
+    explanation: "Snowpipe uses Snowflake-managed serverless compute (not a user warehouse). Billing is per-file based on actual compute used, with no minimum warehouse charge."
+  },
+  {
+    q: "Can COPY INTO load data from a query result (subquery) as the source?",
+    options: ["Yes, for both loading and unloading", "Only for unloading (COPY INTO @stage FROM query)", "Only for loading with transformation", "No, COPY only works with staged files"],
+    answer: 0,
+    explanation: "COPY INTO supports queries as source for both: (1) loading with transformation (SELECT $1, $2 FROM @stage), and (2) unloading (COPY INTO @stage FROM (SELECT * FROM table WHERE...))."
+  },
+  {
+    q: "What does STRIP_OUTER_ARRAY = TRUE do when loading JSON?",
+    options: ["Removes nested arrays from the JSON", "Removes the outer [ ] array wrapper and loads each element as a row", "Strips array data types from the schema", "Flattens all arrays recursively"],
+    answer: 1,
+    explanation: "STRIP_OUTER_ARRAY removes the outer array brackets from JSON files that contain an array of objects (e.g., [{...}, {...}]). Each array element becomes a separate row in the target table."
+  },
+  {
+    q: "Which stage type can have privileges granted on it using GRANT USAGE?",
+    options: ["User stage only", "Table stage only", "Named stage only", "All stage types"],
+    answer: 2,
+    explanation: "Only named stages (internal or external) support RBAC grants. User stages are tied to a single user, and table stages are tied to table privileges. Named stages have explicit USAGE/READ/WRITE privileges."
+  },
+  {
+    q: "What is the behavior of COPY INTO when SIZE_LIMIT is reached mid-file?",
+    options: ["Stops immediately, partial file not loaded", "Finishes current file then stops", "Raises an error", "Loads all remaining data in current file but no more files"],
+    answer: 1,
+    explanation: "When SIZE_LIMIT is reached, COPY finishes loading the current file (does not split mid-file) and then stops. No additional files beyond the current one are loaded."
+  },
+  {
+    q: "Which FILE FORMAT type supports BINARY_AS_TEXT option?",
+    options: ["CSV", "JSON", "Parquet", "All of the above"],
+    answer: 2,
+    explanation: "BINARY_AS_TEXT is a Parquet-specific option that determines whether binary columns are loaded as text (VARCHAR) or as BINARY data type. Default is TRUE (load as text)."
+  },
+  {
+    q: "What is the COPY_HISTORY table function's maximum lookback period?",
+    options: ["7 days", "14 days", "30 days", "64 days"],
+    answer: 1,
+    explanation: "The INFORMATION_SCHEMA.COPY_HISTORY table function provides real-time data for up to 14 days. For longer history (up to 365 days), use SNOWFLAKE.ACCOUNT_USAGE.LOAD_HISTORY."
+  },
+  {
+    q: "When using MATCH_BY_COLUMN_NAME with CSV files, what additional option is required?",
+    options: ["SKIP_HEADER = 1", "PARSE_HEADER = TRUE", "HEADER = TRUE", "COLUMN_NAMES = TRUE"],
+    answer: 1,
+    explanation: "For CSV files, PARSE_HEADER = TRUE must be set in the file format so Snowflake reads the first row as column names for matching. For Parquet/Avro/ORC, column names are embedded in file metadata."
+  },
+  {
+    q: "Which COPY INTO option returns only the rows that failed to load?",
+    options: ["RETURN_ERRORS = TRUE", "RETURN_FAILED_ONLY = TRUE", "ON_ERROR = RETURN_ERRORS", "SHOW_FAILURES = TRUE"],
+    answer: 1,
+    explanation: "RETURN_FAILED_ONLY = TRUE limits the COPY command's result set to show only the rows that could not be loaded (error rows). Useful for identifying and fixing problematic data."
+  },
+  {
+    q: "What happens to files in the stage when PURGE = TRUE and some files fail to load?",
+    options: ["All files are purged regardless", "Only successfully loaded files are purged", "No files are purged if any fail", "Failed files are moved to a quarantine folder"],
+    answer: 1,
+    explanation: "With PURGE = TRUE, only files that were successfully loaded are deleted from the stage. Failed files remain in the stage for troubleshooting and retry."
+  },
+  {
+    q: "In an unload (COPY INTO @stage), what does PARTITION BY do?",
+    options: ["Partitions the target table", "Splits output into subdirectories based on an expression", "Creates table partitions from the data", "Sets the micro-partition strategy"],
+    answer: 1,
+    explanation: "PARTITION BY in unload splits the output data into separate subdirectories based on the value of an expression (e.g., a date or region column). Creates Hive-style partitioned directory structure."
+  }
+];
+
+let answered = {};
+let correct = 0;
+let total = 0;
+
+function renderQuestions() {
+  const container = document.getElementById('questions-container');
+  container.innerHTML = questions.map((q, i) => `
+    <div class="question-card" id="qcard-${i}">
+      <div><span class="q-number">${i + 1}</span><span class="q-text">${q.q}</span></div>
+      ${q.code ? `<pre>${q.code}</pre>` : ''}
+      <ul class="options" id="opts-${i}">
+        ${q.options.map((opt, j) => `<li onclick="selectAnswer(${i}, ${j})" id="opt-${i}-${j}">${opt}</li>`).join('')}
+      </ul>
+      <div class="explanation" id="exp-${i}"><strong>Explanation:</strong> ${q.explanation}</div>
+    </div>
+  `).join('');
+}
+
+function selectAnswer(qi, oi) {
+  if (answered[qi] !== undefined) return;
+  answered[qi] = oi;
+  total++;
+
+  const correctIdx = questions[qi].answer;
+  document.getElementById(`opt-${qi}-${oi}`).classList.add(oi === correctIdx ? 'correct' : 'incorrect');
+  document.getElementById(`opt-${qi}-${correctIdx}`).classList.add('correct');
+  document.getElementById(`exp-${qi}`).classList.add('show');
+
+  if (oi === correctIdx) correct++;
+  updateScore();
+}
+
+function updateScore() {
+  document.getElementById('score-display').textContent = `Score: ${correct} / ${total}`;
+  document.getElementById('percent-display').textContent = total > 0 ? `(${Math.round(correct/total*100)}%)` : '';
+}
+
+function resetAll() {
+  answered = {};
+  correct = 0;
+  total = 0;
+  updateScore();
+  renderQuestions();
+}
+
+renderQuestions();
+</script>
+</body>
+</html>

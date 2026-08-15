@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Data Loading & Unloading - Edge Cases</title>
+<script type="application/json" id="snowflake-report-metadata">{"title":"Data Loading & Unloading - Edge Cases","description":"Critical edge cases for COPY INTO, stages, load history, transformations, and unloading","author":"Snowflake Certification Prep","created":"2026-08-15","topic":"Data-Loading-Unloading","part":4,"certification_relevance":"high"}</script>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg-primary: light-dark(#fffdf5, #1a1708);
+  --bg-secondary: light-dark(#fff8e1, #2a2010);
+  --bg-card: light-dark(#ffffff, #1e1a0e);
+  --bg-code: light-dark(#fdf8e8, #2d2515);
+  --text-primary: light-dark(#2d1f0a, #fce4b0);
+  --text-secondary: light-dark(#5c3a1a, #f8d080);
+  --accent: light-dark(#f57f17, #ffb300);
+  --accent-secondary: light-dark(#e65100, #ff8f00);
+  --border: light-dark(#ffe082, #4a3a15);
+  --highlight: light-dark(#fff8e1, #3d3015);
+  --success: light-dark(#2e7d32, #66bb6a);
+  --error: light-dark(#c62828, #ef5350);
+  --warning: light-dark(#f57f17, #ffd54f);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  line-height: 1.6;
+}
+
+h1 { font-size: 2rem; color: var(--accent); margin-bottom: 8px; border-bottom: 3px solid var(--accent); padding-bottom: 12px; }
+h2 { font-size: 1.5rem; color: var(--accent-secondary); margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid var(--border); }
+h3 { font-size: 1.15rem; color: var(--text-secondary); margin: 24px 0 12px; }
+p { margin: 8px 0; }
+.subtitle { color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 24px; }
+
+table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; }
+th, td { border: 1px solid var(--border); padding: 10px 12px; text-align: left; vertical-align: top; }
+th { background: var(--bg-secondary); font-weight: 600; color: var(--accent-secondary); }
+tr:nth-child(even) td { background: var(--highlight); }
+
+code { background: var(--bg-code); padding: 2px 6px; border-radius: 3px; font-family: Consolas, monospace; font-size: 0.85rem; }
+pre { background: var(--bg-code); border: 1px solid var(--border); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; font-size: 0.85rem; line-height: 1.5; font-family: Consolas, monospace; }
+
+.warning { background: var(--bg-secondary); border-left: 4px solid var(--warning); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+.info { background: light-dark(#e3f2fd, #0d1b2a); border-left: 4px solid light-dark(#1976d2, #64b5f6); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+.danger { background: light-dark(#ffebee, #2a0a0a); border-left: 4px solid var(--error); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+.status-safe { color: var(--success); font-weight: 600; }
+.status-danger { color: var(--error); font-weight: 600; }
+.status-warn { color: var(--warning); font-weight: 600; }
+
+ul, ol { margin: 8px 0; padding-left: 1.5rem; }
+li { margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<h1>21.04 Data Loading &amp; Unloading - Edge Cases</h1>
+<p class="subtitle">SnowPro Core | Load History, PATTERN, ON_ERROR, Compression, Transformations, Unload Gotchas | August 2026</p>
+
+<h2>1. COPY 64-Day Load History Edge Cases</h2>
+
+<table>
+<thead><tr><th>Scenario</th><th>Behavior</th><th>Key Detail</th></tr></thead>
+<tbody>
+<tr><td>Same file loaded again within 64 days</td><td><span class="status-danger">SKIPPED</span></td><td>File with same name AND same checksum is silently skipped (0 rows loaded)</td></tr>
+<tr><td>Same filename, different content (modified file)</td><td><span class="status-safe">LOADED</span></td><td>Different MD5 checksum = treated as new file, loaded normally</td></tr>
+<tr><td>Same file after 64 days elapsed</td><td><span class="status-safe">LOADED</span></td><td>Load history expires; file can be reloaded without FORCE</td></tr>
+<tr><td>FORCE = TRUE on previously loaded file</td><td><span class="status-safe">LOADED</span></td><td>Bypasses history check; may create duplicates if data unchanged</td></tr>
+<tr><td>File loaded, table dropped and recreated</td><td><span class="status-safe">LOADED</span></td><td>New table has no load history; file is treated as new</td></tr>
+<tr><td>File loaded to table A, then COPY to table B</td><td><span class="status-safe">LOADED</span></td><td>Load history is per-table; loading to different table works</td></tr>
+<tr><td>File loaded, then PURGE=TRUE deleted it, re-uploaded same file</td><td><span class="status-danger">SKIPPED</span></td><td>Load history persists even after file is removed from stage</td></tr>
+<tr><td>File partially loaded (ON_ERROR=CONTINUE with errors)</td><td><span class="status-danger">MARKED AS LOADED</span></td><td>File appears in history as loaded; won't be retried unless FORCE=TRUE</td></tr>
+</tbody>
+</table>
+
+<div class="danger"><strong>Exam Trap:</strong> The 64-day load history tracks files by name + MD5 checksum per table. Even if you delete the file from the stage and re-upload an identical file, it will still be skipped because the history remembers the checksum. Only FORCE=TRUE or waiting 64 days resets this.</div>
+
+<h2>2. PATTERN Uses Regex, NOT SQL LIKE</h2>
+
+<table>
+<thead><tr><th>What People Think</th><th>What Actually Works</th><th>Explanation</th></tr></thead>
+<tbody>
+<tr><td><code>PATTERN = '%.csv'</code></td><td><code>PATTERN = '.*[.]csv'</code></td><td>% is not a wildcard in regex; use .* for "any characters"</td></tr>
+<tr><td><code>PATTERN = 'sales_%.csv'</code></td><td><code>PATTERN = '.*sales_.*[.]csv'</code></td><td>Must escape literal dot with [.] or \. and use .* for wildcards</td></tr>
+<tr><td><code>PATTERN = '_data.csv'</code></td><td><code>PATTERN = '.data[.]csv'</code></td><td>_ is literal in regex (matches underscore only); . matches any char</td></tr>
+<tr><td><code>PATTERN = 'file?.csv'</code></td><td><code>PATTERN = 'file.[.]csv'</code></td><td>? in regex means "0 or 1 of preceding"; . matches any single char</td></tr>
+</tbody>
+</table>
+
+<div class="warning"><strong>Key Rule:</strong> COPY INTO PATTERN uses <strong>Java regex syntax</strong>. Common mistakes: using % instead of .*, not escaping dots (. matches ANY character), forgetting that regex is applied to the full file path (not just filename). Use <code>[.]</code> for literal periods.</div>
+
+<h2>3. ON_ERROR Default Differences</h2>
+
+<table>
+<thead><tr><th>Context</th><th>Default ON_ERROR</th><th>Behavior</th></tr></thead>
+<tbody>
+<tr><td><strong>Manual COPY INTO</strong></td><td><code>ABORT_STATEMENT</code></td><td>Any error aborts entire load; no data loaded from any file</td></tr>
+<tr><td><strong>Snowpipe</strong></td><td><code>SKIP_FILE</code></td><td>Skip file with errors, continue loading other files</td></tr>
+<tr><td><strong>COPY with ON_ERROR=CONTINUE</strong></td><td>N/A (explicit)</td><td>Skip bad rows, load good rows from all files</td></tr>
+</tbody>
+</table>
+
+<div class="info"><strong>Why This Matters:</strong> On the exam, if they ask "what is the default behavior when a COPY INTO encounters an error" without specifying Snowpipe, the answer is ABORT_STATEMENT. If they specifically mention Snowpipe/continuous loading, the answer is SKIP_FILE.</div>
+
+<h2>4. Compressed Files - Transparent Handling</h2>
+
+<table>
+<thead><tr><th>Scenario</th><th>Behavior</th></tr></thead>
+<tbody>
+<tr><td>gzip file (.gz) with COMPRESSION=AUTO</td><td>Auto-detected and decompressed during load</td></tr>
+<tr><td>bz2 file (.bz2) with COMPRESSION=AUTO</td><td>Auto-detected and decompressed during load</td></tr>
+<tr><td>PUT with AUTO_COMPRESS=TRUE (default)</td><td>Files compressed with gzip before upload; .gz appended</td></tr>
+<tr><td>GET downloading a compressed file</td><td>File remains compressed; NOT auto-decompressed</td></tr>
+<tr><td>COMPRESSION=NONE on a gzip file</td><td>Error - Snowflake tries to read binary as text</td></tr>
+<tr><td>Uncompressed file with COMPRESSION=GZIP</td><td>Error - Snowflake tries to decompress non-compressed data</td></tr>
+<tr><td>Mixed compression in same stage</td><td>AUTO handles each file individually based on extension/magic bytes</td></tr>
+</tbody>
+</table>
+
+<div class="warning"><strong>Edge Case:</strong> PUT AUTO_COMPRESS=TRUE adds .gz extension. When you LIST the stage, files show as <code>data.csv.gz</code>. When referencing in COPY, you may need to use the .gz name. COMPRESSION=AUTO in the file format handles both compressed and uncompressed files intelligently.</div>
+
+<h2>5. Transformation SELECT Limitations</h2>
+
+<table>
+<thead><tr><th>Allowed in COPY Transformation</th><th>NOT Allowed</th></tr></thead>
+<tbody>
+<tr><td>Column references: $1, $2, $3, ...</td><td>JOINs (cannot join with other tables)</td></tr>
+<tr><td>Type casting: $1::INTEGER, TO_DATE($2)</td><td>Subqueries (SELECT inside SELECT)</td></tr>
+<tr><td>String functions: UPPER($1), TRIM($2)</td><td>Aggregate functions: SUM, COUNT, AVG, etc.</td></tr>
+<tr><td>METADATA$FILENAME, METADATA$FILE_ROW_NUMBER</td><td>Window functions: ROW_NUMBER() OVER(...)</td></tr>
+<tr><td>CURRENT_TIMESTAMP(), CURRENT_USER()</td><td>GROUP BY, HAVING clauses</td></tr>
+<tr><td>CASE expressions</td><td>UNION, INTERSECT, EXCEPT</td></tr>
+<tr><td>IFF(), COALESCE(), NVL()</td><td>CTEs (WITH clause)</td></tr>
+<tr><td>Sequence references: seq.NEXTVAL</td><td>LIMIT/OFFSET clauses</td></tr>
+</tbody>
+</table>
+
+<pre>-- VALID transformation examples
+COPY INTO target (id, name, load_ts, source)
+FROM (
+  SELECT
+    $1::INT,
+    UPPER(TRIM($2)),
+    CURRENT_TIMESTAMP(),
+    METADATA$FILENAME
+  FROM @my_stage
+);
+
+-- INVALID - will ERROR
+COPY INTO target
+FROM (
+  SELECT $1, $2, t.lookup_val  -- NO! Cannot JOIN
+  FROM @my_stage s
+  JOIN lookup_table t ON s.$1 = t.id  -- ILLEGAL
+);</pre>
+
+<h2>6. METADATA$ Columns - Only During COPY</h2>
+
+<table>
+<thead><tr><th>Usage Context</th><th>Available?</th><th>Detail</th></tr></thead>
+<tbody>
+<tr><td>COPY INTO ... FROM (SELECT METADATA$FILENAME ...)</td><td><span class="status-safe">YES</span></td><td>Primary use case - capture file info during load</td></tr>
+<tr><td>SELECT METADATA$FILENAME FROM @stage</td><td><span class="status-danger">NO</span></td><td>Cannot query METADATA$ columns in regular SELECT from stage</td></tr>
+<tr><td>After loading, querying the target table</td><td><span class="status-danger">NO</span></td><td>METADATA$ is not stored unless you explicitly load it into a column</td></tr>
+<tr><td>In VALIDATION_MODE</td><td><span class="status-safe">YES</span></td><td>Available during validation dry-runs</td></tr>
+<tr><td>With directory tables (SELECT * FROM DIRECTORY(@stage))</td><td><span class="status-warn">DIFFERENT</span></td><td>Directory tables have their own columns (FILE_URL, SIZE, etc.) - not METADATA$</td></tr>
+</tbody>
+</table>
+
+<div class="danger"><strong>Common Mistake:</strong> Trying to use <code>SELECT METADATA$FILENAME FROM @my_stage</code> outside of COPY. METADATA$ pseudo-columns only exist in the context of COPY INTO transformations. If you need file metadata for querying, either: (1) load it into a table column during COPY, or (2) use directory tables.</div>
+
+<h2>7. VALIDATION_MODE - Does NOT Load Data</h2>
+
+<table>
+<thead><tr><th>Mode</th><th>What It Does</th><th>Returns</th></tr></thead>
+<tbody>
+<tr><td><code>RETURN_n_ROWS</code></td><td>Validates first n rows of data</td><td>The validated rows (as if loaded) - allows preview</td></tr>
+<tr><td><code>RETURN_ERRORS</code></td><td>Validates all data in first file with errors</td><td>Error details for problematic rows</td></tr>
+<tr><td><code>RETURN_ALL_ERRORS</code></td><td>Validates all data in all files</td><td>All errors across all files</td></tr>
+</tbody>
+</table>
+
+<div class="warning"><strong>Critical Point:</strong> When VALIDATION_MODE is set, <strong>NO data is loaded into the table</strong>. It is purely a dry-run. You cannot combine VALIDATION_MODE with actual loading in a single command. You must run separate commands: one to validate, one to load.</div>
+
+<pre>-- Validate first 10 rows (preview what would be loaded)
+COPY INTO my_table FROM @my_stage
+  FILE_FORMAT = (TYPE = CSV)
+  VALIDATION_MODE = RETURN_10_ROWS;
+-- Returns: 10 rows showing what data looks like (not loaded!)
+
+-- Then actually load (separate command)
+COPY INTO my_table FROM @my_stage
+  FILE_FORMAT = (TYPE = CSV);</pre>
+
+<h2>8. Unload Edge Cases</h2>
+
+<table>
+<thead><tr><th>Scenario</th><th>Default</th><th>Edge Case Detail</th></tr></thead>
+<tbody>
+<tr><td>OVERWRITE default</td><td><span class="status-danger">FALSE</span></td><td>If files with same names exist in stage, unload FAILS. Must set OVERWRITE=TRUE for scheduled unloads.</td></tr>
+<tr><td>MAX_FILE_SIZE default (CSV)</td><td>16 MB</td><td>Output split into multiple 16MB files. For single file, use SINGLE=TRUE.</td></tr>
+<tr><td>MAX_FILE_SIZE default (Parquet)</td><td>256 MB</td><td>Larger default because Parquet benefits from bigger files for columnar reads.</td></tr>
+<tr><td>SINGLE=TRUE with large data</td><td>One file</td><td>Can create very large files. No parallel write benefit. May hit stage limits.</td></tr>
+<tr><td>HEADER default</td><td><span class="status-danger">FALSE</span></td><td>CSV output has NO headers by default. Must explicitly set HEADER=TRUE.</td></tr>
+<tr><td>INCLUDE_QUERY_ID default</td><td>TRUE</td><td>Query ID in filename = unique names but hard to predict. Set FALSE for custom naming.</td></tr>
+<tr><td>Unload to user stage</td><td>Allowed</td><td>Can unload to @~ but only the owning user can access the files.</td></tr>
+<tr><td>Unload to external stage</td><td>Allowed</td><td>Requires WRITE privilege on stage (or underlying cloud permission).</td></tr>
+<tr><td>Empty result unload</td><td>No file created</td><td>If query returns 0 rows, no output file is generated.</td></tr>
+</tbody>
+</table>
+
+<div class="info"><strong>Scheduling Tip:</strong> For scheduled unload jobs (tasks), always use <code>OVERWRITE = TRUE</code>. Otherwise, the second execution will fail because files from the first execution still exist in the stage.</div>
+
+<h2>9. Additional Gotchas</h2>
+
+<table>
+<thead><tr><th>Topic</th><th>Gotcha</th></tr></thead>
+<tbody>
+<tr><td>PUT from Snowsight</td><td>Snowsight web UI has a file upload button for stages, but the PUT <em>command</em> only works from SnowSQL/connectors. The UI upload is a different mechanism.</td></tr>
+<tr><td>Table stage file reuse</td><td>Files in a table stage (@%table) can ONLY be loaded into that specific table. Cannot COPY from @%table_a INTO table_b.</td></tr>
+<tr><td>COPY INTO and Streams</td><td>COPY INTO DOES generate change records captured by streams (treated as INSERT). This is often tested as a "trick" question.</td></tr>
+<tr><td>COPY and transactions</td><td>COPY INTO is auto-committed (not transactional). Cannot ROLLBACK a successful COPY. If ABORT_STATEMENT triggers, nothing was committed.</td></tr>
+<tr><td>NULL_IF with multiple values</td><td><code>NULL_IF = ('NULL', 'null', '', 'N/A')</code> - can specify multiple string representations that map to SQL NULL.</td></tr>
+<tr><td>Semi-structured loading</td><td>JSON/Avro/ORC/Parquet load into a single VARIANT column by default (unless using MATCH_BY_COLUMN_NAME or transformation SELECT).</td></tr>
+<tr><td>ENFORCE_LENGTH vs TRUNCATECOLUMNS</td><td>These are mutually exclusive in effect. ENFORCE_LENGTH=TRUE (default) errors on too-long strings. TRUNCATECOLUMNS=TRUE silently truncates. Setting both TRUE means TRUNCATECOLUMNS wins.</td></tr>
+</tbody>
+</table>
+
+<h2>10. Exam Scenario Questions</h2>
+
+<table>
+<thead><tr><th>Scenario</th><th>Answer</th></tr></thead>
+<tbody>
+<tr><td>"A daily COPY job loads files from an S3 stage. Yesterday's file was loaded successfully. Today the same file (unchanged) is in the stage. What happens?"</td><td>The file is <strong>silently skipped</strong> (0 rows loaded) because its name+checksum match the 64-day load history. No error is raised.</td></tr>
+<tr><td>"A user runs COPY INTO with PATTERN = '%.csv'. No files are loaded despite CSV files being in the stage. Why?"</td><td>PATTERN uses <strong>regex, not SQL LIKE</strong>. The % character is not a wildcard in regex. Correct pattern: <code>'.*[.]csv'</code></td></tr>
+<tr><td>"A COPY INTO command with ON_ERROR=CONTINUE loads 1000 files. 3 files have errors. What happens to those files in load history?"</td><td>All files (including the 3 with errors) are marked as "loaded" in history. The error rows are skipped but the files themselves are considered processed. They won't be retried unless FORCE=TRUE.</td></tr>
+<tr><td>"Can you use METADATA$FILENAME to query which file each row came from after the data is already in the table?"</td><td><strong>No.</strong> METADATA$ columns only exist during COPY. To track source files post-load, you must include METADATA$FILENAME as a column in the COPY transformation and store it in the target table.</td></tr>
+<tr><td>"A COPY INTO uses VALIDATION_MODE=RETURN_ALL_ERRORS and reports 0 errors. Is the data now in the table?"</td><td><strong>No.</strong> VALIDATION_MODE never loads data regardless of the result. A separate COPY INTO (without VALIDATION_MODE) is needed to actually load.</td></tr>
+<tr><td>"An unload job runs every hour writing to the same stage path. The second execution fails. Why?"</td><td>OVERWRITE defaults to <strong>FALSE</strong>. The second execution fails because files from the first run still exist. Fix: set <code>OVERWRITE = TRUE</code>.</td></tr>
+<tr><td>"A COPY INTO with transformation SELECT includes a JOIN to a lookup table. What happens?"</td><td><strong>Error.</strong> COPY transformations do not support JOINs, subqueries, aggregates, or window functions. Only simple expressions on $1/$2/METADATA$ are allowed.</td></tr>
+<tr><td>"You PUT a file with AUTO_COMPRESS=TRUE. When you LIST the stage, the file shows as data.csv.gz. You run COPY INTO with FILE_FORMAT TYPE=CSV COMPRESSION=AUTO. Does it work?"</td><td><strong>Yes.</strong> COMPRESSION=AUTO detects the gzip compression from the .gz extension and decompresses automatically during load.</td></tr>
+<tr><td>"Can Snowpipe use VALIDATION_MODE to check files before loading?"</td><td><strong>No.</strong> VALIDATION_MODE is not supported with Snowpipe. It only works with manual COPY INTO commands.</td></tr>
+<tr><td>"You want to reload data into a table after accidentally deleting rows. The original files are still in the stage (loaded 3 days ago). How?"</td><td>Use <code>FORCE = TRUE</code> in COPY INTO. This bypasses the 64-day load history and reloads the files. Alternatively, use Time Travel to restore the deleted rows.</td></tr>
+</tbody>
+</table>
+
+<div class="danger"><strong>Top 5 Data Loading Exam Traps:</strong>
+<ol>
+<li>Default ON_ERROR: ABORT_STATEMENT (bulk) vs SKIP_FILE (Snowpipe) - ALWAYS asked</li>
+<li>PATTERN uses regex (not SQL LIKE % and _) - common trick question</li>
+<li>METADATA$ columns ONLY available during COPY INTO - not in regular queries</li>
+<li>VALIDATION_MODE does NOT load data - it's purely a dry-run</li>
+<li>64-day history tracks name+checksum PER TABLE - persists even after file deletion from stage</li>
+</ol>
+</div>
+
+</body>
+</html>

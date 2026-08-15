@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="snowflake-source" content="cortex-agent-authored"/><title>UDFs & Stored Procedures - Edge Cases</title>
+<script type="application/json" id="snowflake-report-metadata">{"generated":"2026-08-15","intent":"UDF/Stored Proc edge cases: OWNER vs CALLER, determinism, sandbox, external functions"}</script>
+<style>:root{color-scheme:light dark}*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;max-width:1100px;margin:0 auto;padding:32px 24px;color:light-dark(#1f2937,#e5e7eb);background:light-dark(#fff,#0f172a);line-height:1.6}h1{font-size:2rem;color:light-dark(#0f172a,#f8fafc);margin-bottom:8px;border-bottom:3px solid light-dark(#c026d3,#e879f9);padding-bottom:12px}h2{font-size:1.5rem;color:light-dark(#86198f,#f0abfc);margin:40px 0 16px;padding-bottom:8px;border-bottom:2px solid light-dark(#fae8ff,#4a044e)}h3{font-size:1.15rem;color:light-dark(#701a75,#f5d0fe);margin:24px 0 12px}p{margin:8px 0}.subtitle{color:light-dark(#6b7280,#9ca3af);font-size:.95rem;margin-bottom:24px}table{border-collapse:collapse;width:100%;margin:16px 0;font-size:.9rem}th,td{border:1px solid light-dark(#e5e7eb,#374151);padding:10px 12px;text-align:left;vertical-align:top}th{background:light-dark(#fdf4ff,#1e293b);font-weight:600;color:light-dark(#86198f,#f0abfc)}tr:nth-child(even) td{background:light-dark(#f9fafb,#1a2332)}code{background:light-dark(#f1f5f9,#1e293b);padding:2px 6px;border-radius:3px;font-family:Consolas,monospace;font-size:.85rem}pre{background:light-dark(#1e293b,#0c1322);color:#e2e8f0;padding:16px;border-radius:8px;overflow-x:auto;margin:12px 0;font-size:.85rem;line-height:1.5}.warning{background:light-dark(#fef3c7,#451a03);border-left:4px solid light-dark(#f59e0b,#fbbf24);padding:12px 16px;border-radius:0 6px 6px 0;margin:12px 0}.info{background:light-dark(#dbeafe,#172554);border-left:4px solid light-dark(#3b82f6,#60a5fa);padding:12px 16px;border-radius:0 6px 6px 0;margin:12px 0}.danger{background:light-dark(#fee2e2,#450a0a);border-left:4px solid light-dark(#ef4444,#f87171);padding:12px 16px;border-radius:0 6px 6px 0;margin:12px 0}.status-safe{color:light-dark(#059669,#34d399);font-weight:600}.status-danger{color:light-dark(#dc2626,#f87171);font-weight:600}.status-warn{color:light-dark(#d97706,#fbbf24);font-weight:600}</style>
+</head><body>
+<h1>UDFs & Stored Procedures - Edge Cases</h1>
+<p class="subtitle">SnowPro Core | OWNER vs CALLER, determinism, sandbox limits, external functions | August 2026</p>
+
+<h2>1. EXECUTE AS OWNER vs CALLER (Most Tested Topic)</h2>
+<table><thead><tr><th>Aspect</th><th>OWNER (default)</th><th>CALLER</th></tr></thead><tbody>
+<tr><td>Runs with privileges of</td><td>The role that OWNS the procedure</td><td>The role of the USER calling it</td></tr>
+<tr><td>Can access owner's objects?</td><td><span class="status-safe">YES</span> — regardless of caller's privileges</td><td><span class="status-danger">NO</span> — only what caller has access to</td></tr>
+<tr><td>Security model</td><td>Encapsulation (hide data behind procedure)</td><td>Delegation (procedure acts as the caller)</td></tr>
+<tr><td>Can caller see intermediate objects?</td><td><span class="status-danger">NO</span> — data is hidden from caller</td><td><span class="status-safe">YES</span> — caller can see what they own</td></tr>
+<tr><td>Use case</td><td>Secure data access, admin tasks exposed to lower roles</td><td>Utility procedures, session-specific operations</td></tr>
+<tr><td>SQL scripting variables</td><td>Use owner's context for object resolution</td><td>Use caller's context for object resolution</td></tr>
+</tbody></table>
+
+<div class="danger"><strong>Exam Trap:</strong> Default is EXECUTE AS OWNER for stored procedures. If a procedure is owned by SYSADMIN and called by a low-privilege user, the procedure runs with SYSADMIN privileges — this is intentional for secure delegation, but a security risk if the procedure isn't carefully written.</div>
+
+<h2>2. UDF Determinism Edge Cases</h2>
+<table><thead><tr><th>Function Type</th><th>Deterministic?</th><th>Impact</th></tr></thead><tbody>
+<tr><td>UDF with IMMUTABLE keyword</td><td><span class="status-safe">YES</span></td><td>Can be cached, used in clustering, optimized</td></tr>
+<tr><td>UDF with VOLATILE keyword</td><td><span class="status-danger">NO</span></td><td>Called for every row, cannot be optimized away</td></tr>
+<tr><td>UDF calling CURRENT_TIMESTAMP()</td><td><span class="status-danger">NO</span> (volatile)</td><td>Forces FULL refresh in Dynamic Tables</td></tr>
+<tr><td>UDF calling RANDOM()</td><td><span class="status-danger">NO</span></td><td>Different result each execution</td></tr>
+<tr><td>UDF with only arithmetic on inputs</td><td><span class="status-safe">YES</span> (if marked IMMUTABLE)</td><td>Same inputs → same output guaranteed</td></tr>
+<tr><td>Default (no keyword specified)</td><td>VOLATILE assumed</td><td>Conservative — no optimization</td></tr>
+</tbody></table>
+
+<h2>3. Language-Specific Edge Cases</h2>
+<table><thead><tr><th>Language</th><th>Edge Case</th><th>Detail</th></tr></thead><tbody>
+<tr><td><strong>SQL</strong></td><td>Single expression only (UDF)</td><td>SQL UDFs are single SELECT expression. No multi-statement logic.</td></tr>
+<tr><td><strong>JavaScript</strong></td><td>NULL handling</td><td>SQL NULL maps to JS <code>undefined</code> (not <code>null</code>). Must check explicitly.</td></tr>
+<tr><td><strong>JavaScript</strong></td><td>No network/file access</td><td>JS runs in sandbox. No XMLHttpRequest, no require(), no file I/O.</td></tr>
+<tr><td><strong>Python</strong></td><td>Limited libraries</td><td>Only Anaconda-approved packages available. No pip install at runtime.</td></tr>
+<tr><td><strong>Python</strong></td><td>No persistent state</td><td>Each invocation is independent. Cannot store global variables between calls.</td></tr>
+<tr><td><strong>Python</strong></td><td>Cold start overhead</td><td>First invocation on a warehouse has setup latency. Subsequent calls faster.</td></tr>
+<tr><td><strong>Java</strong></td><td>JAR dependencies</td><td>Must upload JARs to stage and reference in CREATE FUNCTION. No Maven at runtime.</td></tr>
+<tr><td><strong>All</strong></td><td>Overloading by argument type</td><td>Same name, different arg types = different functions. Snowflake resolves by best match.</td></tr>
+</tbody></table>
+
+<h2>4. Stored Procedure Edge Cases</h2>
+<table><thead><tr><th>Scenario</th><th>Behavior</th></tr></thead><tbody>
+<tr><td>Procedure with no RETURNS clause</td><td>Must still declare RETURNS (e.g., RETURNS VARCHAR). Even if procedure just does DML.</td></tr>
+<tr><td>Transaction inside procedure</td><td>BEGIN TRANSACTION / COMMIT / ROLLBACK work inside procedures. Caller's transaction context applies.</td></tr>
+<tr><td>Exception not caught</td><td>Procedure fails. Caller gets error. Any uncommitted work in the procedure is rolled back.</td></tr>
+<tr><td>Recursive procedure calls</td><td>Supported but limited stack depth. Deep recursion will fail with stack overflow.</td></tr>
+<tr><td>Procedure calling another procedure</td><td>Supported. Inner procedure uses CALLER or OWNER based on its own definition.</td></tr>
+<tr><td>Anonymous block (BEGIN...END without CREATE)</td><td>Runs with CALLER privileges always. Cannot be OWNER rights (no owner).</td></tr>
+<tr><td>RESULTSET in SQL procedures</td><td>Only available in SQL scripting procedures. Not in JS/Python/Java.</td></tr>
+</tbody></table>
+
+<h2>5. External Functions Edge Cases</h2>
+<table><thead><tr><th>Scenario</th><th>Behavior</th></tr></thead><tbody>
+<tr><td>API timeout</td><td>External function has configurable timeout. Slow APIs cause query failure.</td></tr>
+<tr><td>Rate limiting by API provider</td><td>If API returns 429/503, Snowflake retries with backoff. May still fail.</td></tr>
+<tr><td>Cost model</td><td>You pay for: Snowflake compute + API gateway + your API hosting. Triple billing.</td></tr>
+<tr><td>Row batching</td><td>Snowflake sends rows in batches to the API (not one-by-one). Batch size varies.</td></tr>
+<tr><td>Determinism</td><td>External functions are always VOLATILE. Cannot be cached or used in clustering.</td></tr>
+<tr><td>SECURE external function</td><td>Hides the API endpoint URL from non-owners. Same as SECURE UDF concept.</td></tr>
+</tbody></table>
+
+<h2>6. SECURE UDF/Procedure Edge Cases</h2>
+<div class="warning"><strong>Key Implication:</strong> SECURE UDFs hide their definition (body) from non-owners AND prevent the query optimizer from pushing predicates into the function. This can cause performance degradation because the optimizer can't see inside the function.</div>
+
+<h2>7. Exam Scenario Questions</h2>
+<table><thead><tr><th>Scenario</th><th>Answer</th></tr></thead><tbody>
+<tr><td>"A procedure is EXECUTE AS OWNER, owned by SYSADMIN. A user with role ANALYST calls it. What privileges does the procedure run with?"</td><td>SYSADMIN privileges. The procedure executes as if SYSADMIN is running it, regardless of who called it.</td></tr>
+<tr><td>"Can a SQL UDF contain multiple statements?"</td><td>NO. SQL UDFs are a single expression (single SELECT or scalar expression). For multi-statement logic, use a stored procedure or JavaScript/Python UDF.</td></tr>
+<tr><td>"A JavaScript UDF receives a SQL NULL. What does it see?"</td><td>The value is <code>undefined</code> in JavaScript (not <code>null</code>). Must check with: <code>if (x === undefined)</code>.</td></tr>
+<tr><td>"Can you call a stored procedure inside a SQL UDF?"</td><td>NO. UDFs cannot call procedures. UDFs can only call other UDFs.</td></tr>
+<tr><td>"What is the default execution rights for stored procedures?"</td><td>EXECUTE AS OWNER (not CALLER). The procedure runs with the owner's privileges by default.</td></tr>
+<tr><td>"Can anonymous blocks (BEGIN...END) be EXECUTE AS OWNER?"</td><td>NO. Anonymous blocks always run as CALLER. They have no owner (not stored objects).</td></tr>
+<tr><td>"Can UDFs perform DML (INSERT/UPDATE/DELETE)?"</td><td>NO. UDFs are read-only (pure functions). Only stored procedures can perform DML.</td></tr>
+<tr><td>"Can a UDTF return multiple columns?"</td><td>YES. UDTFs (table functions) can return multiple columns defined in RETURNS TABLE(col1 TYPE, col2 TYPE, ...).</td></tr>
+</tbody></table>
+
+<div class="danger"><strong>Top 5 UDF/Procedure Exam Traps:</strong><ol>
+<li>Default is EXECUTE AS OWNER (not CALLER) for stored procedures</li>
+<li>UDFs cannot do DML — only procedures can</li>
+<li>SQL UDFs = single expression only (no multi-statement)</li>
+<li>JavaScript NULL = undefined (not null)</li>
+<li>SECURE functions hide definition AND prevent optimizer pushdown</li>
+</ol></div>
+</body></html>

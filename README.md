@@ -39,9 +39,36 @@ Complete hands-on study material for the **Snowflake SnowPro Core Certification*
 ├── 12-dynamic-tables-deep-dive/   # Dynamic Tables: Declarative Pipelines, Target Lag, Refresh
 │   ├── 01-certification-reference/ # Part 1 (Fundamentals), Part 2 (Advanced), 50 Questions, Edge Cases
 │   └── 02-hands-on-practice/       # Full lab: medallion pipeline, DOWNSTREAM, stream on DT
-└── 13-iceberg-tables-deep-dive/   # Iceberg Tables: Open Format, External Volumes, Catalog Integrations
-    ├── 01-certification-reference/ # Part 1 (Fundamentals), Part 2 (Advanced), 50 Questions, Edge Cases
-    └── 02-hands-on-practice/       # Lab: create Iceberg table, DML, schema evolution, Time Travel
+├── 13-iceberg-tables-deep-dive/   # Iceberg Tables: Open Format, External Volumes, Catalog Integrations
+│   ├── 01-certification-reference/ # Part 1 (Fundamentals), Part 2 (Advanced), 50 Questions, Edge Cases
+│   └── 02-hands-on-practice/       # Lab: create Iceberg table, DML, schema evolution, Time Travel
+├── 14-time-travel-cloning-deep-dive/  # Time Travel, Fail-safe, Zero-Copy Cloning, UNDROP
+│   ├── 01-certification-reference/ # Part 1, Part 2, 50 Questions, Edge Cases
+│   └── 02-hands-on-practice/       # Lab: AT/BEFORE, UNDROP, clone table/schema, retention
+├── 15-data-sharing-deep-dive/     # Secure Data Sharing, Marketplace, Reader Accounts
+│   ├── 01-certification-reference/ # Part 1, Part 2, 50 Questions, Edge Cases
+│   └── 02-hands-on-practice/       # Lab: CREATE SHARE, secure views, consumer workflow
+├── 16-warehouses-caching-deep-dive/ # Virtual Warehouses, Multi-Cluster, Caching, QAS
+│   ├── 01-certification-reference/ # Part 1, Part 2, 50 Questions, Edge Cases
+│   └── 02-hands-on-practice/       # Lab: sizing, resource monitors, cache demo, QAS
+├── 17-rbac-access-control-deep-dive/ # Roles, Privileges, FUTURE Grants, Database Roles
+│   ├── 01-certification-reference/ # Part 1, Part 2, 50 Questions, Edge Cases
+│   └── 02-hands-on-practice/       # Lab: custom roles, hierarchy, managed access
+├── 18-clustering-search-optimization-deep-dive/ # Micro-partitions, Clustering, SOS, QAS
+│   ├── 01-certification-reference/ # Part 1, Part 2, 50 Questions, Edge Cases
+│   └── 02-hands-on-practice/       # Lab: clustering info, keys, SOS, Query Profile
+├── 19-semi-structured-data-deep-dive/ # VARIANT, FLATTEN, JSON/XML, OBJECT/ARRAY
+│   ├── 01-certification-reference/ # Part 1, Part 2, 50 Questions, Edge Cases
+│   └── 02-hands-on-practice/       # Lab: PARSE_JSON, dot notation, FLATTEN, OBJECT_CONSTRUCT
+├── 20-udfs-stored-procedures-deep-dive/ # UDFs, UDTFs, Stored Procs, SQL Scripting
+│   ├── 01-certification-reference/ # Part 1, Part 2, 50 Questions, Edge Cases
+│   └── 02-hands-on-practice/       # Lab: SQL/JS/Python UDFs, procedures, OWNER vs CALLER
+├── 21-data-loading-unloading-deep-dive/ # COPY INTO, Stages, File Formats, PUT/GET
+│   ├── 01-certification-reference/ # Part 1, Part 2, 50 Questions, Edge Cases
+│   └── 02-hands-on-practice/       # Lab: stages, COPY, transforms, unload, VALIDATION_MODE
+└── 22-snowflake-architecture-deep-dive/ # 3-Layer Architecture, Micro-partitions, Caching
+    ├── 01-certification-reference/ # Part 1, Part 2, 50 Questions, Edge Cases
+    └── 02-hands-on-practice/       # Lab: QUERY_HISTORY, cache demo, INFORMATION_SCHEMA
 ```
 
 Each folder contains:

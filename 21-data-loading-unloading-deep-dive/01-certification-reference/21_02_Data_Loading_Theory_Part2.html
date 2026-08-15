@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Loading & Unloading Deep Dive - Part 2: Advanced</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Data Loading & Unloading Deep Dive - Part 2: Advanced",
+  "description": "Data unloading, GET command, transformation during COPY, load history, FORCE, MATCH_BY_COLUMN_NAME, storage integrations, bulk vs Snowpipe",
+  "author": "Snowflake Certification Prep",
+  "created": "2026-08-15",
+  "topic": "Data-Loading-Unloading",
+  "part": 2,
+  "certification_relevance": "high"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#fffdf5, #1a1708);
+  --bg-secondary: light-dark(#fff8e1, #2a2010);
+  --bg-card: light-dark(#ffffff, #1e1a0e);
+  --bg-code: light-dark(#fdf8e8, #2d2515);
+  --text-primary: light-dark(#2d1f0a, #fce4b0);
+  --text-secondary: light-dark(#5c3a1a, #f8d080);
+  --accent: light-dark(#f57f17, #ffb300);
+  --accent-secondary: light-dark(#e65100, #ff8f00);
+  --border: light-dark(#ffe082, #4a3a15);
+  --highlight: light-dark(#fff8e1, #3d3015);
+  --success: light-dark(#2e7d32, #66bb6a);
+  --warning: light-dark(#f57f17, #ffd54f);
+  --shadow: light-dark(rgba(245, 127, 23, 0.1), rgba(0, 0, 0, 0.3));
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { color-scheme: light dark; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 2.2rem;
+  color: var(--accent);
+  border-bottom: 3px solid var(--accent);
+  padding-bottom: 0.8rem;
+  margin-bottom: 2rem;
+}
+
+h2 {
+  font-size: 1.6rem;
+  color: var(--accent-secondary);
+  margin: 2.5rem 0 1rem;
+  padding-left: 0.8rem;
+  border-left: 4px solid var(--accent);
+}
+
+h3 {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin: 1.5rem 0 0.8rem;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.8rem;
+  margin: 1.5rem 0;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.card-header {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+code {
+  background: var(--bg-code);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.9em;
+  color: var(--accent);
+}
+
+pre {
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.2rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+th, td {
+  border: 1px solid var(--border);
+  padding: 0.7rem 1rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--bg-secondary);
+  font-weight: 600;
+  color: var(--accent-secondary);
+}
+
+tr:nth-child(even) td {
+  background: var(--highlight);
+}
+
+ul, ol {
+  margin: 0.8rem 0;
+  padding-left: 1.5rem;
+}
+
+li { margin: 0.4rem 0; }
+
+.warning {
+  background: var(--bg-secondary);
+  border-left: 4px solid var(--warning);
+  padding: 1rem 1.2rem;
+  border-radius: 0 8px 8px 0;
+  margin: 1rem 0;
+}
+
+.info {
+  background: light-dark(#e3f2fd, #0d1b2a);
+  border-left: 4px solid light-dark(#1976d2, #64b5f6);
+  padding: 1rem 1.2rem;
+  border-radius: 0 8px 8px 0;
+  margin: 1rem 0;
+}
+
+.danger {
+  background: light-dark(#ffebee, #2a0a0a);
+  border-left: 4px solid light-dark(#c62828, #ef5350);
+  padding: 1rem 1.2rem;
+  border-radius: 0 8px 8px 0;
+  margin: 1rem 0;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin: 1rem 0;
+}
+
+@media (max-width: 768px) {
+  .grid-2 { grid-template-columns: 1fr; }
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin-bottom: 2rem;
+}
+</style>
+</head>
+<body>
+
+<h1>21.02 Data Loading &amp; Unloading - Theory Part 2: Advanced</h1>
+<p class="subtitle">SnowPro Core | Unloading, GET, Transformations, Load History, FORCE, Storage Integrations | August 2026</p>
+
+<h2>1. Data Unloading (COPY INTO @stage)</h2>
+
+<div class="card">
+<div class="card-header">COPY INTO Location (Unload) Syntax</div>
+<pre>COPY INTO @stage_name[/path/prefix]
+  FROM { table_name | ( SELECT query ) }
+  [ FILE_FORMAT = ( TYPE = CSV | JSON | PARQUET ... ) ]
+  [ MAX_FILE_SIZE = num_bytes ]
+  [ SINGLE = TRUE | FALSE ]
+  [ HEADER = TRUE | FALSE ]
+  [ OVERWRITE = TRUE | FALSE ]
+  [ INCLUDE_QUERY_ID = TRUE | FALSE ]
+  [ PARTITION BY expression ]
+  [ DETAILED_OUTPUT = TRUE | FALSE ];</pre>
+</div>
+
+<h3>Key Unload Options</h3>
+
+<table>
+<thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>MAX_FILE_SIZE</code></td><td>16 MB (CSV), 256 MB (Parquet)</td><td>Maximum size of each output file. Data split across multiple files if exceeded.</td></tr>
+<tr><td><code>SINGLE</code></td><td>FALSE</td><td>If TRUE, produce exactly one output file (no splitting). May be large.</td></tr>
+<tr><td><code>HEADER</code></td><td>FALSE</td><td>Include column headers in the first row (CSV only)</td></tr>
+<tr><td><code>OVERWRITE</code></td><td>FALSE</td><td>If TRUE, overwrite existing files in stage. If FALSE, error if files exist.</td></tr>
+<tr><td><code>INCLUDE_QUERY_ID</code></td><td>TRUE</td><td>Include query ID in generated filenames for uniqueness</td></tr>
+<tr><td><code>PARTITION BY</code></td><td>None</td><td>Partition output files by an expression (e.g., date column)</td></tr>
+<tr><td><code>DETAILED_OUTPUT</code></td><td>FALSE</td><td>Return info about each file written (name, size, row count)</td></tr>
+</tbody>
+</table>
+
+<div class="warning"><strong>Exam Tip:</strong> When unloading to Parquet, the MAX_FILE_SIZE default is 256 MB. For CSV it's 16 MB. SINGLE=TRUE ignores MAX_FILE_SIZE and writes everything to one file.</div>
+
+<h3>Unload Examples</h3>
+
+<div class="card">
+<pre>-- Basic unload to named stage
+COPY INTO @my_stage/export/
+  FROM my_table
+  FILE_FORMAT = (TYPE = CSV HEADER = TRUE)
+  OVERWRITE = TRUE;
+
+-- Unload query results to external stage with partitioning
+COPY INTO @s3_stage/reports/
+  FROM (SELECT * FROM sales WHERE year = 2026)
+  FILE_FORMAT = (TYPE = PARQUET)
+  PARTITION BY ('region=' || region)
+  MAX_FILE_SIZE = 67108864;  -- 64MB
+
+-- Single file unload
+COPY INTO @my_stage/single_export.csv
+  FROM my_table
+  FILE_FORMAT = (TYPE = CSV HEADER = TRUE COMPRESSION = NONE)
+  SINGLE = TRUE
+  MAX_FILE_SIZE = 5368709120;  -- 5GB (needed when SINGLE=TRUE for large data)</pre>
+</div>
+
+<h2>2. GET Command - Download from Stage to Local</h2>
+
+<div class="card">
+<div class="card-header">GET Syntax</div>
+<pre>GET @stage_name[/path/file]  file://local_directory/
+  [ PARALLEL = num_threads ]
+  [ PATTERN = 'regex_pattern' ];</pre>
+
+<ul>
+<li>Downloads files from internal stage to local file system</li>
+<li>Only works with <strong>internal</strong> stages (not external)</li>
+<li>Only works from SnowSQL, JDBC/ODBC, Python connector</li>
+<li>Files are automatically decrypted during download</li>
+<li>If files were auto-compressed during PUT, they remain compressed during GET</li>
+</ul>
+
+<pre>-- Download all files from stage
+GET @my_stage file://C:/downloads/;
+
+-- Download specific file
+GET @my_stage/data_0001.csv.gz file://C:/downloads/;
+
+-- Download with pattern
+GET @my_stage file://C:/downloads/ PATTERN = '.*sales.*';</pre>
+</div>
+
+<div class="info"><strong>Key Point:</strong> Like PUT, GET only works with internal stages. For external stages, use cloud provider tools (aws s3 cp, azcopy, gsutil) to download files.</div>
+
+<h2>3. Transformation During COPY INTO</h2>
+
+<div class="card">
+<div class="card-header">SELECT List in COPY INTO</div>
+<p>You can transform data during loading using a SELECT clause with positional column references ($1, $2, etc.) and expressions.</p>
+
+<pre>-- Basic column reordering and transformation
+COPY INTO my_table (col_a, col_b, col_c, load_ts, source_file)
+  FROM (
+    SELECT
+      $3,                              -- third column from file -> col_a
+      $1,                              -- first column from file -> col_b
+      UPPER($2),                       -- transform second column
+      CURRENT_TIMESTAMP(),             -- add load timestamp
+      METADATA$FILENAME                -- capture source filename
+    FROM @my_stage
+  )
+  FILE_FORMAT = (TYPE = CSV SKIP_HEADER = 1);
+
+-- Using METADATA$ columns
+COPY INTO audit_table (row_num, filename, file_row, data_col)
+  FROM (
+    SELECT
+      METADATA$FILE_ROW_NUMBER,        -- row number within the file
+      METADATA$FILENAME,               -- full path/filename
+      METADATA$FILE_ROW_NUMBER,        -- same as above
+      $1                               -- actual data
+    FROM @my_stage/data/
+  )
+  FILE_FORMAT = (TYPE = CSV);
+
+-- Type casting during load
+COPY INTO typed_table (id, amount, event_date)
+  FROM (
+    SELECT
+      $1::INTEGER,
+      $2::DECIMAL(10,2),
+      TO_DATE($3, 'YYYY-MM-DD')
+    FROM @my_stage
+  )
+  FILE_FORMAT = (TYPE = CSV SKIP_HEADER = 1);</pre>
+</div>
+
+<h3>Available METADATA$ Columns</h3>
+
+<table>
+<thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>METADATA$FILENAME</code></td><td>VARCHAR</td><td>Name of the staged file being loaded (includes relative path)</td></tr>
+<tr><td><code>METADATA$FILE_ROW_NUMBER</code></td><td>NUMBER</td><td>Row number within the file (1-based)</td></tr>
+<tr><td><code>METADATA$FILE_CONTENT_KEY</code></td><td>VARCHAR</td><td>Checksum of the file content</td></tr>
+<tr><td><code>METADATA$FILE_LAST_MODIFIED</code></td><td>TIMESTAMP_NTZ</td><td>Last modified timestamp of the staged file</td></tr>
+<tr><td><code>METADATA$START_SCAN_TIME</code></td><td>TIMESTAMP_LTZ</td><td>Timestamp when Snowflake started scanning the file</td></tr>
+</tbody>
+</table>
+
+<div class="danger"><strong>Critical Limitation:</strong> Transformation SELECTs during COPY do NOT support: JOINs, subqueries, aggregate functions (GROUP BY, HAVING), window functions, or UNION. Only simple expressions on positional columns and METADATA$ references are allowed.</div>
+
+<h2>4. COPY Load History (64-Day Tracking)</h2>
+
+<div class="card">
+<div class="card-header">How Load History Works</div>
+<ul>
+<li>Snowflake tracks every file loaded via COPY INTO for <strong>64 days</strong></li>
+<li>Tracked by: file name + file checksum (MD5)</li>
+<li>If same file (name + content) is loaded again within 64 days, it is <strong>automatically skipped</strong></li>
+<li>This prevents duplicate data from repeated COPY commands</li>
+<li>After 64 days, the file can be reloaded without FORCE=TRUE</li>
+<li>Modifying the file content (different checksum) allows reload even within 64 days</li>
+</ul>
+</div>
+
+<h3>Querying Load History</h3>
+
+<div class="card">
+<pre>-- COPY_HISTORY table function (Information Schema) - last 14 days
+SELECT *
+FROM TABLE(INFORMATION_SCHEMA.COPY_HISTORY(
+  TABLE_NAME => 'MY_TABLE',
+  START_TIME => DATEADD(hours, -24, CURRENT_TIMESTAMP())
+));
+
+-- LOAD_HISTORY view (Account Usage) - last 365 days
+SELECT *
+FROM SNOWFLAKE.ACCOUNT_USAGE.LOAD_HISTORY
+WHERE TABLE_NAME = 'MY_TABLE'
+  AND LAST_LOAD_TIME > DATEADD(days, -7, CURRENT_TIMESTAMP())
+ORDER BY LAST_LOAD_TIME DESC;
+
+-- Check for load errors
+SELECT FILE_NAME, ERROR_COUNT, ERROR_LIMIT, STATUS
+FROM TABLE(INFORMATION_SCHEMA.COPY_HISTORY(
+  TABLE_NAME => 'MY_TABLE',
+  START_TIME => DATEADD(days, -1, CURRENT_TIMESTAMP())
+))
+WHERE STATUS = 'LOAD_FAILED';</pre>
+</div>
+
+<table>
+<thead><tr><th>Source</th><th>Retention</th><th>Latency</th><th>Scope</th></tr></thead>
+<tbody>
+<tr><td><code>COPY_HISTORY()</code> function</td><td>14 days</td><td>Real-time</td><td>Single table in current schema</td></tr>
+<tr><td><code>LOAD_HISTORY</code> Account Usage view</td><td>365 days</td><td>Up to 45 min delay</td><td>All tables in the account</td></tr>
+<tr><td>Internal metadata (dedup tracking)</td><td>64 days</td><td>Real-time</td><td>Per-table load tracking</td></tr>
+</tbody>
+</table>
+
+<h2>5. FORCE = TRUE</h2>
+
+<div class="card">
+<div class="card-header">Bypassing Load History</div>
+<pre>-- Force reload files even if previously loaded within 64 days
+COPY INTO my_table
+  FROM @my_stage
+  FORCE = TRUE;</pre>
+
+<ul>
+<li>Bypasses the 64-day load history deduplication check</li>
+<li>Reloads files regardless of whether they were loaded before</li>
+<li><strong>Risk:</strong> Can cause duplicate data if files haven't changed</li>
+<li>Use case: Reloading after a failed load was partially committed, or data was deleted</li>
+<li>Does NOT reset the 64-day timer; just ignores it for this execution</li>
+</ul>
+</div>
+
+<div class="warning"><strong>Exam Note:</strong> FORCE=TRUE does not check whether data already exists in the table. It simply tells COPY to ignore its internal load history. You may end up with duplicate rows.</div>
+
+<h2>6. MATCH_BY_COLUMN_NAME</h2>
+
+<div class="card">
+<div class="card-header">Column Name Matching</div>
+<table>
+<thead><tr><th>Value</th><th>Behavior</th><th>Supported Formats</th></tr></thead>
+<tbody>
+<tr><td><code>NONE</code> (default)</td><td>Columns matched by <strong>position</strong> (first file col -> first table col)</td><td>All formats</td></tr>
+<tr><td><code>CASE_INSENSITIVE</code></td><td>Match file column headers to table column names (case-insensitive)</td><td>CSV (with PARSE_HEADER=TRUE), Parquet, Avro, ORC</td></tr>
+<tr><td><code>CASE_SENSITIVE</code></td><td>Match file column headers to table column names (exact case match)</td><td>CSV (with PARSE_HEADER=TRUE), Parquet, Avro, ORC</td></tr>
+</tbody>
+</table>
+
+<pre>-- Load Parquet with column name matching
+COPY INTO my_table
+  FROM @my_stage
+  FILE_FORMAT = (TYPE = PARQUET)
+  MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;
+
+-- For CSV, must enable PARSE_HEADER
+COPY INTO my_table
+  FROM @my_stage
+  FILE_FORMAT = (TYPE = CSV PARSE_HEADER = TRUE)
+  MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;</pre>
+</div>
+
+<div class="info"><strong>Key Point:</strong> For CSV files, MATCH_BY_COLUMN_NAME requires <code>PARSE_HEADER = TRUE</code> in the file format (so Snowflake reads the header row as column names). For Parquet/Avro/ORC, column names are embedded in the file metadata.</div>
+
+<h2>7. Storage Integrations for External Stages</h2>
+
+<div class="card">
+<div class="card-header">Storage Integration Architecture</div>
+<pre>-- Create storage integration (ACCOUNTADMIN required)
+CREATE OR REPLACE STORAGE INTEGRATION my_s3_int
+  TYPE = EXTERNAL_STAGE
+  STORAGE_PROVIDER = 'S3'
+  STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::123456789:role/snowflake-role'
+  ENABLED = TRUE
+  STORAGE_ALLOWED_LOCATIONS = ('s3://my-bucket/allowed/', 's3://other-bucket/')
+  STORAGE_BLOCKED_LOCATIONS = ('s3://my-bucket/sensitive/');
+
+-- Describe to get Snowflake's IAM user and external ID
+DESC INTEGRATION my_s3_int;
+-- Returns: STORAGE_AWS_IAM_USER_ARN and STORAGE_AWS_EXTERNAL_ID
+-- Use these to configure trust policy on your AWS IAM role
+
+-- Use integration in stage
+CREATE OR REPLACE STAGE my_ext_stage
+  STORAGE_INTEGRATION = my_s3_int
+  URL = 's3://my-bucket/allowed/data/';</pre>
+
+<ul>
+<li>Storage integrations avoid embedding credentials in stage definitions</li>
+<li>Created by ACCOUNTADMIN, then USAGE granted to other roles</li>
+<li>Support STORAGE_ALLOWED_LOCATIONS and STORAGE_BLOCKED_LOCATIONS for security</li>
+<li>One integration can be used by multiple stages</li>
+</ul>
+</div>
+
+<h2>8. Bulk Loading vs Snowpipe Comparison</h2>
+
+<div class="card">
+<div class="card-header">Comprehensive Comparison Table</div>
+<table>
+<thead><tr><th>Aspect</th><th>Bulk Loading (COPY INTO)</th><th>Snowpipe (Continuous)</th></tr></thead>
+<tbody>
+<tr><td><strong>Trigger</strong></td><td>User/script executes COPY command</td><td>Event-driven (cloud notification) or REST API call</td></tr>
+<tr><td><strong>Compute</strong></td><td>User-managed virtual warehouse</td><td>Snowflake-managed serverless compute</td></tr>
+<tr><td><strong>Billing</strong></td><td>Warehouse credits (per-second, 60s minimum)</td><td>Per-file serverless credits (pay per use)</td></tr>
+<tr><td><strong>Latency</strong></td><td>Manual/scheduled (minutes to hours)</td><td>Near real-time (typically within 1 minute)</td></tr>
+<tr><td><strong>Default ON_ERROR</strong></td><td>ABORT_STATEMENT</td><td>SKIP_FILE</td></tr>
+<tr><td><strong>Load history</strong></td><td>64 days</td><td>14 days (pipe-specific metadata)</td></tr>
+<tr><td><strong>Best for</strong></td><td>Large batch loads, scheduled ETL, initial loads</td><td>Streaming/micro-batch, continuous ingestion</td></tr>
+<tr><td><strong>Transformation</strong></td><td>Full SELECT transformation in COPY</td><td>Same transformation support</td></tr>
+<tr><td><strong>File size</strong></td><td>100-250 MB optimal</td><td>100-250 MB optimal (same recommendation)</td></tr>
+<tr><td><strong>Deduplication</strong></td><td>64-day file-level tracking</td><td>14-day pipe-level tracking</td></tr>
+<tr><td><strong>Error handling</strong></td><td>All ON_ERROR options available</td><td>Only SKIP_FILE (default) or ABORT_STATEMENT</td></tr>
+<tr><td><strong>FORCE option</strong></td><td>Supported</td><td>Not applicable (use ALTER PIPE REFRESH)</td></tr>
+<tr><td><strong>VALIDATION_MODE</strong></td><td>Supported</td><td>Not supported</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>9. Production Best Practices</h2>
+
+<div class="card">
+<div class="card-header">Loading Best Practices</div>
+<ol>
+<li><strong>Split files to 100-250 MB compressed</strong> - Maximizes parallelism across warehouse nodes</li>
+<li><strong>Use named stages with file formats</strong> - Better governance and reusability than user/table stages</li>
+<li><strong>Use storage integrations</strong> - Never embed credentials in stage definitions</li>
+<li><strong>Set PURGE=TRUE for production</strong> - Prevent re-processing and reduce storage costs</li>
+<li><strong>Use COPY_HISTORY for monitoring</strong> - Check for errors and track load status</li>
+<li><strong>Match warehouse size to data volume</strong> - Larger warehouse = more parallel threads</li>
+<li><strong>Use PATTERN for selective loading</strong> - Load only relevant files per execution</li>
+<li><strong>Pre-sort data if possible</strong> - Helps with micro-partition organization post-load</li>
+<li><strong>Use VALIDATION_MODE first</strong> - Validate file format compatibility before production load</li>
+<li><strong>Set appropriate ON_ERROR</strong> - ABORT for critical data, CONTINUE for tolerant pipelines</li>
+</ol>
+</div>
+
+<div class="card">
+<div class="card-header">Unloading Best Practices</div>
+<ol>
+<li><strong>Use Parquet for analytics consumers</strong> - Columnar, compressed, schema-embedded</li>
+<li><strong>Set MAX_FILE_SIZE appropriately</strong> - Smaller files for faster downstream consumption</li>
+<li><strong>Use PARTITION BY for organized output</strong> - Creates directory structure (Hive-style partitioning)</li>
+<li><strong>Include HEADER=TRUE for CSV</strong> - Makes files self-describing for consumers</li>
+<li><strong>Use OVERWRITE=TRUE in scheduled unloads</strong> - Prevents file accumulation errors</li>
+<li><strong>Use SINGLE=TRUE only when needed</strong> - Single files don't benefit from parallel writes</li>
+</ol>
+</div>
+
+<div class="danger"><strong>Production Anti-Patterns:</strong>
+<ul>
+<li>Loading one huge file (kills parallelism)</li>
+<li>Using FORCE=TRUE routinely (causes duplicates)</li>
+<li>Forgetting PURGE (leads to re-processing confusion)</li>
+<li>Using user stage (@~) for team workloads (no sharing possible)</li>
+<li>Embedding cloud credentials directly in CREATE STAGE (security risk)</li>
+</ul>
+</div>
+
+</body>
+</html>

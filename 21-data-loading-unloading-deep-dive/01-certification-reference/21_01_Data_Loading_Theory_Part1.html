@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Loading & Unloading Deep Dive - Part 1: Fundamentals</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Data Loading & Unloading Deep Dive - Part 1: Fundamentals",
+  "description": "Comprehensive reference for stages, file formats, COPY INTO, PUT/LIST/REMOVE commands, file sizing, and ON_ERROR options",
+  "author": "Snowflake Certification Prep",
+  "created": "2026-08-15",
+  "topic": "Data-Loading-Unloading",
+  "part": 1,
+  "certification_relevance": "high"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#fffdf5, #1a1708);
+  --bg-secondary: light-dark(#fff8e1, #2a2010);
+  --bg-card: light-dark(#ffffff, #1e1a0e);
+  --bg-code: light-dark(#fdf8e8, #2d2515);
+  --text-primary: light-dark(#2d1f0a, #fce4b0);
+  --text-secondary: light-dark(#5c3a1a, #f8d080);
+  --accent: light-dark(#f57f17, #ffb300);
+  --accent-secondary: light-dark(#e65100, #ff8f00);
+  --border: light-dark(#ffe082, #4a3a15);
+  --highlight: light-dark(#fff8e1, #3d3015);
+  --success: light-dark(#2e7d32, #66bb6a);
+  --warning: light-dark(#f57f17, #ffd54f);
+  --shadow: light-dark(rgba(245, 127, 23, 0.1), rgba(0, 0, 0, 0.3));
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { color-scheme: light dark; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 2.2rem;
+  color: var(--accent);
+  border-bottom: 3px solid var(--accent);
+  padding-bottom: 0.8rem;
+  margin-bottom: 2rem;
+}
+
+h2 {
+  font-size: 1.6rem;
+  color: var(--accent-secondary);
+  margin: 2.5rem 0 1rem;
+  padding-left: 0.8rem;
+  border-left: 4px solid var(--accent);
+}
+
+h3 {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin: 1.5rem 0 0.8rem;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.8rem;
+  margin: 1.5rem 0;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.card-header {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+code {
+  background: var(--bg-code);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.9em;
+  color: var(--accent);
+}
+
+pre {
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.2rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+th, td {
+  border: 1px solid var(--border);
+  padding: 0.7rem 1rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--bg-secondary);
+  font-weight: 600;
+  color: var(--accent-secondary);
+}
+
+tr:nth-child(even) td {
+  background: var(--highlight);
+}
+
+ul, ol {
+  margin: 0.8rem 0;
+  padding-left: 1.5rem;
+}
+
+li { margin: 0.4rem 0; }
+
+.warning {
+  background: var(--bg-secondary);
+  border-left: 4px solid var(--warning);
+  padding: 1rem 1.2rem;
+  border-radius: 0 8px 8px 0;
+  margin: 1rem 0;
+}
+
+.info {
+  background: light-dark(#e3f2fd, #0d1b2a);
+  border-left: 4px solid light-dark(#1976d2, #64b5f6);
+  padding: 1rem 1.2rem;
+  border-radius: 0 8px 8px 0;
+  margin: 1rem 0;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin: 1rem 0;
+}
+
+@media (max-width: 768px) {
+  .grid-2 { grid-template-columns: 1fr; }
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin-bottom: 2rem;
+}
+</style>
+</head>
+<body>
+
+<h1>21.01 Data Loading &amp; Unloading - Theory Part 1: Fundamentals</h1>
+<p class="subtitle">SnowPro Core | Stages, File Formats, COPY INTO, PUT/LIST/REMOVE, ON_ERROR | August 2026</p>
+
+<h2>1. Stages - Where Data Lives Before/After Loading</h2>
+
+<div class="card">
+<div class="card-header">Stage Types Overview</div>
+<p>A <strong>stage</strong> is a location (internal or external) where data files are stored before loading into Snowflake tables or after unloading from them.</p>
+
+<table>
+<thead><tr><th>Stage Type</th><th>Reference</th><th>Description</th><th>Scope</th></tr></thead>
+<tbody>
+<tr><td><strong>User Stage</strong></td><td><code>@~</code></td><td>Allocated to each user automatically</td><td>Only that user can access</td></tr>
+<tr><td><strong>Table Stage</strong></td><td><code>@%table_name</code></td><td>Allocated to each table automatically</td><td>Any user with table privileges</td></tr>
+<tr><td><strong>Named Internal Stage</strong></td><td><code>@stage_name</code></td><td>Explicitly created database object</td><td>Controlled by RBAC grants</td></tr>
+<tr><td><strong>External Stage (S3)</strong></td><td><code>@ext_stage</code></td><td>Points to AWS S3 bucket</td><td>Requires storage integration or credentials</td></tr>
+<tr><td><strong>External Stage (Azure)</strong></td><td><code>@ext_stage</code></td><td>Points to Azure Blob/ADLS</td><td>Requires storage integration or SAS token</td></tr>
+<tr><td><strong>External Stage (GCS)</strong></td><td><code>@ext_stage</code></td><td>Points to Google Cloud Storage</td><td>Requires storage integration</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Internal Stage Details</h3>
+
+<div class="grid-2">
+<div class="card">
+<div class="card-header">User Stage (@~)</div>
+<ul>
+<li>Cannot be altered or dropped</li>
+<li>Cannot set file format on it</li>
+<li>Cannot be shared with other users</li>
+<li>Each user gets one automatically</li>
+<li>Data encrypted with 128-bit key</li>
+<li>PUT uploads here by default</li>
+</ul>
+<pre>-- Reference user stage
+PUT file://data.csv @~;
+LIST @~;</pre>
+</div>
+
+<div class="card">
+<div class="card-header">Table Stage (@%table)</div>
+<ul>
+<li>Cannot be altered or dropped</li>
+<li>Cannot set file format on it</li>
+<li>One per table, auto-created</li>
+<li>Multiple users can access (with table privs)</li>
+<li>Cannot GRANT directly on table stages</li>
+<li>Files only loadable into THAT table</li>
+</ul>
+<pre>-- Reference table stage
+PUT file://data.csv @%my_table;
+LIST @%my_table;</pre>
+</div>
+</div>
+
+<div class="card">
+<div class="card-header">Named Internal Stage (CREATE STAGE)</div>
+<ul>
+<li>Explicitly created as a database object</li>
+<li>Can specify file format, encryption, directory table</li>
+<li>Can be granted to roles (USAGE privilege)</li>
+<li>Most flexible - recommended for production</li>
+<li>Supports directory tables (for listing files as queryable table)</li>
+</ul>
+<pre>CREATE OR REPLACE STAGE my_stage
+  FILE_FORMAT = (TYPE = CSV FIELD_DELIMITER = '|')
+  ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE')
+  DIRECTORY = (ENABLE = TRUE)
+  COMMENT = 'Production loading stage';</pre>
+</div>
+
+<h3>External Stage Details</h3>
+
+<div class="card">
+<div class="card-header">External Stage Creation</div>
+<pre>-- AWS S3 with Storage Integration (recommended)
+CREATE OR REPLACE STAGE s3_stage
+  STORAGE_INTEGRATION = my_s3_integration
+  URL = 's3://my-bucket/path/'
+  FILE_FORMAT = (TYPE = PARQUET);
+
+-- Azure Blob with Storage Integration
+CREATE OR REPLACE STAGE azure_stage
+  STORAGE_INTEGRATION = my_azure_integration
+  URL = 'azure://myaccount.blob.core.windows.net/container/path/'
+  FILE_FORMAT = (TYPE = JSON);
+
+-- GCS with Storage Integration
+CREATE OR REPLACE STAGE gcs_stage
+  STORAGE_INTEGRATION = my_gcs_integration
+  URL = 'gcs://my-bucket/path/'
+  FILE_FORMAT = (TYPE = CSV);</pre>
+</div>
+
+<div class="warning"><strong>Exam Tip:</strong> User stages and table stages CANNOT have file formats assigned to them. You must specify FILE_FORMAT in the COPY INTO command. Only named stages (internal or external) can have a default file format.</div>
+
+<h2>2. FILE FORMAT Object</h2>
+
+<div class="card">
+<div class="card-header">CREATE FILE FORMAT Syntax</div>
+<pre>CREATE OR REPLACE FILE FORMAT my_csv_format
+  TYPE = CSV
+  FIELD_DELIMITER = ','
+  RECORD_DELIMITER = '\n'
+  SKIP_HEADER = 1
+  FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+  NULL_IF = ('NULL', 'null', '')
+  EMPTY_FIELD_AS_NULL = TRUE
+  COMPRESSION = AUTO;</pre>
+</div>
+
+<table>
+<thead><tr><th>TYPE</th><th>Key Options</th><th>Use Case</th></tr></thead>
+<tbody>
+<tr><td><strong>CSV</strong></td><td>FIELD_DELIMITER, RECORD_DELIMITER, SKIP_HEADER, FIELD_OPTIONALLY_ENCLOSED_BY, NULL_IF, ESCAPE, ESCAPE_UNENCLOSED_FIELD, DATE_FORMAT, TIME_FORMAT, TIMESTAMP_FORMAT</td><td>Structured flat files, exports from RDBMS</td></tr>
+<tr><td><strong>JSON</strong></td><td>STRIP_OUTER_ARRAY, STRIP_NULL_VALUES, ALLOW_DUPLICATE, ENABLE_OCTAL, IGNORE_UTF8_ERRORS</td><td>Semi-structured nested data</td></tr>
+<tr><td><strong>PARQUET</strong></td><td>COMPRESSION (SNAPPY/LZO/NONE), BINARY_AS_TEXT, TRIM_SPACE</td><td>Columnar analytics, efficient storage</td></tr>
+<tr><td><strong>AVRO</strong></td><td>COMPRESSION (AUTO/DEFLATE/SNAPPY/NONE), TRIM_SPACE</td><td>Schema-evolution-friendly, Kafka data</td></tr>
+<tr><td><strong>ORC</strong></td><td>TRIM_SPACE, NULL_IF</td><td>Hadoop ecosystem, columnar format</td></tr>
+<tr><td><strong>XML</strong></td><td>STRIP_OUTER_ELEMENT, DISABLE_SNOWFLAKE_DATA, DISABLE_AUTO_CONVERT, PRESERVE_SPACE</td><td>Legacy systems, SOAP integrations</td></tr>
+</tbody>
+</table>
+
+<div class="info"><strong>Key Point:</strong> FILE FORMAT objects are schema-level database objects. They can be reused across multiple COPY commands and stages. They follow standard RBAC (USAGE grant required).</div>
+
+<h2>3. COPY INTO &lt;table&gt; - Full Syntax</h2>
+
+<div class="card">
+<div class="card-header">Complete COPY INTO Syntax</div>
+<pre>COPY INTO [database.]schema.table_name
+  FROM { @stage_name | @~ | @%table_name | 's3://bucket/path' }
+  [ FILES = ('file1.csv', 'file2.csv') ]
+  [ PATTERN = '.*sales.*[.]csv' ]
+  [ FILE_FORMAT = ( FORMAT_NAME = my_format | TYPE = CSV ... ) ]
+  [ ON_ERROR = { ABORT_STATEMENT | CONTINUE | SKIP_FILE | SKIP_FILE_num% } ]
+  [ SIZE_LIMIT = num_bytes ]
+  [ PURGE = TRUE | FALSE ]
+  [ FORCE = TRUE | FALSE ]
+  [ VALIDATION_MODE = RETURN_n_ROWS | RETURN_ERRORS | RETURN_ALL_ERRORS ]
+  [ MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE | CASE_SENSITIVE | NONE ]
+  [ RETURN_FAILED_ONLY = TRUE | FALSE ]
+  [ ENFORCE_LENGTH = TRUE | FALSE ]
+  [ TRUNCATECOLUMNS = TRUE | FALSE ]
+  [ LOAD_UNCERTAIN_FILES = TRUE | FALSE ];</pre>
+</div>
+
+<h3>Key COPY INTO Options</h3>
+
+<table>
+<thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>FILES</code></td><td>All files</td><td>Explicit list of file names to load (max 1000)</td></tr>
+<tr><td><code>PATTERN</code></td><td>None</td><td>Regex pattern to filter files by name</td></tr>
+<tr><td><code>ON_ERROR</code></td><td>ABORT_STATEMENT</td><td>Error handling behavior (see section below)</td></tr>
+<tr><td><code>PURGE</code></td><td>FALSE</td><td>Delete files from stage after successful load</td></tr>
+<tr><td><code>FORCE</code></td><td>FALSE</td><td>Reload files even if already loaded (bypass 64-day history)</td></tr>
+<tr><td><code>VALIDATION_MODE</code></td><td>None</td><td>Validate without loading (returns errors as query results)</td></tr>
+<tr><td><code>SIZE_LIMIT</code></td><td>None</td><td>Maximum cumulative size of files to load (in bytes)</td></tr>
+<tr><td><code>MATCH_BY_COLUMN_NAME</code></td><td>NONE</td><td>Match file columns to table columns by header name</td></tr>
+<tr><td><code>RETURN_FAILED_ONLY</code></td><td>FALSE</td><td>Only return rows that failed to load</td></tr>
+<tr><td><code>ENFORCE_LENGTH</code></td><td>TRUE</td><td>Error if string exceeds column length</td></tr>
+<tr><td><code>TRUNCATECOLUMNS</code></td><td>FALSE</td><td>Truncate strings that exceed column length (no error)</td></tr>
+</tbody>
+</table>
+
+<h2>4. PUT Command - Upload Local Files to Internal Stage</h2>
+
+<div class="card">
+<div class="card-header">PUT Syntax</div>
+<pre>PUT file://path/to/local/file.csv @stage_name
+  [ /path/prefix ]
+  [ PARALLEL = num_threads ]
+  [ AUTO_COMPRESS = TRUE | FALSE ]
+  [ SOURCE_COMPRESSION = AUTO_DETECT | GZIP | BZ2 | BROTLI | ZSTD | DEFLATE | RAW_DEFLATE | NONE ]
+  [ OVERWRITE = TRUE | FALSE ];</pre>
+
+<ul>
+<li><code>PARALLEL</code> - Number of threads for upload (default 4, max 99)</li>
+<li><code>AUTO_COMPRESS</code> - Automatically gzip files before upload (default TRUE)</li>
+<li><code>OVERWRITE</code> - Overwrite existing files in stage (default FALSE)</li>
+<li>Works ONLY with internal stages (not external)</li>
+<li>Can only be run from SnowSQL, JDBC/ODBC drivers, Python connector (NOT from Snowsight UI)</li>
+</ul>
+</div>
+
+<div class="warning"><strong>Exam Trap:</strong> PUT only works with <strong>internal</strong> stages. You cannot PUT files to an external stage (S3/Azure/GCS). For external stages, upload files using the cloud provider's tools (aws s3 cp, azcopy, gsutil).</div>
+
+<h2>5. LIST and REMOVE Commands</h2>
+
+<div class="grid-2">
+<div class="card">
+<div class="card-header">LIST (LS) Command</div>
+<pre>-- List all files in a stage
+LIST @my_stage;
+LS @my_stage;
+
+-- List with pattern filter
+LIST @my_stage PATTERN = '.*[.]csv';
+
+-- List user stage
+LIST @~;
+
+-- List table stage
+LIST @%my_table;</pre>
+<p>Returns: name, size, md5, last_modified</p>
+</div>
+
+<div class="card">
+<div class="card-header">REMOVE (RM) Command</div>
+<pre>-- Remove specific file
+REMOVE @my_stage/data.csv.gz;
+RM @my_stage/data.csv.gz;
+
+-- Remove all files with pattern
+REMOVE @my_stage PATTERN = '.*[.]csv[.]gz';
+
+-- Remove from user stage
+REMOVE @~/data.csv.gz;</pre>
+<p>Only works on internal stages. For external, use cloud tools.</p>
+</div>
+</div>
+
+<h2>6. File Sizing Best Practices</h2>
+
+<div class="card">
+<div class="card-header">Optimal File Sizes for Loading</div>
+<table>
+<thead><tr><th>Aspect</th><th>Recommendation</th><th>Reason</th></tr></thead>
+<tbody>
+<tr><td><strong>Optimal compressed size</strong></td><td>100-250 MB</td><td>Allows parallel loading across warehouse nodes</td></tr>
+<tr><td><strong>Minimum practical size</strong></td><td>10 MB+</td><td>Below this, overhead of file management dominates</td></tr>
+<tr><td><strong>Maximum practical size</strong></td><td>~5 GB</td><td>Larger files reduce parallelism (one file = one thread)</td></tr>
+<tr><td><strong>Number of files</strong></td><td>Multiple of cluster nodes</td><td>Each file can be loaded by a separate thread/node</td></tr>
+<tr><td><strong>Splitting strategy</strong></td><td>Split large files before upload</td><td>100 x 100MB files load faster than 1 x 10GB file</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="warning"><strong>Key Exam Fact:</strong> Snowflake recommends files be <strong>100-250 MB compressed</strong> for optimal parallel loading. Each file is assigned to a single compute node, so many appropriately-sized files maximize parallelism across warehouse nodes.</div>
+
+<h2>7. ON_ERROR Options</h2>
+
+<div class="card">
+<div class="card-header">ON_ERROR Behavior Comparison</div>
+<table>
+<thead><tr><th>Option</th><th>Behavior</th><th>Use Case</th></tr></thead>
+<tbody>
+<tr><td><code>ABORT_STATEMENT</code></td><td>Abort entire COPY. No data loaded from any file. (DEFAULT for bulk COPY)</td><td>All-or-nothing loads where data quality is critical</td></tr>
+<tr><td><code>CONTINUE</code></td><td>Skip error rows, continue loading remaining rows from all files</td><td>Tolerant loads where some bad rows are acceptable</td></tr>
+<tr><td><code>SKIP_FILE</code></td><td>Skip entire file if ANY error found, continue with other files</td><td>File-level atomicity; DEFAULT for Snowpipe</td></tr>
+<tr><td><code>SKIP_FILE_num</code></td><td>Skip file if error count >= num (e.g., SKIP_FILE_5)</td><td>Allow a few errors per file, skip if too many</td></tr>
+<tr><td><code>SKIP_FILE_num%</code></td><td>Skip file if error percentage >= num% (e.g., SKIP_FILE_10%)</td><td>Proportional tolerance; skip if >10% of rows fail</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="info"><strong>Important Distinction:</strong> Default ON_ERROR for manual <code>COPY INTO</code> is <strong>ABORT_STATEMENT</strong>. Default ON_ERROR for <strong>Snowpipe</strong> is <strong>SKIP_FILE</strong>. This is frequently tested.</div>
+
+<h2>8. Features (15)</h2>
+
+<div class="card">
+<div class="card-header">Data Loading Features</div>
+<ol>
+<li><strong>Multiple file format support</strong> - CSV, JSON, Parquet, Avro, ORC, XML natively</li>
+<li><strong>Automatic compression detection</strong> - gzip, bz2, brotli, zstd auto-detected</li>
+<li><strong>Parallel loading</strong> - Multiple files loaded simultaneously across warehouse nodes</li>
+<li><strong>Transformation during load</strong> - SELECT expressions, column reordering, type casting in COPY</li>
+<li><strong>Load history tracking</strong> - 64-day metadata prevents duplicate file loads</li>
+<li><strong>PURGE option</strong> - Auto-delete files from stage after successful load</li>
+<li><strong>VALIDATION_MODE</strong> - Dry-run validation without actually loading data</li>
+<li><strong>MATCH_BY_COLUMN_NAME</strong> - Match by header names instead of positional order</li>
+<li><strong>SIZE_LIMIT</strong> - Cap the total volume loaded in a single COPY command</li>
+<li><strong>FILE_FORMAT reusability</strong> - Named format objects shareable across COPY commands</li>
+<li><strong>Directory tables</strong> - Query file metadata as a virtual table on stages</li>
+<li><strong>Storage integrations</strong> - Secure, credential-free access to cloud storage</li>
+<li><strong>COPY_HISTORY function</strong> - Programmatic access to load metadata</li>
+<li><strong>PATTERN-based file selection</strong> - Filter files by regex during COPY</li>
+<li><strong>Error handling flexibility</strong> - ABORT, CONTINUE, SKIP_FILE with thresholds</li>
+</ol>
+</div>
+
+<h2>9. Limitations (15)</h2>
+
+<div class="card">
+<div class="card-header">Data Loading Limitations</div>
+<ol>
+<li><strong>PUT only for internal stages</strong> - Cannot PUT files directly to S3/Azure/GCS</li>
+<li><strong>PUT not from Snowsight UI</strong> - Requires SnowSQL or connector (JDBC/ODBC/Python)</li>
+<li><strong>User/table stages cannot set file format</strong> - Must specify in COPY command</li>
+<li><strong>User/table stages cannot be granted</strong> - No RBAC granularity on implicit stages</li>
+<li><strong>64-day history prevents re-load</strong> - Same file (name+checksum) skipped for 64 days unless FORCE=TRUE</li>
+<li><strong>FILES option max 1000 files</strong> - Cannot specify more than 1000 files in a single COPY</li>
+<li><strong>COPY transformation limited</strong> - No JOINs, subqueries, or aggregate functions</li>
+<li><strong>METADATA$ only during COPY</strong> - METADATA$FILENAME etc. not available in regular queries</li>
+<li><strong>VALIDATION_MODE doesn't load</strong> - Cannot validate AND load in same command</li>
+<li><strong>One warehouse thread per file</strong> - A single file cannot be split across threads during load</li>
+<li><strong>COPY INTO is not a DML statement</strong> - Does not generate stream change records</li>
+<li><strong>External stage credentials</strong> - Must configure storage integration or embed credentials</li>
+<li><strong>No recursive directory traversal by default</strong> - Must configure or include path patterns</li>
+<li><strong>PATTERN uses regex</strong> - SQL LIKE patterns (% and _) do NOT work; uses Java regex syntax</li>
+<li><strong>COPY timeout</strong> - Very large loads may hit statement timeout limits; use SIZE_LIMIT to batch</li>
+</ol>
+</div>
+
+<div class="warning"><strong>Common Exam Trap:</strong> COPY INTO does NOT generate change data capture records for streams. If you need a stream on a table, be aware that COPY INTO populates it, but COPY itself is treated as a special DML that DOES populate streams (INSERT-only). The limitation is that it cannot be used in stream-based transactional patterns like MERGE.</div>
+
+</body>
+</html>
