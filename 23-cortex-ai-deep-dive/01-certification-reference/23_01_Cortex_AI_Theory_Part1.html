@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Cortex AI Theory Part 1 - Fundamentals | SnowPro Core</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "SnowPro Core certification prep - Cortex AI fundamentals covering LLM functions, embeddings, search, and analyst",
+    "sections": [
+      { "id": "what-is-cortex", "title": "What is Snowflake Cortex", "dataSources": [], "producerNotes": "Overview of Cortex as managed AI/ML service" },
+      { "id": "llm-functions", "title": "LLM Functions", "dataSources": [], "producerNotes": "AI_COMPLETE, AI_SENTIMENT, AI_SUMMARIZE, AI_TRANSLATE, AI_CLASSIFY, AI_EXTRACT" },
+      { "id": "text-embedding", "title": "Text Embedding & Vector Search", "dataSources": [], "producerNotes": "AI_EMBED_TEXT, vector similarity functions" },
+      { "id": "cortex-search", "title": "Cortex Search Service", "dataSources": [], "producerNotes": "Hybrid search service" },
+      { "id": "cortex-analyst", "title": "Cortex Analyst", "dataSources": [], "producerNotes": "Natural language to SQL" },
+      { "id": "available-models", "title": "Available Models", "dataSources": [], "producerNotes": "Model names, sizes, capabilities" },
+      { "id": "features-limitations", "title": "Features & Limitations", "dataSources": [], "producerNotes": "15 features, 15 limitations" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+      max-width: 960px; margin: 0 auto; padding: 24px;
+      color: light-dark(#2d1b69, #e8e0f7);
+      background: light-dark(#f8f5ff, #1a1025);
+      line-height: 1.6;
+    }
+    h1 { color: light-dark(#4c1d95, #c4b5fd); border-bottom: 3px solid light-dark(#7c3aed, #6d28d9); padding-bottom: 8px; }
+    h2 { color: light-dark(#5b21b6, #a78bfa); margin-top: 32px; border-left: 4px solid light-dark(#7c3aed, #8b5cf6); padding-left: 12px; }
+    h3 { color: light-dark(#6d28d9, #c4b5fd); }
+    .card {
+      background: light-dark(#ffffff, #2d1f4e);
+      border: 1px solid light-dark(#e9d5ff, #4c1d95);
+      border-radius: 8px; padding: 16px; margin: 12px 0;
+      box-shadow: 0 2px 4px light-dark(rgba(124,58,237,0.1), rgba(0,0,0,0.3));
+    }
+    .highlight {
+      background: light-dark(#ede9fe, #3b1f7a);
+      border-left: 4px solid light-dark(#8b5cf6, #a78bfa);
+      padding: 12px 16px; margin: 12px 0; border-radius: 0 6px 6px 0;
+    }
+    code {
+      background: light-dark(#f3e8ff, #2e1065);
+      padding: 2px 6px; border-radius: 4px; font-size: 0.9em;
+      color: light-dark(#6d28d9, #c4b5fd);
+    }
+    pre {
+      background: light-dark(#1e1b4b, #0f0a1f);
+      color: #e8e0f7; padding: 16px; border-radius: 8px;
+      overflow-x: auto; font-size: 0.85em;
+    }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { border: 1px solid light-dark(#ddd6fe, #4c1d95); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#ede9fe, #2e1065); font-weight: 600; color: light-dark(#4c1d95, #c4b5fd); }
+    tr:nth-child(even) { background: light-dark(#f5f3ff, #1e1045); }
+    .tag {
+      display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin: 2px;
+      background: light-dark(#ddd6fe, #4c1d95); color: light-dark(#4c1d95, #e8e0f7);
+    }
+    .exam-tip {
+      background: light-dark(#fef3c7, #451a03);
+      border: 1px solid light-dark(#f59e0b, #92400e);
+      border-radius: 8px; padding: 12px 16px; margin: 12px 0;
+    }
+    .exam-tip::before { content: "EXAM TIP: "; font-weight: bold; color: light-dark(#d97706, #fbbf24); }
+    ul, ol { padding-left: 24px; }
+    li { margin: 4px 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+  </style>
+</head>
+<body>
+
+  <h1>23.1 Cortex AI Theory - Part 1: Fundamentals</h1>
+  <p>SnowPro Core Certification Prep - Snowflake Cortex AI managed service, LLM functions, embeddings, search, and analyst.</p>
+
+  <h2 id="what-is-cortex">What is Snowflake Cortex</h2>
+  <div class="card">
+    <h3>Overview</h3>
+    <p><strong>Snowflake Cortex</strong> is a fully managed AI/ML service that brings large language models (LLMs) and ML capabilities directly into the Snowflake Data Cloud platform.</p>
+    <ul>
+      <li><strong>Managed service</strong> - No infrastructure provisioning, no GPU management, no model deployment</li>
+      <li><strong>SQL interface</strong> - All AI functions callable via standard SQL (SELECT statements)</li>
+      <li><strong>Data governance</strong> - Data never leaves Snowflake; same RBAC and security apply</li>
+      <li><strong>Pay-per-use</strong> - Credit-based billing per token processed</li>
+      <li><strong>Serverless</strong> - Automatically scales, no warehouse needed for most functions</li>
+    </ul>
+  </div>
+
+  <div class="highlight">
+    <strong>Key Architecture Points:</strong>
+    <ul>
+      <li>Cortex runs within Snowflake's secure infrastructure</li>
+      <li>No data movement outside Snowflake boundary</li>
+      <li>Functions are invoked as SQL functions in queries</li>
+      <li>Results returned as standard SQL column values</li>
+      <li>Supports both batch (table operations) and real-time (single-row) inference</li>
+    </ul>
+  </div>
+
+  <div class="exam-tip">Cortex AI functions are <strong>serverless</strong> - they do NOT require a virtual warehouse for execution (though some services like Cortex Search require a warehouse for building the index).</div>
+
+  <h2 id="llm-functions">LLM Functions</h2>
+
+  <h3>AI_COMPLETE - Text Generation</h3>
+  <div class="card">
+    <p>The most versatile Cortex function - generates text responses using specified LLM models.</p>
+    <pre>-- Simple completion
+SELECT SNOWFLAKE.CORTEX.AI_COMPLETE('mistral-large2', 'Explain Snowflake data sharing');
+
+-- With options
+SELECT SNOWFLAKE.CORTEX.AI_COMPLETE(
+  'mistral-large2',
+  'Summarize this text: ' || my_column,
+  {'temperature': 0.3, 'max_tokens': 500}
+) FROM my_table;</pre>
+    <p><strong>Key parameters:</strong></p>
+    <ul>
+      <li><code>model</code> - Required. The LLM model name (string)</li>
+      <li><code>prompt</code> - Required. The text prompt or message array</li>
+      <li><code>options</code> - Optional OBJECT with temperature, max_tokens, top_p</li>
+    </ul>
+  </div>
+
+  <h3>AI_SENTIMENT - Sentiment Analysis</h3>
+  <div class="card">
+    <p>Returns a sentiment score between <strong>-1</strong> (most negative) and <strong>+1</strong> (most positive).</p>
+    <pre>SELECT SNOWFLAKE.CORTEX.AI_SENTIMENT('Great product, love it!') AS score;
+-- Returns: 0.85 (positive)
+
+SELECT SNOWFLAKE.CORTEX.AI_SENTIMENT('Terrible experience, never again') AS score;
+-- Returns: -0.92 (negative)</pre>
+    <ul>
+      <li>Returns a FLOAT value between -1 and 1</li>
+      <li>No model selection needed (uses built-in model)</li>
+      <li>0 = neutral, positive = positive sentiment, negative = negative sentiment</li>
+    </ul>
+  </div>
+
+  <div class="exam-tip">AI_SENTIMENT returns a numeric score (-1 to 1), NOT a label like "positive" or "negative". You must interpret the number yourself.</div>
+
+  <h3>AI_SUMMARIZE - Text Summarization</h3>
+  <div class="card">
+    <pre>SELECT SNOWFLAKE.CORTEX.AI_SUMMARIZE(long_text_column) FROM articles;</pre>
+    <ul>
+      <li>Takes a single text input</li>
+      <li>Returns a concise summary of the input text</li>
+      <li>No model selection required</li>
+      <li>Useful for document processing pipelines</li>
+    </ul>
+  </div>
+
+  <h3>AI_TRANSLATE - Language Translation</h3>
+  <div class="card">
+    <pre>SELECT SNOWFLAKE.CORTEX.AI_TRANSLATE(
+  text_column,
+  'en',   -- source language
+  'fr'    -- target language
+) FROM documents;</pre>
+    <ul>
+      <li>Parameters: text, source_language, target_language</li>
+      <li>Uses ISO 639-1 language codes (en, fr, de, es, ja, etc.)</li>
+      <li>Source language can be empty string '' for auto-detect</li>
+    </ul>
+  </div>
+
+  <h3>AI_CLASSIFY - Text Classification</h3>
+  <div class="card">
+    <pre>SELECT SNOWFLAKE.CORTEX.AI_CLASSIFY(
+  'I need to return this product',
+  ['Complaint', 'Inquiry', 'Return Request', 'Compliment']
+) AS category;</pre>
+    <ul>
+      <li>Classifies text into one of the provided categories</li>
+      <li>Second argument is an ARRAY of category labels</li>
+      <li>Returns an OBJECT with the chosen label and confidence score</li>
+    </ul>
+  </div>
+
+  <h3>AI_EXTRACT - Structured Extraction</h3>
+  <div class="card">
+    <pre>SELECT SNOWFLAKE.CORTEX.AI_EXTRACT(
+  'John Smith ordered 3 widgets on Jan 15, 2024 for $99.99',
+  ['customer_name', 'quantity', 'order_date', 'total_price']
+) AS extracted;</pre>
+    <ul>
+      <li>Extracts structured data from unstructured text</li>
+      <li>Second argument is an ARRAY of field names to extract</li>
+      <li>Returns an OBJECT with key-value pairs</li>
+    </ul>
+  </div>
+
+  <h3>LLM Functions Summary</h3>
+  <table>
+    <thead><tr><th>Function</th><th>Input</th><th>Output</th><th>Model Selection</th></tr></thead>
+    <tbody>
+      <tr><td>AI_COMPLETE</td><td>Model + prompt (+ options)</td><td>VARCHAR (generated text)</td><td>Required</td></tr>
+      <tr><td>AI_SENTIMENT</td><td>Text</td><td>FLOAT (-1 to 1)</td><td>Not needed</td></tr>
+      <tr><td>AI_SUMMARIZE</td><td>Text</td><td>VARCHAR (summary)</td><td>Not needed</td></tr>
+      <tr><td>AI_TRANSLATE</td><td>Text + src_lang + tgt_lang</td><td>VARCHAR (translated)</td><td>Not needed</td></tr>
+      <tr><td>AI_CLASSIFY</td><td>Text + categories array</td><td>OBJECT (label + score)</td><td>Not needed</td></tr>
+      <tr><td>AI_EXTRACT</td><td>Text + fields array</td><td>OBJECT (key-value pairs)</td><td>Not needed</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="text-embedding">Text Embedding & Vector Search</h2>
+
+  <h3>AI_EMBED_TEXT - Vector Generation</h3>
+  <div class="card">
+    <pre>-- Generate embedding vector
+SELECT SNOWFLAKE.CORTEX.AI_EMBED_TEXT(
+  'snowflake-arctic-embed-m-v1.5',
+  'Snowflake is a cloud data platform'
+) AS embedding;
+
+-- Store embeddings in a table
+CREATE TABLE document_embeddings AS
+SELECT
+  doc_id,
+  doc_text,
+  SNOWFLAKE.CORTEX.AI_EMBED_TEXT('snowflake-arctic-embed-m-v1.5', doc_text) AS embedding
+FROM documents;</pre>
+    <ul>
+      <li>Converts text into a dense vector (array of floats)</li>
+      <li>Vectors capture semantic meaning of text</li>
+      <li>Similar texts produce similar vectors</li>
+      <li>Model selection required (determines vector dimensions)</li>
+      <li>Returns a VECTOR data type</li>
+    </ul>
+  </div>
+
+  <h3>Vector Similarity Functions</h3>
+  <div class="card">
+    <table>
+      <thead><tr><th>Function</th><th>Description</th><th>Range</th><th>Best Match</th></tr></thead>
+      <tbody>
+        <tr><td><code>VECTOR_COSINE_SIMILARITY(a, b)</code></td><td>Cosine similarity between two vectors</td><td>-1 to 1</td><td>Highest value (1)</td></tr>
+        <tr><td><code>VECTOR_L2_DISTANCE(a, b)</code></td><td>Euclidean distance between two vectors</td><td>0 to infinity</td><td>Lowest value (0)</td></tr>
+        <tr><td><code>VECTOR_INNER_PRODUCT(a, b)</code></td><td>Dot product of two vectors</td><td>Varies</td><td>Highest value</td></tr>
+      </tbody>
+    </table>
+    <pre>-- Semantic search example
+SELECT doc_id, doc_text,
+  VECTOR_COSINE_SIMILARITY(
+    embedding,
+    SNOWFLAKE.CORTEX.AI_EMBED_TEXT('snowflake-arctic-embed-m-v1.5', 'How do I share data?')
+  ) AS similarity
+FROM document_embeddings
+ORDER BY similarity DESC
+LIMIT 5;</pre>
+  </div>
+
+  <div class="exam-tip">VECTOR_COSINE_SIMILARITY returns values between -1 and 1, where 1 = identical. VECTOR_L2_DISTANCE returns 0+ where 0 = identical. They rank in OPPOSITE directions.</div>
+
+  <h2 id="cortex-search">Cortex Search Service</h2>
+  <div class="card">
+    <h3>Overview</h3>
+    <p>Cortex Search Service provides <strong>hybrid search</strong> combining semantic understanding with keyword matching.</p>
+    <ul>
+      <li><strong>Hybrid search</strong> - Combines semantic (vector) search with keyword (BM25) search</li>
+      <li><strong>Managed service</strong> - Snowflake handles indexing, retrieval, and ranking</li>
+      <li><strong>Auto-refresh</strong> - Index stays updated based on TARGET_LAG setting</li>
+      <li><strong>No embedding management</strong> - Embeddings created and managed automatically</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>CREATE CORTEX SEARCH SERVICE Syntax</h3>
+    <pre>CREATE OR REPLACE CORTEX SEARCH SERVICE my_search_service
+  ON search_column
+  ATTRIBUTES category, author     -- filterable columns
+  WAREHOUSE = my_wh
+  TARGET_LAG = '1 hour'
+  AS (
+    SELECT
+      search_column,
+      category,
+      author,
+      doc_id
+    FROM my_documents_table
+  );</pre>
+    <p><strong>Key components:</strong></p>
+    <ul>
+      <li><code>ON</code> - The text column to search over</li>
+      <li><code>ATTRIBUTES</code> - Additional columns for filtering results</li>
+      <li><code>WAREHOUSE</code> - Warehouse for building/refreshing the index</li>
+      <li><code>TARGET_LAG</code> - How fresh the index should be (e.g., '1 minute', '1 hour')</li>
+      <li><code>AS (query)</code> - Source query defining the searchable data</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Querying Cortex Search (via SEARCH function)</h3>
+    <pre>-- Search with the SEARCH function
+SELECT PARSE_JSON(
+  SNOWFLAKE.CORTEX.SEARCH(
+    'my_search_service',    -- service name
+    '{
+      "query": "How to set up data sharing",
+      "columns": ["search_column", "category", "doc_id"],
+      "limit": 5
+    }'
+  )
+);</pre>
+  </div>
+
+  <h2 id="cortex-analyst">Cortex Analyst</h2>
+  <div class="card">
+    <h3>Overview</h3>
+    <p>Cortex Analyst converts <strong>natural language questions</strong> into SQL queries against your data.</p>
+    <ul>
+      <li>Requires a <strong>semantic view</strong> (formerly semantic model) describing your data</li>
+      <li>Users ask questions in plain English</li>
+      <li>Cortex Analyst generates and executes SQL</li>
+      <li>Returns results in structured format</li>
+      <li>Supports verified queries for accuracy</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Semantic View</h3>
+    <p>A YAML-based definition that describes your data in business terms:</p>
+    <pre>-- Semantic views define:
+-- - Tables and their relationships (joins)
+-- - Dimensions (categorical fields)
+-- - Measures/Metrics (aggregatable fields)
+-- - Time dimensions
+-- - Verified queries (known-good Q&A pairs)
+
+-- Created as a Snowflake object:
+CREATE OR REPLACE SEMANTIC VIEW my_semantic_view
+  AS VIEW_DEFINITION;</pre>
+    <ul>
+      <li>Maps business terminology to physical tables/columns</li>
+      <li>Defines relationships between tables</li>
+      <li>Specifies metrics, dimensions, and time grains</li>
+      <li>Verified queries improve accuracy for common questions</li>
+    </ul>
+  </div>
+
+  <div class="exam-tip">Cortex Analyst requires a semantic view - it cannot generate SQL without one. The semantic view tells it which tables, columns, and joins to use.</div>
+
+  <h2 id="available-models">Available Models</h2>
+  <table>
+    <thead><tr><th>Model</th><th>Provider</th><th>Size</th><th>Best For</th><th>Cost Tier</th></tr></thead>
+    <tbody>
+      <tr><td>llama3.1-8b</td><td>Meta</td><td>8B params</td><td>Simple tasks, fast responses</td><td>Low</td></tr>
+      <tr><td>llama3.1-70b</td><td>Meta</td><td>70B params</td><td>Complex reasoning</td><td>Medium</td></tr>
+      <tr><td>llama3.1-405b</td><td>Meta</td><td>405B params</td><td>Most capable open model</td><td>High</td></tr>
+      <tr><td>mistral-large2</td><td>Mistral</td><td>Large</td><td>General purpose, multilingual</td><td>Medium-High</td></tr>
+      <tr><td>mistral-7b</td><td>Mistral</td><td>7B params</td><td>Fast, cost-effective</td><td>Low</td></tr>
+      <tr><td>mixtral-8x7b</td><td>Mistral</td><td>8x7B MoE</td><td>Good balance of speed/quality</td><td>Medium</td></tr>
+      <tr><td>snowflake-arctic-embed-m-v1.5</td><td>Snowflake</td><td>Medium</td><td>Text embeddings</td><td>Low</td></tr>
+      <tr><td>snowflake-arctic-embed-l-v2.0</td><td>Snowflake</td><td>Large</td><td>High-quality embeddings</td><td>Medium</td></tr>
+      <tr><td>jamba-1.5-mini</td><td>AI21</td><td>Mini</td><td>Long context tasks</td><td>Low</td></tr>
+      <tr><td>jamba-1.5-large</td><td>AI21</td><td>Large</td><td>Long context, complex</td><td>Medium</td></tr>
+      <tr><td>claude-3-5-sonnet</td><td>Anthropic</td><td>Large</td><td>Coding, analysis, reasoning</td><td>High</td></tr>
+    </tbody>
+  </table>
+
+  <div class="highlight">
+    <strong>Model Selection Guidelines:</strong>
+    <ul>
+      <li><strong>Cost-sensitive</strong>: Use smaller models (mistral-7b, llama3.1-8b)</li>
+      <li><strong>Quality-critical</strong>: Use larger models (llama3.1-405b, claude-3-5-sonnet, mistral-large2)</li>
+      <li><strong>Embeddings</strong>: Use snowflake-arctic-embed models (purpose-built for search)</li>
+      <li><strong>Long documents</strong>: Use jamba models (large context window)</li>
+    </ul>
+  </div>
+
+  <h2 id="features-limitations">Features & Limitations</h2>
+
+  <h3>15 Key Features</h3>
+  <div class="card">
+    <ol>
+      <li><strong>SQL-native interface</strong> - All functions called via standard SQL</li>
+      <li><strong>No infrastructure management</strong> - Fully serverless AI inference</li>
+      <li><strong>Data stays in Snowflake</strong> - No data movement to external services</li>
+      <li><strong>Multiple LLM providers</strong> - Access Meta, Mistral, Anthropic, AI21 models</li>
+      <li><strong>Batch processing</strong> - Run AI functions over entire tables efficiently</li>
+      <li><strong>Built-in embeddings</strong> - Native vector generation with Arctic models</li>
+      <li><strong>Hybrid search</strong> - Cortex Search combines semantic + keyword search</li>
+      <li><strong>Natural language analytics</strong> - Cortex Analyst for text-to-SQL</li>
+      <li><strong>Fine-tuning support</strong> - Customize models on your data</li>
+      <li><strong>Document AI</strong> - Parse and extract from PDFs and documents</li>
+      <li><strong>Built-in ML</strong> - FORECAST, ANOMALY_DETECTION, CLASSIFICATION without code</li>
+      <li><strong>RBAC integration</strong> - Standard Snowflake access control applies</li>
+      <li><strong>Vector data type</strong> - Native vector storage and similarity operations</li>
+      <li><strong>Auto-scaling</strong> - Handles varying workloads automatically</li>
+      <li><strong>Multi-turn chat</strong> - AI_COMPLETE supports conversation history via message arrays</li>
+    </ol>
+  </div>
+
+  <h3>15 Key Limitations</h3>
+  <div class="card">
+    <ol>
+      <li><strong>Region availability</strong> - Not all models available in all Snowflake regions</li>
+      <li><strong>Token limits</strong> - Each model has maximum context window (input + output)</li>
+      <li><strong>Rate limits</strong> - Per-account throttling on concurrent requests</li>
+      <li><strong>Cost per token</strong> - Large-scale batch processing can be expensive</li>
+      <li><strong>No real-time streaming</strong> - Results returned only after full generation</li>
+      <li><strong>Cortex Analyst requires semantic view</strong> - Cannot work without data model definition</li>
+      <li><strong>Embedding dimension fixed per model</strong> - Cannot change vector size after generation</li>
+      <li><strong>Cortex Search TARGET_LAG</strong> - Index not real-time; minimum lag applies</li>
+      <li><strong>No custom model hosting</strong> - Can only use Snowflake-provided models (except fine-tuning)</li>
+      <li><strong>Fine-tuning limited models</strong> - Only specific base models support fine-tuning</li>
+      <li><strong>FORECAST minimum data</strong> - Requires minimum number of historical data points</li>
+      <li><strong>Output non-deterministic</strong> - Same prompt can produce different outputs (unless temperature=0)</li>
+      <li><strong>No image generation</strong> - Cortex is text-in/text-out (except Document AI for parsing)</li>
+      <li><strong>Cortex Search max document size</strong> - Documents have size limits for indexing</li>
+      <li><strong>Network isolation</strong> - Cannot call external APIs or URLs from within Cortex functions</li>
+    </ol>
+  </div>
+
+  <div class="exam-tip">For the exam, remember: Cortex functions are SERVERLESS (no warehouse needed for LLM functions), data NEVER leaves Snowflake, and all functions are called via SQL. Cortex Search DOES need a warehouse for index building.</div>
+
+</body>
+</html>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Cortex AI - 50 Practice Questions | SnowPro Core</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "50 interactive quiz questions covering all Cortex AI topics for SnowPro Core certification",
+    "sections": [
+      { "id": "quiz", "title": "50 Cortex AI Questions", "dataSources": [], "producerNotes": "Interactive quiz with click-to-reveal answers" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+      max-width: 960px; margin: 0 auto; padding: 24px;
+      color: light-dark(#2d1b69, #e8e0f7);
+      background: light-dark(#f8f5ff, #1a1025);
+      line-height: 1.6;
+    }
+    h1 { color: light-dark(#4c1d95, #c4b5fd); border-bottom: 3px solid light-dark(#7c3aed, #6d28d9); padding-bottom: 8px; }
+    .score-bar {
+      background: light-dark(#ede9fe, #2e1065);
+      border-radius: 8px; padding: 16px; margin: 16px 0;
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      position: sticky; top: 0; z-index: 10;
+      border: 1px solid light-dark(#ddd6fe, #4c1d95);
+    }
+    .score-bar span { font-weight: 600; color: light-dark(#5b21b6, #a78bfa); }
+    .score-bar button {
+      background: light-dark(#7c3aed, #6d28d9); color: #fff; border: none;
+      padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9em;
+    }
+    .score-bar button:hover { background: light-dark(#6d28d9, #7c3aed); }
+    .question {
+      background: light-dark(#ffffff, #2d1f4e);
+      border: 1px solid light-dark(#e9d5ff, #4c1d95);
+      border-radius: 8px; padding: 16px; margin: 12px 0;
+    }
+    .question h3 { color: light-dark(#5b21b6, #a78bfa); margin-top: 0; }
+    .option {
+      display: block; padding: 10px 14px; margin: 6px 0;
+      background: light-dark(#f5f3ff, #1e1045);
+      border: 1px solid light-dark(#ddd6fe, #4c1d95);
+      border-radius: 6px; cursor: pointer; transition: all 0.2s;
+    }
+    .option:hover { background: light-dark(#ede9fe, #3b1f7a); }
+    .option.correct { background: light-dark(#d1fae5, #064e3b); border-color: light-dark(#34d399, #059669); color: light-dark(#064e3b, #d1fae5); }
+    .option.incorrect { background: light-dark(#fee2e2, #450a0a); border-color: light-dark(#f87171, #991b1b); color: light-dark(#450a0a, #fee2e2); }
+    .explanation {
+      display: none; margin-top: 10px; padding: 10px 14px;
+      background: light-dark(#ede9fe, #3b1f7a);
+      border-left: 4px solid light-dark(#8b5cf6, #a78bfa);
+      border-radius: 0 6px 6px 0; font-size: 0.9em;
+    }
+    .explanation.show { display: block; }
+    code {
+      background: light-dark(#f3e8ff, #2e1065);
+      padding: 2px 6px; border-radius: 4px; font-size: 0.9em;
+      color: light-dark(#6d28d9, #c4b5fd);
+    }
+  </style>
+</head>
+<body>
+
+  <h1>23.3 Cortex AI - 50 Practice Questions</h1>
+
+  <div class="score-bar">
+    <span>Score: <span id="correct">0</span> / <span id="total">0</span></span>
+    <span>(<span id="pct">0</span>%)</span>
+    <button id="resetBtn">Reset Quiz</button>
+  </div>
+
+  <div id="quiz"></div>
+
+  <script>
+    var questions = [
+      { q: "What is Snowflake Cortex?", options: ["A third-party ML platform integrated with Snowflake", "A fully managed AI/ML service built into Snowflake's platform", "A separate cloud product requiring dedicated GPU instances", "An open-source framework for model training"], answer: 1, explanation: "Cortex is a fully managed AI/ML service native to Snowflake - no infrastructure management, accessible via SQL." },
+      { q: "How are Cortex LLM functions invoked?", options: ["Via Python SDK only", "Through REST API calls to external endpoints", "As SQL functions in standard SELECT statements", "Using dedicated Cortex notebooks"], answer: 2, explanation: "All Cortex functions are called as SQL functions, e.g., SELECT SNOWFLAKE.CORTEX.AI_COMPLETE(...)." },
+      { q: "What does AI_SENTIMENT return?", options: ["A text label: 'positive', 'negative', or 'neutral'", "A FLOAT between -1 (negative) and 1 (positive)", "A BOOLEAN (true = positive)", "An OBJECT with label and confidence"], answer: 1, explanation: "AI_SENTIMENT returns a numeric FLOAT score between -1 and 1. You interpret the number yourself." },
+      { q: "Which function generates text embeddings in Cortex?", options: ["AI_VECTORIZE", "EMBED_TEXT", "SNOWFLAKE.CORTEX.AI_EMBED_TEXT", "VECTOR_GENERATE"], answer: 2, explanation: "SNOWFLAKE.CORTEX.AI_EMBED_TEXT converts text into vector representations for semantic search." },
+      { q: "What is the correct range for VECTOR_COSINE_SIMILARITY?", options: ["0 to 1", "-1 to 1", "0 to infinity", "-infinity to infinity"], answer: 1, explanation: "Cosine similarity ranges from -1 to 1, where 1 means identical direction and -1 means opposite." },
+      { q: "What does Cortex Search Service combine?", options: ["SQL search and NoSQL search", "Semantic (vector) search and keyword (BM25) search", "Full-text search and regex matching", "Graph search and vector search"], answer: 1, explanation: "Cortex Search uses hybrid search combining semantic understanding (vector similarity) with keyword matching (BM25)." },
+      { q: "What is required for Cortex Analyst to function?", options: ["A trained ML model", "A semantic view describing the data", "A dedicated warehouse cluster", "A Cortex Search Service index"], answer: 1, explanation: "Cortex Analyst requires a semantic view (formerly semantic model) that maps business terminology to physical tables/columns." },
+      { q: "Which parameter controls randomness in AI_COMPLETE?", options: ["randomness", "creativity", "temperature", "variance"], answer: 2, explanation: "Temperature controls randomness: 0 = deterministic, 1 = most creative/random." },
+      { q: "What format is required for fine-tuning training data?", options: ["CSV with columns prompt and response", "JSONL with messages array containing role/content pairs", "Parquet files with text columns", "Plain text files with input/output pairs"], answer: 1, explanation: "Fine-tuning requires JSONL format where each line has a 'messages' array with role/content objects." },
+      { q: "Do Cortex LLM functions require a virtual warehouse?", options: ["Yes, a dedicated XL warehouse minimum", "Yes, any running warehouse", "No, they are serverless", "Only for batch operations"], answer: 2, explanation: "Cortex LLM functions are serverless - they don't require a virtual warehouse. Cortex Search does need a warehouse for index building." },
+      { q: "What database role is needed to use Cortex LLM functions?", options: ["CORTEX_ADMIN", "SNOWFLAKE.CORTEX_USER", "SYSADMIN", "ML_USER"], answer: 1, explanation: "The SNOWFLAKE.CORTEX_USER database role (in the SNOWFLAKE database) is required to use Cortex LLM functions." },
+      { q: "What does TARGET_LAG control in Cortex Search Service?", options: ["Query latency SLA", "How fresh the search index is relative to source data", "Network timeout for search queries", "Maximum response time"], answer: 1, explanation: "TARGET_LAG specifies how stale the search index can be - smaller lag means more frequent refreshes and higher cost." },
+      { q: "How does AI_COMPLETE handle multi-turn conversations?", options: ["It doesn't support conversations", "Via a session_id parameter", "By passing an ARRAY of message objects with roles", "Through a CONVERSATION table reference"], answer: 2, explanation: "AI_COMPLETE accepts an ARRAY of {role, content} objects with system, user, and assistant messages for multi-turn chat." },
+      { q: "What are valid message roles in AI_COMPLETE chat mode?", options: ["human, ai, context", "system, user, assistant", "prompt, response, instruction", "input, output, system"], answer: 1, explanation: "The three valid roles are: system (behavior/persona), user (human messages), and assistant (AI responses)." },
+      { q: "What does AI_TRANSLATE use for language specification?", options: ["Full language names (English, French)", "ISO 639-1 codes (en, fr, de)", "ISO 639-3 codes", "Custom Snowflake language IDs"], answer: 1, explanation: "AI_TRANSLATE uses ISO 639-1 two-letter language codes. Source language can be '' for auto-detection." },
+      { q: "What does AI_CLASSIFY return?", options: ["Just the category label as VARCHAR", "An OBJECT with the chosen label and confidence score", "A FLOAT probability", "An ARRAY of all categories with scores"], answer: 1, explanation: "AI_CLASSIFY returns an OBJECT containing the selected label and its confidence score." },
+      { q: "Which function extracts structured fields from unstructured text?", options: ["AI_PARSE", "AI_STRUCTURE", "AI_EXTRACT", "AI_SCHEMA"], answer: 2, explanation: "AI_EXTRACT takes text and an array of field names, returning an OBJECT with extracted key-value pairs." },
+      { q: "What does AI_PARSE_DOCUMENT do?", options: ["Parses SQL queries", "Extracts text from PDFs and images using OCR", "Converts JSON to structured tables", "Parses XML documents"], answer: 1, explanation: "AI_PARSE_DOCUMENT extracts text content from documents (PDFs, images) using either layout analysis or OCR." },
+      { q: "What are the two modes for AI_PARSE_DOCUMENT?", options: ["fast and accurate", "layout and ocr", "text and binary", "simple and advanced"], answer: 1, explanation: "Layout mode is for digital PDFs with selectable text; OCR mode is for scanned documents/images." },
+      { q: "How is Cortex billed?", options: ["Flat monthly fee", "Per-token credits (input + output tokens)", "Per-query fixed cost", "Only warehouse compute time"], answer: 1, explanation: "Cortex uses per-token billing - both input and output tokens consume credits, with rates varying by model." },
+      { q: "Which vector distance function returns 0 for identical vectors?", options: ["VECTOR_COSINE_SIMILARITY", "VECTOR_L2_DISTANCE", "VECTOR_INNER_PRODUCT", "VECTOR_HAMMING_DISTANCE"], answer: 1, explanation: "VECTOR_L2_DISTANCE (Euclidean distance) returns 0 for identical vectors and increases with dissimilarity." },
+      { q: "What is the two-step pattern for ML functions like FORECAST?", options: ["Import model, then predict", "CREATE the model object, then CALL its method", "Configure parameters, then execute", "Train offline, then deploy to Snowflake"], answer: 1, explanation: "ML functions follow: (1) CREATE SNOWFLAKE.ML.FORECAST model_name(...) then (2) CALL model_name!FORECAST(...)." },
+      { q: "What does SNOWFLAKE.ML.FORECAST predict?", options: ["Classification labels", "Anomaly scores", "Future time series values with confidence intervals", "Cluster assignments"], answer: 2, explanation: "FORECAST predicts future values in a time series, returning point predictions plus confidence intervals." },
+      { q: "What does ANOMALY_DETECTION return for each data point?", options: ["A cleaned value", "An is_anomaly flag and anomaly score", "A replacement suggestion", "A percentile rank"], answer: 1, explanation: "ANOMALY_DETECTION returns an is_anomaly boolean flag and a numeric anomaly score for each observation." },
+      { q: "Can fine-tuned models be used with AI_COMPLETE?", options: ["No, they require a special function", "Yes, by specifying the custom model name", "Only via REST API", "Only in stored procedures"], answer: 1, explanation: "Fine-tuned models are used exactly like built-in models: SNOWFLAKE.CORTEX.AI_COMPLETE('my_custom_model', prompt)." },
+      { q: "What happens to data when using Cortex functions?", options: ["It's sent to external LLM providers", "It's copied to a Cortex-specific cloud region", "It stays within Snowflake's secure infrastructure", "It's temporarily stored in a shared compute layer"], answer: 2, explanation: "A key Cortex benefit: data never leaves Snowflake's secure infrastructure. Same governance and security apply." },
+      { q: "Which embedding model is purpose-built by Snowflake?", options: ["llama-embed-v1", "mistral-embed", "snowflake-arctic-embed-m-v1.5", "cortex-embed-base"], answer: 2, explanation: "Snowflake's Arctic Embed models (snowflake-arctic-embed-m-v1.5, snowflake-arctic-embed-l-v2.0) are purpose-built for text embeddings." },
+      { q: "What is the ON clause in CREATE CORTEX SEARCH SERVICE?", options: ["The filter condition", "The text column to search over", "The sort order", "The primary key column"], answer: 1, explanation: "The ON clause specifies which VARCHAR column the search service will index and search over." },
+      { q: "What does ATTRIBUTES specify in Cortex Search?", options: ["Column types for type checking", "Additional columns that can be used to filter search results", "Required columns in the output", "Index optimization hints"], answer: 1, explanation: "ATTRIBUTES lists additional columns that can be used as filters when querying the search service." },
+      { q: "Which Cortex function does NOT require model selection?", options: ["AI_COMPLETE", "AI_EMBED_TEXT", "AI_SENTIMENT", "All require model selection"], answer: 2, explanation: "AI_SENTIMENT, AI_SUMMARIZE, AI_TRANSLATE, AI_CLASSIFY, and AI_EXTRACT use built-in models - no model parameter needed. AI_COMPLETE and AI_EMBED_TEXT require model selection." },
+      { q: "What is the minimum TARGET_LAG for Cortex Search?", options: ["1 second", "1 minute", "5 minutes", "1 hour"], answer: 1, explanation: "The minimum supported TARGET_LAG for Cortex Search Service is '1 minute'." },
+      { q: "How do verified queries help Cortex Analyst?", options: ["They cache frequent SQL queries for speed", "They provide known-good Q&A pairs that improve query generation accuracy", "They validate user permissions", "They pre-compute aggregations"], answer: 1, explanation: "Verified queries are pre-defined question-SQL pairs that act as examples, reducing hallucination for common questions." },
+      { q: "What does max_tokens control in AI_COMPLETE?", options: ["Maximum input length", "Maximum number of tokens in the response", "Maximum processing time", "Maximum number of requests"], answer: 1, explanation: "max_tokens limits the length of the generated output. It helps control both response size and cost." },
+      { q: "What type does AI_EMBED_TEXT return?", options: ["ARRAY of FLOAT", "VARCHAR (base64 encoded)", "VECTOR data type", "VARIANT"], answer: 2, explanation: "AI_EMBED_TEXT returns a VECTOR data type - Snowflake's native type for storing dense vectors." },
+      { q: "Which function would you use to categorize support tickets into predefined categories?", options: ["AI_SENTIMENT", "AI_CLASSIFY", "AI_COMPLETE", "AI_SUMMARIZE"], answer: 1, explanation: "AI_CLASSIFY is designed for categorizing text into predefined categories. You provide the text and an array of possible labels." },
+      { q: "What determines the dimension of embedding vectors?", options: ["The length of input text", "The embedding model used", "A user-specified parameter", "The VECTOR column definition"], answer: 1, explanation: "Each embedding model produces vectors of a fixed dimension. Different models produce different-sized vectors." },
+      { q: "Can AI_TRANSLATE auto-detect the source language?", options: ["No, source language is always required", "Yes, by passing an empty string '' as source language", "Yes, by omitting the source language parameter", "Only for European languages"], answer: 1, explanation: "You can pass '' (empty string) as the source language for auto-detection." },
+      { q: "What is the SNOWFLAKE.CORTEX_USER role type?", options: ["An account-level role", "A database role in the SNOWFLAKE database", "A schema-level role", "A virtual warehouse role"], answer: 1, explanation: "SNOWFLAKE.CORTEX_USER is a DATABASE ROLE in the SNOWFLAKE shared database, not an account role." },
+      { q: "Which ML function detects outliers in time series data?", options: ["SNOWFLAKE.ML.OUTLIER_DETECTION", "SNOWFLAKE.ML.ANOMALY_DETECTION", "SNOWFLAKE.CORTEX.DETECT_ANOMALIES", "SNOWFLAKE.ML.STATISTICAL_TEST"], answer: 1, explanation: "SNOWFLAKE.ML.ANOMALY_DETECTION creates a model that can detect anomalous data points in time series." },
+      { q: "What does temperature=0 mean in AI_COMPLETE?", options: ["The model is disabled", "Maximum randomness/creativity", "Most deterministic/consistent output", "Default behavior"], answer: 2, explanation: "Temperature 0 makes the model as deterministic as possible - same input should produce very similar output each time." },
+      { q: "Where must fine-tuning training data be stored?", options: ["In a Snowflake table", "On a Snowflake stage", "In an external S3 bucket", "In a Snowflake view"], answer: 1, explanation: "Fine-tuning training data (JSONL files) must be stored on a Snowflake stage." },
+      { q: "What is the relationship between Cortex Search warehouse and queries?", options: ["Warehouse runs every search query", "Warehouse builds/refreshes the index only; queries are serverless", "No warehouse needed at all", "Warehouse only needed for the initial build"], answer: 1, explanation: "The warehouse is used for building and refreshing the index. Search queries themselves are served serverlessly." },
+      { q: "How do you check a fine-tuning job status?", options: ["SHOW FINETUNE JOBS", "SELECT SNOWFLAKE.CORTEX.FINETUNE('DESCRIBE', job_id)", "DESCRIBE CORTEX MODEL model_name", "CALL SYSTEM$GET_JOB_STATUS(job_id)"], answer: 1, explanation: "Use SNOWFLAKE.CORTEX.FINETUNE('DESCRIBE', 'job_id') to check the status of a fine-tuning job." },
+      { q: "What filter operators does Cortex Search support?", options: ["WHERE, AND, OR, NOT", "@eq, @contains, @and, @or, @not", "LIKE, IN, BETWEEN", "=, !=, >, <"], answer: 1, explanation: "Cortex Search uses JSON-based filter syntax with operators: @eq, @contains, @and, @or, @not." },
+      { q: "Which is more cost-effective for simple sentiment analysis?", options: ["AI_COMPLETE with a large model", "AI_SENTIMENT (built-in function)", "Fine-tuned model", "External API call"], answer: 1, explanation: "AI_SENTIMENT is purpose-built and more cost-effective than using AI_COMPLETE with a large model for sentiment tasks." },
+      { q: "What does CLASSIFICATION in ML functions require for training?", options: ["Only numeric features", "A TARGET_COLNAME identifying the label column", "Pre-computed feature vectors", "A minimum of 10,000 rows"], answer: 1, explanation: "CLASSIFICATION requires a TARGET_COLNAME parameter pointing to the column containing class labels in training data." },
+      { q: "Can you use multiple embedding models in the same search workflow?", options: ["Yes, Snowflake handles dimension matching automatically", "No, you must use the same model for embedding and querying", "Yes, but only with VECTOR_L2_DISTANCE", "Only if dimensions happen to match"], answer: 1, explanation: "You must use the same embedding model for both generating stored embeddings and embedding the search query - dimensions must match." },
+      { q: "What happens if AI_COMPLETE input exceeds the model's context window?", options: ["It automatically truncates and continues", "It returns an error", "It splits into multiple requests", "It uses a larger model automatically"], answer: 1, explanation: "If input exceeds the model's token limit, the function returns an error. You must manage input size yourself." },
+      { q: "Which Cortex feature would you use to build a RAG (Retrieval Augmented Generation) application?", options: ["AI_COMPLETE alone", "Cortex Search + AI_COMPLETE", "FORECAST + AI_SUMMARIZE", "AI_TRANSLATE + AI_EXTRACT"], answer: 1, explanation: "RAG combines retrieval (Cortex Search finds relevant documents) with generation (AI_COMPLETE generates answers based on retrieved context)." },
+      { q: "What is the primary advantage of Cortex over external AI APIs?", options: ["Lower latency", "Data governance - data never leaves Snowflake", "More model choices", "Free usage tier"], answer: 1, explanation: "The key advantage is data governance: your data stays within Snowflake's secure infrastructure, maintaining all existing access controls and compliance." }
+    ];
+
+    var correctCount = 0;
+    var totalAnswered = 0;
+
+    function renderQuiz() {
+      var container = document.getElementById('quiz');
+      container.innerHTML = '';
+      for (var i = 0; i < questions.length; i++) {
+        var qDiv = document.createElement('div');
+        qDiv.className = 'question';
+        qDiv.setAttribute('data-index', i);
+        var html = '<h3>Q' + (i + 1) + ': ' + questions[i].q + '</h3>';
+        for (var j = 0; j < questions[i].options.length; j++) {
+          html += '<div class="option" data-q="' + i + '" data-opt="' + j + '">' + String.fromCharCode(65 + j) + '. ' + questions[i].options[j] + '</div>';
+        }
+        html += '<div class="explanation" id="exp-' + i + '"><strong>Explanation:</strong> ' + questions[i].explanation + '</div>';
+        qDiv.innerHTML = html;
+        container.appendChild(qDiv);
+      }
+    }
+
+    function handleClick(e) {
+      var el = e.target;
+      if (!el.classList.contains('option')) return;
+      var qIdx = parseInt(el.getAttribute('data-q'));
+      var optIdx = parseInt(el.getAttribute('data-opt'));
+      var qDiv = el.closest('.question');
+      if (qDiv.classList.contains('answered')) return;
+      qDiv.classList.add('answered');
+      totalAnswered++;
+      if (optIdx === questions[qIdx].answer) {
+        el.classList.add('correct');
+        correctCount++;
+      } else {
+        el.classList.add('incorrect');
+        var opts = qDiv.querySelectorAll('.option');
+        opts[questions[qIdx].answer].classList.add('correct');
+      }
+      document.getElementById('exp-' + qIdx).classList.add('show');
+      document.getElementById('correct').textContent = correctCount;
+      document.getElementById('total').textContent = totalAnswered;
+      document.getElementById('pct').textContent = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
+    }
+
+    function resetQuiz() {
+      correctCount = 0;
+      totalAnswered = 0;
+      document.getElementById('correct').textContent = '0';
+      document.getElementById('total').textContent = '0';
+      document.getElementById('pct').textContent = '0';
+      renderQuiz();
+    }
+
+    document.getElementById('quiz').addEventListener('click', handleClick);
+    document.getElementById('resetBtn').addEventListener('click', resetQuiz);
+    renderQuiz();
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Cortex AI Edge Cases | SnowPro Core</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Edge cases, gotchas, and tricky exam scenarios for Cortex AI on the SnowPro Core certification",
+    "sections": [
+      { "id": "region-availability", "title": "Model Availability by Region", "dataSources": [], "producerNotes": "Not all models available everywhere" },
+      { "id": "token-limits", "title": "Token Limits", "dataSources": [], "producerNotes": "Context windows per model" },
+      { "id": "rate-limits", "title": "Rate Limits", "dataSources": [], "producerNotes": "Throttling behavior" },
+      { "id": "search-edge-cases", "title": "Cortex Search Edge Cases", "dataSources": [], "producerNotes": "TARGET_LAG, column types, doc size" },
+      { "id": "embedding-edge-cases", "title": "Embedding Edge Cases", "dataSources": [], "producerNotes": "Dimension mismatches" },
+      { "id": "cost-edge-cases", "title": "Cost Edge Cases", "dataSources": [], "producerNotes": "Expensive patterns" },
+      { "id": "ml-edge-cases", "title": "ML Function Edge Cases", "dataSources": [], "producerNotes": "Min data, frequencies" },
+      { "id": "analyst-limitations", "title": "Cortex Analyst Limitations", "dataSources": [], "producerNotes": "Complex query failures" },
+      { "id": "exam-scenarios", "title": "Exam Scenario Questions", "dataSources": [], "producerNotes": "10 tricky scenarios" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+      max-width: 960px; margin: 0 auto; padding: 24px;
+      color: light-dark(#2d1b69, #e8e0f7);
+      background: light-dark(#f8f5ff, #1a1025);
+      line-height: 1.6;
+    }
+    h1 { color: light-dark(#4c1d95, #c4b5fd); border-bottom: 3px solid light-dark(#7c3aed, #6d28d9); padding-bottom: 8px; }
+    h2 { color: light-dark(#5b21b6, #a78bfa); margin-top: 32px; border-left: 4px solid light-dark(#7c3aed, #8b5cf6); padding-left: 12px; }
+    h3 { color: light-dark(#6d28d9, #c4b5fd); }
+    .card {
+      background: light-dark(#ffffff, #2d1f4e);
+      border: 1px solid light-dark(#e9d5ff, #4c1d95);
+      border-radius: 8px; padding: 16px; margin: 12px 0;
+      box-shadow: 0 2px 4px light-dark(rgba(124,58,237,0.1), rgba(0,0,0,0.3));
+    }
+    .warning {
+      background: light-dark(#fef3c7, #451a03);
+      border: 1px solid light-dark(#f59e0b, #92400e);
+      border-radius: 8px; padding: 12px 16px; margin: 12px 0;
+    }
+    .warning::before { content: "GOTCHA: "; font-weight: bold; color: light-dark(#d97706, #fbbf24); }
+    .critical {
+      background: light-dark(#fee2e2, #450a0a);
+      border: 1px solid light-dark(#f87171, #991b1b);
+      border-radius: 8px; padding: 12px 16px; margin: 12px 0;
+    }
+    .critical::before { content: "CRITICAL: "; font-weight: bold; color: light-dark(#dc2626, #f87171); }
+    .highlight {
+      background: light-dark(#ede9fe, #3b1f7a);
+      border-left: 4px solid light-dark(#8b5cf6, #a78bfa);
+      padding: 12px 16px; margin: 12px 0; border-radius: 0 6px 6px 0;
+    }
+    code {
+      background: light-dark(#f3e8ff, #2e1065);
+      padding: 2px 6px; border-radius: 4px; font-size: 0.9em;
+      color: light-dark(#6d28d9, #c4b5fd);
+    }
+    pre {
+      background: light-dark(#1e1b4b, #0f0a1f);
+      color: #e8e0f7; padding: 16px; border-radius: 8px;
+      overflow-x: auto; font-size: 0.85em;
+    }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { border: 1px solid light-dark(#ddd6fe, #4c1d95); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#ede9fe, #2e1065); font-weight: 600; color: light-dark(#4c1d95, #c4b5fd); }
+    tr:nth-child(even) { background: light-dark(#f5f3ff, #1e1045); }
+    .scenario {
+      background: light-dark(#ffffff, #2d1f4e);
+      border: 1px solid light-dark(#e9d5ff, #4c1d95);
+      border-radius: 8px; padding: 16px; margin: 12px 0; cursor: pointer;
+    }
+    .scenario h3 { margin-top: 0; }
+    .scenario .answer { display: none; margin-top: 10px; padding: 10px 14px; background: light-dark(#d1fae5, #064e3b); border-radius: 6px; }
+    .scenario .answer.show { display: block; }
+    ul, ol { padding-left: 24px; }
+    li { margin: 4px 0; }
+  </style>
+</head>
+<body>
+
+  <h1>23.4 Cortex AI - Edge Cases & Gotchas</h1>
+  <p>Tricky details that appear on exam questions. Master these to avoid common mistakes.</p>
+
+  <h2 id="region-availability">Model Availability by Region</h2>
+  <div class="card">
+    <h3>Key Facts</h3>
+    <ul>
+      <li><strong>Not all models are available in all Snowflake regions</strong></li>
+      <li>AWS US regions typically have the widest model availability</li>
+      <li>Azure and GCP regions may have fewer models</li>
+      <li>New models are rolled out to regions progressively</li>
+      <li>Region availability can be checked in Snowflake documentation</li>
+    </ul>
+    <table>
+      <thead><tr><th>Scenario</th><th>What Happens</th></tr></thead>
+      <tbody>
+        <tr><td>Model not available in your region</td><td>Error: model not available</td></tr>
+        <tr><td>Model deprecated/renamed</td><td>Error until you update model name</td></tr>
+        <tr><td>Cross-region replication with Cortex</td><td>Must verify model availability in target region</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="warning">If you deploy a Cortex-dependent pipeline to a different region, it may fail because the model isn't available there. Always verify region support before migration.</div>
+
+  <h2 id="token-limits">Token Limits per Model</h2>
+  <div class="card">
+    <table>
+      <thead><tr><th>Model</th><th>Context Window</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>mistral-7b</td><td>~32K tokens</td><td>Good for short-medium text</td></tr>
+        <tr><td>mixtral-8x7b</td><td>~32K tokens</td><td>MoE architecture</td></tr>
+        <tr><td>mistral-large2</td><td>~128K tokens</td><td>Large context window</td></tr>
+        <tr><td>llama3.1-8b</td><td>~128K tokens</td><td>Good context for small model</td></tr>
+        <tr><td>llama3.1-70b</td><td>~128K tokens</td><td>Large context + capability</td></tr>
+        <tr><td>llama3.1-405b</td><td>~128K tokens</td><td>Largest open model</td></tr>
+        <tr><td>jamba-1.5-mini</td><td>~256K tokens</td><td>Longest context (mini)</td></tr>
+        <tr><td>jamba-1.5-large</td><td>~256K tokens</td><td>Longest context (large)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="critical">Token limits include BOTH input AND output. A 32K context model with 30K input tokens leaves only ~2K for the response. Always account for the output budget.</div>
+
+  <div class="warning">1 token is approximately 4 characters or 0.75 words in English. A 2000-word document is roughly 2,600 tokens. Multi-language text may tokenize differently (more tokens per word).</div>
+
+  <h2 id="rate-limits">Rate Limits & Throttling</h2>
+  <div class="card">
+    <ul>
+      <li><strong>Per-account rate limits</strong> - Concurrent request caps vary by model and account tier</li>
+      <li><strong>Throttling behavior</strong> - Excess requests are queued or return errors</li>
+      <li><strong>Larger models = lower throughput</strong> - 405B models handle fewer concurrent requests than 7B</li>
+      <li><strong>Batch processing impact</strong> - Large table scans with AI functions may hit limits</li>
+      <li><strong>No guaranteed SLA on latency</strong> - Response time varies with load and model</li>
+    </ul>
+  </div>
+
+  <div class="highlight">
+    <strong>Mitigation strategies:</strong>
+    <ul>
+      <li>Process large tables in batches (LIMIT/OFFSET or partitioned queries)</li>
+      <li>Use smaller models when possible (faster, higher throughput)</li>
+      <li>Cache results in tables to avoid reprocessing</li>
+      <li>Implement retry logic in applications calling Cortex</li>
+    </ul>
+  </div>
+
+  <h2 id="search-edge-cases">Cortex Search Edge Cases</h2>
+  <div class="card">
+    <h3>TARGET_LAG Gotchas</h3>
+    <ul>
+      <li><strong>Not real-time</strong> - Even '1 minute' lag means searches may miss very recent changes</li>
+      <li><strong>Cost increases with smaller lag</strong> - More frequent refreshes = more warehouse credits</li>
+      <li><strong>Refresh uses specified warehouse</strong> - Must be running or set to auto-resume</li>
+      <li><strong>Initial build can be slow</strong> - Large datasets take time for first index build</li>
+      <li><strong>Warehouse suspension</strong> - If warehouse suspends, refresh waits until next resume</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Column Type Restrictions</h3>
+    <ul>
+      <li>ON column must be <strong>VARCHAR</strong> (text only - no VARIANT, BINARY, etc.)</li>
+      <li>ATTRIBUTES columns: VARCHAR, NUMBER, BOOLEAN, DATE, TIMESTAMP</li>
+      <li>Cannot search over ARRAY, OBJECT, or VARIANT columns directly</li>
+      <li>Text must be extracted/flattened before indexing semi-structured data</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Document Size Limits</h3>
+    <ul>
+      <li>Individual text values have a maximum token limit for indexing</li>
+      <li>Very long documents should be chunked before indexing</li>
+      <li>Chunking strategy affects search quality (overlap recommended)</li>
+      <li>The search service handles ranking across chunks internally</li>
+    </ul>
+  </div>
+
+  <div class="warning">If your source table has NULL values in the ON column, those rows are skipped during indexing. They will never appear in search results.</div>
+
+  <h2 id="embedding-edge-cases">Embedding Edge Cases</h2>
+  <div class="card">
+    <h3>Dimension Mismatches</h3>
+    <table>
+      <thead><tr><th>Model</th><th>Vector Dimensions</th></tr></thead>
+      <tbody>
+        <tr><td>snowflake-arctic-embed-m-v1.5</td><td>768</td></tr>
+        <tr><td>snowflake-arctic-embed-l-v2.0</td><td>1024</td></tr>
+        <tr><td>e5-base-v2</td><td>768</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="critical">You CANNOT compare vectors of different dimensions. If you embed documents with model A (768-dim) and queries with model B (1024-dim), VECTOR_COSINE_SIMILARITY will ERROR. Always use the same model for both storage and query embeddings.</div>
+
+  <div class="card">
+    <h3>Other Embedding Gotchas</h3>
+    <ul>
+      <li><strong>Empty string</strong> - Embedding an empty string returns a valid vector (all near-zero), which may cause false matches</li>
+      <li><strong>Token overflow</strong> - Text exceeding model's input limit is truncated (not errored)</li>
+      <li><strong>Language sensitivity</strong> - Arctic models optimized for English; other languages may have lower quality</li>
+      <li><strong>VECTOR column type is fixed</strong> - Must specify dimensions at table creation: <code>VECTOR(FLOAT, 768)</code></li>
+      <li><strong>Cannot change model after embedding</strong> - Re-embedding entire table needed if switching models</li>
+    </ul>
+  </div>
+
+  <h2 id="cost-edge-cases">Cost Edge Cases</h2>
+  <div class="card">
+    <h3>Expensive Patterns</h3>
+    <table>
+      <thead><tr><th>Pattern</th><th>Why It's Expensive</th><th>Mitigation</th></tr></thead>
+      <tbody>
+        <tr><td>AI_COMPLETE on every row of large table</td><td>Per-token cost x millions of rows</td><td>Pre-filter, sample, or batch</td></tr>
+        <tr><td>Large system prompts repeated per row</td><td>System prompt tokens billed every call</td><td>Minimize prompt, use smaller model</td></tr>
+        <tr><td>405B model for simple classification</td><td>10-50x cost of 7B model</td><td>Use smallest sufficient model</td></tr>
+        <tr><td>Re-embedding unchanged text</td><td>Unnecessary reprocessing</td><td>Only embed new/changed rows</td></tr>
+        <tr><td>Low TARGET_LAG on volatile table</td><td>Constant index rebuilds</td><td>Increase lag if freshness not critical</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="warning">A 1000-token system prompt applied to 1M rows means 1 BILLION input tokens just for system prompts. At large-model rates, this could cost thousands of credits.</div>
+
+  <div class="card">
+    <h3>Row-by-Row vs. Batch</h3>
+    <ul>
+      <li><strong>Row-by-row</strong> (SELECT AI_COMPLETE(...) FROM table) - Each row is a separate API call</li>
+      <li><strong>No true batch discount</strong> - Cost is the same per token regardless of batch size</li>
+      <li><strong>Concurrency limits</strong> - Too many simultaneous rows may hit rate limits</li>
+      <li><strong>Best practice</strong> - Process in controlled chunks, store results incrementally</li>
+    </ul>
+  </div>
+
+  <h2 id="ml-edge-cases">ML Function Edge Cases</h2>
+
+  <h3>FORECAST Requirements</h3>
+  <div class="card">
+    <ul>
+      <li><strong>Minimum data points</strong> - At least 2 full seasonal cycles + additional observations (varies by frequency)</li>
+      <li><strong>Regular frequency required</strong> - Data must have consistent time intervals (daily, hourly, etc.)</li>
+      <li><strong>Supported frequencies</strong> - Second, minute, hour, day, week, month, quarter, year</li>
+      <li><strong>Missing values</strong> - Gaps in time series can cause errors or poor predictions</li>
+      <li><strong>Single target column</strong> - Forecasts one numeric column at a time</li>
+      <li><strong>No exogenous variables in basic mode</strong> - Limited external feature support</li>
+    </ul>
+  </div>
+
+  <div class="warning">FORECAST will fail if your time series has irregular intervals (e.g., only weekday data with no weekend rows). You must either fill gaps or specify the frequency explicitly.</div>
+
+  <h3>ANOMALY_DETECTION Requirements</h3>
+  <div class="card">
+    <ul>
+      <li><strong>Minimum training data</strong> - Needs sufficient "normal" data to learn patterns (at least 12 data points)</li>
+      <li><strong>Cold start problem</strong> - New metrics with little history may produce poor results</li>
+      <li><strong>Seasonality assumption</strong> - Works best with regular patterns; random data yields many false positives</li>
+      <li><strong>Unsupervised vs. supervised</strong> - Without labels, relies entirely on statistical detection</li>
+      <li><strong>prediction_interval</strong> - Higher values (0.99) mean fewer anomalies detected; lower (0.90) means more</li>
+    </ul>
+  </div>
+
+  <h3>CLASSIFICATION Limitations</h3>
+  <div class="card">
+    <ul>
+      <li><strong>Minimum samples per class</strong> - Each class needs sufficient examples for training</li>
+      <li><strong>Imbalanced classes</strong> - Very rare classes may be poorly predicted</li>
+      <li><strong>Feature types</strong> - Handles numeric and categorical automatically, but not free text</li>
+      <li><strong>No feature engineering control</strong> - Automated, cannot specify custom transformations</li>
+      <li><strong>Model is a Snowflake object</strong> - Persists until explicitly dropped</li>
+    </ul>
+  </div>
+
+  <h2 id="analyst-limitations">Cortex Analyst Limitations</h2>
+  <div class="card">
+    <ul>
+      <li><strong>Requires semantic view</strong> - Cannot work without a properly defined semantic model</li>
+      <li><strong>Complex queries may fail</strong> - Multi-hop joins, window functions, or advanced analytics may not generate correctly</li>
+      <li><strong>Ambiguous questions</strong> - Vague questions produce unreliable SQL</li>
+      <li><strong>Schema changes break it</strong> - If underlying tables change, semantic view must be updated</li>
+      <li><strong>No write operations</strong> - Cannot generate INSERT, UPDATE, DELETE (read-only queries)</li>
+      <li><strong>Verified queries improve but don't guarantee accuracy</strong></li>
+      <li><strong>Limited to supported SQL patterns</strong> - May not handle recursive CTEs, PIVOT, etc.</li>
+      <li><strong>Performance depends on underlying query</strong> - Generated SQL runs against actual tables with real costs</li>
+    </ul>
+  </div>
+
+  <div class="critical">Cortex Analyst generates SQL based on the semantic view. If the semantic view has incorrect join definitions or wrong column mappings, the generated SQL will be wrong - garbage in, garbage out.</div>
+
+  <h2 id="exam-scenarios">Exam Scenario Questions</h2>
+  <p>Click each scenario to reveal the answer.</p>
+
+  <div class="scenario" id="s1">
+    <h3>Scenario 1</h3>
+    <p>A team runs <code>AI_COMPLETE('llama3.1-70b', text_col)</code> on a 50-million row table. The query runs for hours and eventually fails. What is the most likely cause?</p>
+    <div class="answer" id="a1"><strong>Answer:</strong> Rate limiting/throttling. Processing 50M rows creates 50M API calls, exceeding per-account concurrency limits. <strong>Solution:</strong> Process in batches, use LIMIT/OFFSET, or pre-filter to reduce row count. Also consider if a smaller model or a different function (AI_SENTIMENT, AI_CLASSIFY) would suffice.</div>
+  </div>
+
+  <div class="scenario" id="s2">
+    <h3>Scenario 2</h3>
+    <p>You create embeddings with <code>snowflake-arctic-embed-m-v1.5</code> for 1M documents. Later you want to switch to <code>snowflake-arctic-embed-l-v2.0</code> for better quality. Can you just re-embed the search queries?</p>
+    <div class="answer" id="a2"><strong>Answer:</strong> No. The models produce different dimensions (768 vs 1024). VECTOR_COSINE_SIMILARITY will error on dimension mismatch. You must re-embed ALL stored documents with the new model, not just the queries.</div>
+  </div>
+
+  <div class="scenario" id="s3">
+    <h3>Scenario 3</h3>
+    <p>A Cortex Search Service with TARGET_LAG='1 minute' is created. The source table is updated, but searches don't show the new data even after 5 minutes. Why?</p>
+    <div class="answer" id="a3"><strong>Answer:</strong> Most likely the specified warehouse is suspended and not set to auto-resume. The refresh operation needs the warehouse running. Also possible: the refresh errored silently, or the new rows have NULL in the ON column (skipped during indexing).</div>
+  </div>
+
+  <div class="scenario" id="s4">
+    <h3>Scenario 4</h3>
+    <p>A user grants <code>SNOWFLAKE.CORTEX_USER</code> to their role but still gets permission errors when running AI_COMPLETE. What might be wrong?</p>
+    <div class="answer" id="a4"><strong>Answer:</strong> The grant syntax must be: <code>GRANT DATABASE ROLE SNOWFLAKE.CORTEX_USER TO ROLE my_role;</code> - it's a DATABASE ROLE, not an account role. If they used <code>GRANT ROLE SNOWFLAKE.CORTEX_USER...</code> it would fail. Also, they need USAGE on the SNOWFLAKE database.</div>
+  </div>
+
+  <div class="scenario" id="s5">
+    <h3>Scenario 5</h3>
+    <p>AI_SENTIMENT returns 0.02 for a customer review that says "The product works fine." Is this a bug?</p>
+    <div class="answer" id="a5"><strong>Answer:</strong> No. "Works fine" is a neutral statement - neither strongly positive nor negative. A score near 0 correctly indicates neutral sentiment. Only strongly emotional text produces values near -1 or +1.</div>
+  </div>
+
+  <div class="scenario" id="s6">
+    <h3>Scenario 6</h3>
+    <p>You deploy a pipeline using <code>mistral-large2</code> in AWS US-East-1. The same pipeline is replicated to Azure West Europe and starts failing. Why?</p>
+    <div class="answer" id="a6"><strong>Answer:</strong> Model availability varies by region and cloud provider. mistral-large2 may not be available in the Azure West Europe region. You must verify model availability in the target region and potentially use an alternative model.</div>
+  </div>
+
+  <div class="scenario" id="s7">
+    <h3>Scenario 7</h3>
+    <p>A FORECAST model is created on daily sales data from the last 2 months. It returns an error about insufficient data. The data has 60 rows. Why?</p>
+    <div class="answer" id="a7"><strong>Answer:</strong> If the data has weekly seasonality, FORECAST needs at least 2 full seasonal cycles. But the real issue is likely missing weekends (only ~42 actual data points) or the model detecting a seasonal pattern that requires more history to establish. Filling gaps or providing more historical data resolves this.</div>
+  </div>
+
+  <div class="scenario" id="s8">
+    <h3>Scenario 8</h3>
+    <p>A team uses AI_COMPLETE with a 800-token system prompt for sentiment classification on 2M rows. The monthly Cortex bill is extremely high. What's the best optimization?</p>
+    <div class="answer" id="a8"><strong>Answer:</strong> Replace AI_COMPLETE + long system prompt with <code>AI_SENTIMENT</code> (purpose-built, much cheaper). The 800-token system prompt x 2M rows = 1.6B unnecessary input tokens. AI_SENTIMENT is designed for exactly this use case and costs a fraction per token.</div>
+  </div>
+
+  <div class="scenario" id="s9">
+    <h3>Scenario 9</h3>
+    <p>A Cortex Analyst query for "show me revenue by quarter for the last 3 years" returns incorrect data. The semantic view was last updated 6 months ago. What happened?</p>
+    <div class="answer" id="a9"><strong>Answer:</strong> If the underlying table schema changed in the last 6 months (columns renamed, new tables added, join paths modified), the semantic view is stale. The generated SQL references old schema that may produce wrong results or errors. The semantic view must be updated to match current schema.</div>
+  </div>
+
+  <div class="scenario" id="s10">
+    <h3>Scenario 10</h3>
+    <p>An application calls AI_COMPLETE with temperature=0 twice with the identical prompt but gets slightly different responses. Is this expected?</p>
+    <div class="answer" id="a10"><strong>Answer:</strong> Yes, this can happen. Temperature=0 makes the model "most deterministic" but doesn't guarantee bit-for-bit identical responses across calls. Hardware, batching, and numerical precision can cause minor variations. For exact reproducibility, cache the first result.</div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.scenario').forEach(function(scenario) {
+      scenario.addEventListener('click', function() {
+        var answer = this.querySelector('.answer');
+        answer.classList.toggle('show');
+      });
+    });
+  </script>
+
+</body>
+</html>

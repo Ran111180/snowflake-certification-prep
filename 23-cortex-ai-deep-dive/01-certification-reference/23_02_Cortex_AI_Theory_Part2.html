@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Cortex AI Theory Part 2 - Advanced | SnowPro Core</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "SnowPro Core certification prep - Advanced Cortex AI topics including fine-tuning, Document AI, ML functions, RBAC, and cost model",
+    "sections": [
+      { "id": "ai-complete-advanced", "title": "AI_COMPLETE Advanced", "dataSources": [], "producerNotes": "System prompts, temperature, multi-turn chat, structured output" },
+      { "id": "document-ai", "title": "Document AI", "dataSources": [], "producerNotes": "AI_PARSE_DOCUMENT and AI_EXTRACT for documents" },
+      { "id": "fine-tuning", "title": "Cortex Fine-tuning", "dataSources": [], "producerNotes": "FINETUNE function and custom models" },
+      { "id": "cortex-search-deep", "title": "Cortex Search Deep Dive", "dataSources": [], "producerNotes": "Full syntax and configuration" },
+      { "id": "cortex-analyst-deep", "title": "Cortex Analyst Deep Dive", "dataSources": [], "producerNotes": "Semantic views and verified queries" },
+      { "id": "ml-functions", "title": "ML Functions", "dataSources": [], "producerNotes": "FORECAST, ANOMALY_DETECTION, CLASSIFICATION" },
+      { "id": "cost-model", "title": "Cost Model", "dataSources": [], "producerNotes": "Per-token billing" },
+      { "id": "rbac", "title": "RBAC for Cortex", "dataSources": [], "producerNotes": "Roles and privileges" },
+      { "id": "best-practices", "title": "Best Practices", "dataSources": [], "producerNotes": "Model selection, prompt engineering, cost management" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+      max-width: 960px; margin: 0 auto; padding: 24px;
+      color: light-dark(#2d1b69, #e8e0f7);
+      background: light-dark(#f8f5ff, #1a1025);
+      line-height: 1.6;
+    }
+    h1 { color: light-dark(#4c1d95, #c4b5fd); border-bottom: 3px solid light-dark(#7c3aed, #6d28d9); padding-bottom: 8px; }
+    h2 { color: light-dark(#5b21b6, #a78bfa); margin-top: 32px; border-left: 4px solid light-dark(#7c3aed, #8b5cf6); padding-left: 12px; }
+    h3 { color: light-dark(#6d28d9, #c4b5fd); }
+    .card {
+      background: light-dark(#ffffff, #2d1f4e);
+      border: 1px solid light-dark(#e9d5ff, #4c1d95);
+      border-radius: 8px; padding: 16px; margin: 12px 0;
+      box-shadow: 0 2px 4px light-dark(rgba(124,58,237,0.1), rgba(0,0,0,0.3));
+    }
+    .highlight {
+      background: light-dark(#ede9fe, #3b1f7a);
+      border-left: 4px solid light-dark(#8b5cf6, #a78bfa);
+      padding: 12px 16px; margin: 12px 0; border-radius: 0 6px 6px 0;
+    }
+    code {
+      background: light-dark(#f3e8ff, #2e1065);
+      padding: 2px 6px; border-radius: 4px; font-size: 0.9em;
+      color: light-dark(#6d28d9, #c4b5fd);
+    }
+    pre {
+      background: light-dark(#1e1b4b, #0f0a1f);
+      color: #e8e0f7; padding: 16px; border-radius: 8px;
+      overflow-x: auto; font-size: 0.85em;
+    }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { border: 1px solid light-dark(#ddd6fe, #4c1d95); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#ede9fe, #2e1065); font-weight: 600; color: light-dark(#4c1d95, #c4b5fd); }
+    tr:nth-child(even) { background: light-dark(#f5f3ff, #1e1045); }
+    .exam-tip {
+      background: light-dark(#fef3c7, #451a03);
+      border: 1px solid light-dark(#f59e0b, #92400e);
+      border-radius: 8px; padding: 12px 16px; margin: 12px 0;
+    }
+    .exam-tip::before { content: "EXAM TIP: "; font-weight: bold; color: light-dark(#d97706, #fbbf24); }
+    ul, ol { padding-left: 24px; }
+    li { margin: 4px 0; }
+  </style>
+</head>
+<body>
+
+  <h1>23.2 Cortex AI Theory - Part 2: Advanced</h1>
+  <p>Deep dive into AI_COMPLETE options, Document AI, fine-tuning, ML functions, costs, and RBAC.</p>
+
+  <h2 id="ai-complete-advanced">AI_COMPLETE - Advanced Usage</h2>
+
+  <h3>System Prompts & Temperature</h3>
+  <div class="card">
+    <pre>-- Using system prompt with options
+SELECT SNOWFLAKE.CORTEX.AI_COMPLETE(
+  'mistral-large2',
+  [
+    {'role': 'system', 'content': 'You are a helpful data analyst. Be concise.'},
+    {'role': 'user', 'content': 'What is a materialized view?'}
+  ],
+  {
+    'temperature': 0.2,    -- 0=deterministic, 1=creative
+    'max_tokens': 500,     -- maximum output length
+    'top_p': 0.9           -- nucleus sampling
+  }
+);</pre>
+    <table>
+      <thead><tr><th>Option</th><th>Type</th><th>Range</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>temperature</td><td>FLOAT</td><td>0 to 1</td><td>Controls randomness. 0 = deterministic, 1 = most creative</td></tr>
+        <tr><td>max_tokens</td><td>INTEGER</td><td>1 to model max</td><td>Maximum number of tokens in the response</td></tr>
+        <tr><td>top_p</td><td>FLOAT</td><td>0 to 1</td><td>Nucleus sampling - considers tokens with cumulative probability &le; top_p</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Multi-Turn Chat (Message Array)</h3>
+  <div class="card">
+    <p>AI_COMPLETE supports conversation history via an ARRAY of message objects:</p>
+    <pre>SELECT SNOWFLAKE.CORTEX.AI_COMPLETE(
+  'mistral-large2',
+  [
+    {'role': 'system', 'content': 'You are a Snowflake expert.'},
+    {'role': 'user', 'content': 'What is a virtual warehouse?'},
+    {'role': 'assistant', 'content': 'A virtual warehouse is a cluster of compute...'},
+    {'role': 'user', 'content': 'How do I resize one?'}
+  ]
+);</pre>
+    <p><strong>Message roles:</strong></p>
+    <ul>
+      <li><code>system</code> - Sets behavior/persona (optional, at most one, first message)</li>
+      <li><code>user</code> - The human/user messages</li>
+      <li><code>assistant</code> - Previous AI responses (for context)</li>
+    </ul>
+  </div>
+
+  <h3>Structured Output</h3>
+  <div class="card">
+    <pre>-- Request JSON output via prompt engineering
+SELECT PARSE_JSON(
+  SNOWFLAKE.CORTEX.AI_COMPLETE(
+    'mistral-large2',
+    'Extract the following as JSON with keys name, age, city: 
+     "John is 30 years old and lives in Seattle"'
+  )
+) AS structured_result;</pre>
+    <ul>
+      <li>Use prompt engineering to request structured (JSON) output</li>
+      <li>Wrap result with PARSE_JSON for further processing</li>
+      <li>System prompt can enforce output format</li>
+    </ul>
+  </div>
+
+  <div class="exam-tip">When AI_COMPLETE receives an ARRAY (messages), it operates in chat mode. When it receives a VARCHAR (single string), it operates in simple completion mode. Both are valid.</div>
+
+  <h2 id="document-ai">Document AI</h2>
+
+  <h3>AI_PARSE_DOCUMENT</h3>
+  <div class="card">
+    <p>Extracts text content from documents (PDFs, images) using OCR and text extraction.</p>
+    <pre>-- Parse a PDF from a stage
+SELECT SNOWFLAKE.CORTEX.AI_PARSE_DOCUMENT(
+  '@my_stage',           -- stage reference
+  'reports/q4_report.pdf',  -- relative path in stage
+  {'mode': 'layout'}    -- options: 'layout' or 'ocr'
+);
+
+-- Parse with OCR mode for scanned documents
+SELECT SNOWFLAKE.CORTEX.AI_PARSE_DOCUMENT(
+  '@my_stage',
+  'scanned_invoice.png',
+  {'mode': 'ocr'}
+);</pre>
+    <ul>
+      <li><strong>layout mode</strong> - For digital PDFs with selectable text (faster)</li>
+      <li><strong>ocr mode</strong> - For scanned documents/images (uses OCR)</li>
+      <li>Returns structured text content from the document</li>
+      <li>Supports PDF, PNG, JPEG, TIFF formats</li>
+    </ul>
+  </div>
+
+  <h3>AI_EXTRACT for Documents</h3>
+  <div class="card">
+    <pre>-- Extract structured fields from parsed document text
+SELECT SNOWFLAKE.CORTEX.AI_EXTRACT(
+  parsed_text,
+  ['invoice_number', 'total_amount', 'vendor_name', 'due_date']
+) FROM parsed_documents;</pre>
+    <p>Combine AI_PARSE_DOCUMENT + AI_EXTRACT for end-to-end document processing pipeline.</p>
+  </div>
+
+  <h2 id="fine-tuning">Cortex Fine-Tuning</h2>
+  <div class="card">
+    <h3>Overview</h3>
+    <p>Fine-tune supported base models on your custom data to improve task-specific performance.</p>
+    <pre>-- Create a fine-tuning job
+SELECT SNOWFLAKE.CORTEX.FINETUNE(
+  'CREATE',
+  'mistral-7b',                    -- base model
+  '@my_stage/training_data.jsonl', -- training data
+  '@my_stage/validation_data.jsonl', -- validation data (optional)
+  'my_custom_model'                -- output model name
+);
+
+-- Check fine-tuning job status
+SELECT SNOWFLAKE.CORTEX.FINETUNE('DESCRIBE', 'job_id_here');
+
+-- Use the fine-tuned model
+SELECT SNOWFLAKE.CORTEX.AI_COMPLETE('my_custom_model', 'Your prompt here');</pre>
+  </div>
+
+  <div class="card">
+    <h3>Training Data Format (JSONL)</h3>
+    <pre>{"messages": [{"role": "system", "content": "You are a classifier."}, {"role": "user", "content": "Classify: Server is down"}, {"role": "assistant", "content": "Critical"}]}
+{"messages": [{"role": "system", "content": "You are a classifier."}, {"role": "user", "content": "Classify: Button color wrong"}, {"role": "assistant", "content": "Low"}]}</pre>
+    <ul>
+      <li>JSONL format (one JSON object per line)</li>
+      <li>Each line contains a <code>messages</code> array with role/content pairs</li>
+      <li>Minimum training examples required (varies by model)</li>
+      <li>Consistent system prompt recommended across examples</li>
+    </ul>
+  </div>
+
+  <div class="exam-tip">Fine-tuning training data must be in JSONL format with a "messages" array. The data must be stored on a Snowflake stage. Not all models support fine-tuning.</div>
+
+  <h2 id="cortex-search-deep">Cortex Search Service - Deep Dive</h2>
+  <div class="card">
+    <h3>Full CREATE Syntax</h3>
+    <pre>CREATE OR REPLACE CORTEX SEARCH SERVICE db.schema.my_search_svc
+  ON text_column                    -- column to search over (must be VARCHAR)
+  ATTRIBUTES category, region, date -- filterable metadata columns
+  WAREHOUSE = compute_wh            -- warehouse for index operations
+  TARGET_LAG = '1 hour'             -- index freshness target
+  COMMENT = 'Product documentation search'
+  AS (
+    SELECT
+      text_column,
+      category,
+      region,
+      date,
+      product_id
+    FROM documentation_table
+    WHERE is_active = TRUE
+  );</pre>
+  </div>
+
+  <div class="card">
+    <h3>Search Query Options</h3>
+    <pre>-- Full search with filters
+SELECT PARSE_JSON(
+  SNOWFLAKE.CORTEX.SEARCH(
+    'my_search_svc',
+    '{
+      "query": "how to configure replication",
+      "columns": ["text_column", "category", "product_id"],
+      "filter": {"@eq": {"category": "admin-guide"}},
+      "limit": 10
+    }'
+  )
+);</pre>
+    <p><strong>Filter operators:</strong></p>
+    <ul>
+      <li><code>@eq</code> - Equals</li>
+      <li><code>@contains</code> - Contains value in array</li>
+      <li><code>@and</code> / <code>@or</code> / <code>@not</code> - Logical operators</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>TARGET_LAG Behavior</h3>
+    <ul>
+      <li>Specifies how stale the search index can be relative to source data</li>
+      <li>Smaller lag = more frequent rebuilds = higher cost</li>
+      <li>Minimum supported: <code>'1 minute'</code></li>
+      <li>Common values: '1 minute', '5 minutes', '1 hour', '1 day'</li>
+      <li>Uses the specified warehouse for refresh operations</li>
+    </ul>
+  </div>
+
+  <h2 id="cortex-analyst-deep">Cortex Analyst - Deep Dive</h2>
+  <div class="card">
+    <h3>Semantic View Structure</h3>
+    <pre>-- Semantic view defines business logic for Cortex Analyst
+CREATE OR REPLACE SEMANTIC VIEW revenue_model
+  COMMENT = 'Revenue analysis semantic model'
+  -- Semantic views reference tables and define:
+  -- - Entities (tables with business names)
+  -- - Dimensions (categorical/descriptive columns)
+  -- - Measures (numeric aggregatable columns)  
+  -- - Time dimensions (date/timestamp columns)
+  -- - Relationships (joins between tables)
+  -- - Verified queries (known Q&A pairs for accuracy)
+;</pre>
+  </div>
+
+  <div class="card">
+    <h3>Verified Queries</h3>
+    <p>Pre-defined question-SQL pairs that improve accuracy:</p>
+    <ul>
+      <li>Teach Cortex Analyst the "correct" SQL for common questions</li>
+      <li>Act as few-shot examples during query generation</li>
+      <li>Reduce hallucination for frequently asked questions</li>
+      <li>Should cover the most important/common business questions</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Calling Cortex Analyst</h3>
+    <pre>-- Via REST API or Streamlit integration
+-- The analyst generates SQL from natural language
+-- Example flow:
+-- User: "What was total revenue last quarter by region?"
+-- Analyst generates: SELECT region, SUM(revenue) FROM sales 
+--                    WHERE quarter = 'Q4-2025' GROUP BY region
+-- Returns: structured results</pre>
+  </div>
+
+  <h2 id="ml-functions">ML Functions (Built-in Models)</h2>
+
+  <h3>FORECAST - Time Series Prediction</h3>
+  <div class="card">
+    <pre>-- Step 1: Create a forecast model
+CREATE OR REPLACE SNOWFLAKE.ML.FORECAST my_forecast_model(
+  INPUT_DATA => SYSTEM$REFERENCE('VIEW', 'sales_time_series'),
+  TIMESTAMP_COLNAME => 'sale_date',
+  TARGET_COLNAME => 'daily_revenue'
+);
+
+-- Step 2: Generate predictions
+CALL my_forecast_model!FORECAST(
+  FORECASTING_PERIODS => 30,      -- predict 30 periods ahead
+  CONFIG_OBJECT => {'prediction_interval': 0.95}
+);</pre>
+    <ul>
+      <li>Automated time series forecasting (no ML expertise needed)</li>
+      <li>Supports multiple series (e.g., forecast per region)</li>
+      <li>Returns point predictions + confidence intervals</li>
+      <li>Handles seasonality, trends automatically</li>
+    </ul>
+  </div>
+
+  <h3>ANOMALY_DETECTION</h3>
+  <div class="card">
+    <pre>-- Create anomaly detection model
+CREATE OR REPLACE SNOWFLAKE.ML.ANOMALY_DETECTION my_anomaly_model(
+  INPUT_DATA => SYSTEM$REFERENCE('VIEW', 'server_metrics'),
+  TIMESTAMP_COLNAME => 'metric_time',
+  TARGET_COLNAME => 'cpu_usage',
+  LABEL_COLNAME => ''  -- unsupervised (no labels)
+);
+
+-- Detect anomalies
+CALL my_anomaly_model!DETECT_ANOMALIES(
+  INPUT_DATA => SYSTEM$REFERENCE('VIEW', 'new_metrics'),
+  TIMESTAMP_COLNAME => 'metric_time',
+  TARGET_COLNAME => 'cpu_usage',
+  CONFIG_OBJECT => {'prediction_interval': 0.99}
+);</pre>
+    <ul>
+      <li>Detects outliers in time series data</li>
+      <li>Supports supervised (with labels) and unsupervised modes</li>
+      <li>Returns is_anomaly flag + anomaly score</li>
+    </ul>
+  </div>
+
+  <h3>CLASSIFICATION</h3>
+  <div class="card">
+    <pre>-- Create classification model
+CREATE OR REPLACE SNOWFLAKE.ML.CLASSIFICATION my_classifier(
+  INPUT_DATA => SYSTEM$REFERENCE('VIEW', 'training_data'),
+  TARGET_COLNAME => 'churn_label'
+);
+
+-- Predict on new data
+SELECT my_classifier!PREDICT(
+  INPUT_DATA => OBJECT_CONSTRUCT(*)
+) AS prediction
+FROM new_customers;</pre>
+    <ul>
+      <li>Binary and multi-class classification</li>
+      <li>Automated feature engineering</li>
+      <li>Returns predicted class + probability scores</li>
+      <li>No hyperparameter tuning needed</li>
+    </ul>
+  </div>
+
+  <div class="exam-tip">ML functions (FORECAST, ANOMALY_DETECTION, CLASSIFICATION) use a two-step pattern: (1) CREATE the model object, (2) CALL the model's method (FORECAST, DETECT_ANOMALIES, or PREDICT).</div>
+
+  <h2 id="cost-model">Cost Model</h2>
+  <div class="card">
+    <h3>Per-Token Billing</h3>
+    <table>
+      <thead><tr><th>Component</th><th>Billing Basis</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>LLM Functions (AI_COMPLETE)</td><td>Credits per 1M tokens</td><td>Input + output tokens counted separately</td></tr>
+        <tr><td>AI_SENTIMENT, AI_SUMMARIZE, etc.</td><td>Credits per 1M tokens</td><td>Uses built-in models</td></tr>
+        <tr><td>AI_EMBED_TEXT</td><td>Credits per 1M tokens</td><td>Based on input text length</td></tr>
+        <tr><td>Cortex Search</td><td>Serverless credits</td><td>Index build + query serving</td></tr>
+        <tr><td>Fine-tuning</td><td>Credits per training token</td><td>One-time training cost + inference cost</td></tr>
+        <tr><td>ML Functions</td><td>Serverless credits</td><td>Model training + prediction</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Cost factors:</strong></p>
+    <ul>
+      <li>Model size: Larger models cost more per token</li>
+      <li>Input length: Longer prompts = more tokens = higher cost</li>
+      <li>Output length: Longer responses cost more</li>
+      <li>Batch size: Processing millions of rows adds up quickly</li>
+    </ul>
+  </div>
+
+  <div class="highlight">
+    <strong>Cost Optimization Tips:</strong>
+    <ul>
+      <li>Use the smallest model that meets quality requirements</li>
+      <li>Set <code>max_tokens</code> to limit output length</li>
+      <li>Pre-filter data before applying AI functions</li>
+      <li>Cache results for repeated queries (store in tables)</li>
+      <li>Use AI_SENTIMENT/AI_SUMMARIZE (cheaper) instead of AI_COMPLETE when possible</li>
+    </ul>
+  </div>
+
+  <h2 id="rbac">RBAC for Cortex</h2>
+  <div class="card">
+    <h3>Required Privileges</h3>
+    <table>
+      <thead><tr><th>Action</th><th>Required Role/Privilege</th></tr></thead>
+      <tbody>
+        <tr><td>Use LLM functions</td><td>SNOWFLAKE.CORTEX_USER database role</td></tr>
+        <tr><td>Create Cortex Search Service</td><td>CREATE CORTEX SEARCH SERVICE on schema + USAGE on warehouse</td></tr>
+        <tr><td>Query Cortex Search</td><td>USAGE on the search service</td></tr>
+        <tr><td>Fine-tune models</td><td>SNOWFLAKE.CORTEX_USER + CREATE SNOWFLAKE.ML.FINETUNE</td></tr>
+        <tr><td>Create ML models</td><td>CREATE SNOWFLAKE.ML.* on schema</td></tr>
+        <tr><td>Use Cortex Analyst</td><td>Access to semantic view + underlying tables</td></tr>
+      </tbody>
+    </table>
+    <pre>-- Grant Cortex access to a role
+GRANT DATABASE ROLE SNOWFLAKE.CORTEX_USER TO ROLE analyst_role;
+
+-- Grant Cortex Search usage
+GRANT USAGE ON CORTEX SEARCH SERVICE my_db.my_schema.my_svc 
+  TO ROLE analyst_role;</pre>
+  </div>
+
+  <div class="exam-tip">The <code>SNOWFLAKE.CORTEX_USER</code> database role is required to use Cortex LLM functions. This is a DATABASE ROLE in the SNOWFLAKE database, not an account role.</div>
+
+  <h2 id="best-practices">Best Practices</h2>
+
+  <h3>Model Selection</h3>
+  <div class="card">
+    <table>
+      <thead><tr><th>Use Case</th><th>Recommended Model</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Simple classification/extraction</td><td>mistral-7b, llama3.1-8b</td><td>Fast, cheap, sufficient quality</td></tr>
+        <tr><td>Complex reasoning/analysis</td><td>mistral-large2, llama3.1-70b</td><td>Better understanding</td></tr>
+        <tr><td>Highest quality needed</td><td>llama3.1-405b, claude-3-5-sonnet</td><td>Best reasoning capability</td></tr>
+        <tr><td>Semantic search embeddings</td><td>snowflake-arctic-embed-m-v1.5</td><td>Purpose-built, good balance</td></tr>
+        <tr><td>Long documents</td><td>jamba-1.5-large</td><td>Large context window</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Prompt Engineering</h3>
+  <div class="card">
+    <ul>
+      <li><strong>Be specific</strong> - Clear instructions produce better results</li>
+      <li><strong>Use system prompts</strong> - Set persona and constraints upfront</li>
+      <li><strong>Provide examples</strong> - Few-shot examples in the prompt improve consistency</li>
+      <li><strong>Request format</strong> - Ask for JSON, bullet points, or specific structure</li>
+      <li><strong>Set temperature appropriately</strong> - Low (0-0.3) for factual, high (0.7-1) for creative</li>
+      <li><strong>Limit output</strong> - Use max_tokens to control costs and response length</li>
+    </ul>
+  </div>
+
+  <h3>Cost Management</h3>
+  <div class="card">
+    <ul>
+      <li><strong>Right-size models</strong> - Don't use 405B for simple sentiment analysis</li>
+      <li><strong>Batch intelligently</strong> - Process in batches, store results, avoid reprocessing</li>
+      <li><strong>Pre-filter data</strong> - Apply WHERE clauses before AI functions</li>
+      <li><strong>Monitor usage</strong> - Use ACCOUNT_USAGE views to track Cortex consumption</li>
+      <li><strong>Set resource monitors</strong> - Alert on unexpected Cortex spending</li>
+      <li><strong>Cache results</strong> - Store AI outputs in tables for repeated access</li>
+    </ul>
+  </div>
+
+</body>
+</html>
