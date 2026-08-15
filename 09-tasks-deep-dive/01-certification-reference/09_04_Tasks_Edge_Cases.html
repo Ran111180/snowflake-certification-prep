@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Tasks - Edge Cases & Recovery (Part 3)</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Tasks edge cases: DAG failures, suspension, concurrency, ownership transfer, serverless limits, WHEN clause",
+    "sections": [
+      { "id": "task-ddl", "title": "Task DDL Impact", "dataSources": [], "producerNotes": "CREATE OR REPLACE, ALTER, DROP" },
+      { "id": "dag-edge-cases", "title": "DAG/Task Graph Edge Cases", "dataSources": [], "producerNotes": "Predecessor failures, branching, cycles" },
+      { "id": "scheduling", "title": "Scheduling & Execution Edge Cases", "dataSources": [], "producerNotes": "Overlap, CRON, WHEN clause" },
+      { "id": "ownership", "title": "Ownership & Permissions Edge Cases", "dataSources": [], "producerNotes": "Role transfer, warehouse suspension" },
+      { "id": "serverless", "title": "Serverless Tasks Edge Cases", "dataSources": [], "producerNotes": "Limits, cost, cold start" },
+      { "id": "recovery", "title": "Recovery Playbook", "dataSources": [], "producerNotes": "Step-by-step procedures" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 32px 24px; color: light-dark(#1f2937, #e5e7eb); background: light-dark(#ffffff, #0f172a); line-height: 1.6; }
+    h1 { font-size: 2rem; color: light-dark(#0f172a, #f8fafc); margin-bottom: 8px; border-bottom: 3px solid light-dark(#7c3aed, #a78bfa); padding-bottom: 12px; }
+    h2 { font-size: 1.5rem; color: light-dark(#5b21b6, #c4b5fd); margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid light-dark(#ede9fe, #2e1065); }
+    h3 { font-size: 1.15rem; color: light-dark(#4c1d95, #ddd6fe); margin: 24px 0 12px; }
+    p { margin: 8px 0; }
+    .subtitle { color: light-dark(#6b7280, #9ca3af); font-size: 0.95rem; margin-bottom: 24px; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; }
+    th, td { border: 1px solid light-dark(#e5e7eb, #374151); padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: light-dark(#f5f3ff, #1e293b); font-weight: 600; color: light-dark(#5b21b6, #c4b5fd); }
+    tr:nth-child(even) td { background: light-dark(#f9fafb, #1a2332); }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 2px 6px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
+    pre { background: light-dark(#1e293b, #0c1322); color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; font-size: 0.85rem; line-height: 1.5; }
+    .card { background: light-dark(#f5f3ff, #1e293b); border: 1px solid light-dark(#c4b5fd, #334155); border-radius: 8px; padding: 20px; margin: 16px 0; }
+    .card-title { font-weight: 700; color: light-dark(#5b21b6, #c4b5fd); margin-bottom: 8px; }
+    .warning { background: light-dark(#fef3c7, #451a03); border-left: 4px solid light-dark(#f59e0b, #fbbf24); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .info { background: light-dark(#dbeafe, #172554); border-left: 4px solid light-dark(#3b82f6, #60a5fa); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .success { background: light-dark(#d1fae5, #022c22); border-left: 4px solid light-dark(#10b981, #34d399); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .danger { background: light-dark(#fee2e2, #450a0a); border-left: 4px solid light-dark(#ef4444, #f87171); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; }
+    .toc { background: light-dark(#f8fafc, #1e293b); border: 1px solid light-dark(#e2e8f0, #334155); border-radius: 8px; padding: 20px; margin: 24px 0; }
+    .toc a { color: light-dark(#7c3aed, #a78bfa); text-decoration: none; }
+    .toc ul { list-style: none; padding-left: 0; }
+    .toc li { padding: 4px 0; }
+    ul, ol { padding-left: 24px; margin: 8px 0; }
+    li { margin: 4px 0; }
+    .status-safe { color: light-dark(#059669, #34d399); font-weight: 600; }
+    .status-danger { color: light-dark(#dc2626, #f87171); font-weight: 600; }
+    .status-warn { color: light-dark(#d97706, #fbbf24); font-weight: 600; }
+    .recovery-box { background: light-dark(#f0fdf4, #022c22); border: 2px solid light-dark(#86efac, #166534); border-radius: 12px; padding: 24px; margin: 20px 0; }
+    .recovery-box h3 { color: light-dark(#065f46, #6ee7b7); margin-top: 0; }
+  </style>
+</head>
+<body>
+
+<h1>Tasks - Part 3: Edge Cases & Recovery</h1>
+<p class="subtitle">SnowPro Core Certification | Task DAGs, scheduling pitfalls, and production issues | August 2026</p>
+
+<div class="toc">
+  <strong>Table of Contents</strong>
+  <ul>
+    <li><a href="#task-ddl">1. Task DDL Impact (CREATE OR REPLACE, ALTER, DROP)</a></li>
+    <li><a href="#dag-edge-cases">2. DAG / Task Graph Edge Cases</a></li>
+    <li><a href="#scheduling">3. Scheduling & Execution Edge Cases</a></li>
+    <li><a href="#ownership">4. Ownership, Permissions & Warehouse Edge Cases</a></li>
+    <li><a href="#serverless">5. Serverless Tasks Edge Cases</a></li>
+    <li><a href="#streams-interaction">6. Streams + Tasks Interaction Edge Cases</a></li>
+    <li><a href="#recovery">7. Recovery Playbook</a></li>
+    <li><a href="#exam-scenarios">8. Exam Scenario Questions</a></li>
+  </ul>
+</div>
+
+<!-- SECTION 1: TASK DDL -->
+<h2 id="task-ddl">1. Task DDL Impact</h2>
+
+<table>
+  <thead><tr><th>DDL Operation</th><th>Task State</th><th>Schedule</th><th>History</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>CREATE OR REPLACE TASK</code></td>
+      <td><span class="status-danger">SUSPENDED</span> — always starts suspended</td>
+      <td>New schedule applies</td>
+      <td><span class="status-warn">Old history preserved</span> in ACCOUNT_USAGE</td>
+    </tr>
+    <tr>
+      <td><code>ALTER TASK ... SUSPEND</code></td>
+      <td><span class="status-warn">SUSPENDED</span> — stops scheduling</td>
+      <td>Preserved but inactive</td>
+      <td>Preserved — shows when suspended</td>
+    </tr>
+    <tr>
+      <td><code>ALTER TASK ... RESUME</code></td>
+      <td><span class="status-safe">STARTED</span> — begins scheduling</td>
+      <td>Active from next scheduled time</td>
+      <td>New runs added to history</td>
+    </tr>
+    <tr>
+      <td><code>DROP TASK</code></td>
+      <td><span class="status-danger">GONE</span></td>
+      <td><span class="status-danger">Gone</span></td>
+      <td>History in ACCOUNT_USAGE for 365 days</td>
+    </tr>
+    <tr>
+      <td><code>ALTER TASK ... SET SCHEDULE</code></td>
+      <td>Must be SUSPENDED first!</td>
+      <td>New schedule from next resume</td>
+      <td>Preserved</td>
+    </tr>
+    <tr>
+      <td><code>ALTER TASK ... SET WAREHOUSE</code></td>
+      <td>Must be SUSPENDED first!</td>
+      <td>Unchanged</td>
+      <td>Preserved</td>
+    </tr>
+    <tr>
+      <td><code>ALTER TASK ... MODIFY WHEN</code></td>
+      <td>Must be SUSPENDED first!</td>
+      <td>Unchanged</td>
+      <td>Preserved</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="danger">
+  <strong>Critical Rule:</strong> ALL tasks start as SUSPENDED after creation. You MUST explicitly <code>ALTER TASK ... RESUME</code>. For DAGs, resume children FIRST, then the root task — otherwise the root fires before children are ready.
+</div>
+
+<h3>The Resume Order Rule (DAGs)</h3>
+<pre>-- CORRECT order: Resume leaf → middle → root
+ALTER TASK child_task_c RESUME;
+ALTER TASK child_task_b RESUME;
+ALTER TASK child_task_a RESUME;
+ALTER TASK root_task RESUME;  -- Last!
+
+-- WRONG order: Root first
+ALTER TASK root_task RESUME;  -- Fires immediately!
+ALTER TASK child_task_a RESUME;  -- Too late, root already ran
+-- Result: Root ran but children were suspended → children skipped
+
+-- SUSPEND order: Opposite — root first, then children
+ALTER TASK root_task SUSPEND;  -- Stop scheduling first
+ALTER TASK child_task_a SUSPEND;
+ALTER TASK child_task_b SUSPEND;</pre>
+
+<!-- SECTION 2: DAG EDGE CASES -->
+<h2 id="dag-edge-cases">2. DAG / Task Graph Edge Cases</h2>
+
+<table>
+  <thead><tr><th>Scenario</th><th>What Happens</th><th>Risk</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Predecessor task FAILS</strong></td>
+      <td>All downstream tasks are SKIPPED for that run. They don't execute.</td>
+      <td><span class="status-danger">Data gap</span> — downstream tables not updated</td>
+    </tr>
+    <tr>
+      <td><strong>Predecessor task SKIPPED</strong> (WHEN condition false)</td>
+      <td>Downstream tasks still RUN! SKIPPED ≠ FAILED. Successors execute normally.</td>
+      <td><span class="status-warn">Unexpected execution</span> — successors may process empty data</td>
+    </tr>
+    <tr>
+      <td><strong>Circular dependency (A→B→A)</strong></td>
+      <td>Snowflake prevents this at creation time. Error: "Circular dependency detected."</td>
+      <td><span class="status-safe">Blocked</span> — can't create</td>
+    </tr>
+    <tr>
+      <td><strong>Root task execution overlaps with previous run</strong></td>
+      <td>Snowflake SKIPS the new run. Tasks don't run concurrently with themselves.</td>
+      <td><span class="status-warn">Missed execution</span> — schedule fires but skip occurs</td>
+    </tr>
+    <tr>
+      <td><strong>Child task takes longer than root schedule interval</strong></td>
+      <td>Next root run waits until entire DAG completes. If it can't, next run is skipped.</td>
+      <td><span class="status-warn">Schedule drift</span></td>
+    </tr>
+    <tr>
+      <td><strong>ALLOW_OVERLAPPING_EXECUTION = TRUE</strong></td>
+      <td>Multiple instances of the same DAG can run concurrently. Dangerous for stateful operations.</td>
+      <td><span class="status-danger">Race conditions</span> — possible duplicates or conflicts</td>
+    </tr>
+    <tr>
+      <td><strong>Finalizer task</strong></td>
+      <td>Runs AFTER all tasks complete (success or failure). Used for cleanup/alerting.</td>
+      <td><span class="status-safe">Safety net</span></td>
+    </tr>
+    <tr>
+      <td><strong>DAG with 100+ tasks</strong></td>
+      <td>Limit: 1000 tasks per DAG. But deep chains add latency (sequential scheduling overhead).</td>
+      <td><span class="status-warn">Performance</span> — keep DAGs wide, not deep</td>
+    </tr>
+    <tr>
+      <td><strong>Root task has AFTER clause</strong></td>
+      <td>ERROR. Root tasks define SCHEDULE, not AFTER. Only child tasks use AFTER.</td>
+      <td><span class="status-safe">Blocked</span></td>
+    </tr>
+    <tr>
+      <td><strong>Multiple root tasks in one schema</strong></td>
+      <td>Allowed. Each root task is an independent DAG. They don't interact.</td>
+      <td><span class="status-safe">Normal</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="info">
+  <strong>Key Distinction:</strong> FAILED predecessor → downstream SKIPPED. But WHEN condition evaluates to FALSE (SKIPPED) → downstream still RUNS. This is a common exam trap.
+</div>
+
+<h3>Predecessor Failure Behavior</h3>
+<pre>-- DAG: root_task → task_a → task_b → task_c
+
+-- If task_a FAILS:
+-- task_b: SKIPPED (predecessor failed)
+-- task_c: SKIPPED (predecessor chain broken)
+-- Finalizer task (if any): RUNS (always runs)
+
+-- If task_a is SKIPPED (WHEN = FALSE):
+-- task_b: RUNS (skipped ≠ failed)
+-- task_c: RUNS
+-- This is the #1 exam trap for task DAGs!</pre>
+
+<!-- SECTION 3: SCHEDULING -->
+<h2 id="scheduling">3. Scheduling & Execution Edge Cases</h2>
+
+<table>
+  <thead><tr><th>Scenario</th><th>What Happens</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>SCHEDULE = '1 MINUTE' but SQL takes 5 minutes</strong></td>
+      <td>Next scheduled run at minute 2, 3, 4 are all SKIPPED (task still running). Runs again at minute 6.</td>
+    </tr>
+    <tr>
+      <td><strong>CRON schedule: timezone DST change</strong></td>
+      <td>Task follows the specified timezone. During DST spring-forward: one run is skipped. Fall-back: one extra run.</td>
+    </tr>
+    <tr>
+      <td><strong>WHEN clause + SCHEDULE together</strong></td>
+      <td>Task wakes at SCHEDULE interval, evaluates WHEN. If false, task is SKIPPED (not failed). Successors still run.</td>
+    </tr>
+    <tr>
+      <td><strong>WHEN clause uses SYSTEM$STREAM_HAS_DATA</strong></td>
+      <td>If stream is empty, WHEN=FALSE, task is skipped. No compute charged for the skip (serverless tasks).</td>
+    </tr>
+    <tr>
+      <td><strong>EXECUTE TASK (manual trigger)</strong></td>
+      <td>Runs the task immediately, ignoring schedule and WHEN clause. Counts as a normal execution. Triggers children.</td>
+    </tr>
+    <tr>
+      <td><strong>EXECUTE TASK on a child task</strong></td>
+      <td>ERROR. Only root tasks can be manually triggered. Child tasks require predecessor completion.</td>
+    </tr>
+    <tr>
+      <td><strong>Task AUTO_SUSPENDED (SUSPEND_TASK_AFTER_NUM_FAILURES)</strong></td>
+      <td>After N consecutive failures, Snowflake auto-suspends the task. Default: no auto-suspend (unlimited retries).</td>
+    </tr>
+    <tr>
+      <td><strong>Warehouse suspended/dropped while task runs</strong></td>
+      <td>Current run fails. Task retries on next schedule. If warehouse doesn't exist: fails every time until fixed.</td>
+    </tr>
+    <tr>
+      <td><strong>Task schedule: '60 MINUTES' vs CRON '0 * * * *'</strong></td>
+      <td>INTERVAL: 60 min from last completion. CRON: exactly at :00 every hour regardless of last run. CRON is wall-clock aligned.</td>
+    </tr>
+    <tr>
+      <td><strong>SCHEDULE = '1 MINUTE' (minimum)</strong></td>
+      <td>1 minute is the minimum interval for user-managed tasks. Serverless tasks: also 1 minute minimum.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="warning">
+  <strong>INTERVAL vs CRON:</strong><br/>
+  INTERVAL = relative (from last completion). If a run takes 3 min, next run starts at completion + interval.<br/>
+  CRON = absolute (wall clock). Runs at fixed times regardless of previous execution duration.
+</div>
+
+<!-- SECTION 4: OWNERSHIP & PERMISSIONS -->
+<h2 id="ownership">4. Ownership, Permissions & Warehouse Edge Cases</h2>
+
+<table>
+  <thead><tr><th>Scenario</th><th>What Happens</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Task owner role dropped</strong></td>
+      <td>Task becomes orphaned. Still exists but can't run (no role to execute as).</td>
+      <td>GRANT OWNERSHIP to a new role</td>
+    </tr>
+    <tr>
+      <td><strong>Warehouse privilege revoked from task owner</strong></td>
+      <td>Task fails every scheduled run with "insufficient privileges".</td>
+      <td>Grant USAGE on warehouse back to owner role</td>
+    </tr>
+    <tr>
+      <td><strong>EXECUTE TASK privilege not granted</strong></td>
+      <td>ACCOUNTADMIN owns task but developer can't manually trigger it.</td>
+      <td>GRANT EXECUTE TASK ON ACCOUNT TO ROLE developer_role;</td>
+    </tr>
+    <tr>
+      <td><strong>Task references table it doesn't have access to</strong></td>
+      <td>Task fails at runtime with access error. Scheduling still fires normally.</td>
+      <td>Grant SELECT/INSERT on required tables to task owner role</td>
+    </tr>
+    <tr>
+      <td><strong>OWNERSHIP transferred while task is STARTED</strong></td>
+      <td>Task automatically SUSPENDED during transfer. Must be manually resumed by new owner.</td>
+      <td>New owner must RESUME the task</td>
+    </tr>
+    <tr>
+      <td><strong>Serverless task: no warehouse needed</strong></td>
+      <td>Serverless tasks use Snowflake-managed compute. No warehouse required or used.</td>
+      <td>Set USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE instead of WAREHOUSE</td>
+    </tr>
+    <tr>
+      <td><strong>Warehouse auto-suspended during task execution</strong></td>
+      <td>Won't happen — warehouse stays active while a query is running. Auto-suspend applies only after idle.</td>
+      <td>Not a real problem</td>
+    </tr>
+    <tr>
+      <td><strong>Multiple tasks sharing one warehouse</strong></td>
+      <td>All tasks compete for the same warehouse resources. Queries queue if warehouse is maxed.</td>
+      <td>Separate warehouses for critical vs non-critical tasks</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="danger">
+  <strong>Exam Alert:</strong> When task OWNERSHIP is transferred, the task is <strong>automatically SUSPENDED</strong>. The new owner must explicitly resume it. This is a security feature to prevent unauthorized execution under new roles.
+</div>
+
+<!-- SECTION 5: SERVERLESS TASKS -->
+<h2 id="serverless">5. Serverless Tasks Edge Cases</h2>
+
+<div class="card">
+  <div class="card-title">Serverless vs User-Managed Tasks</div>
+  <p>Serverless tasks use Snowflake-managed compute (no warehouse). They auto-scale but have different limits and billing model.</p>
+</div>
+
+<table>
+  <thead><tr><th>Aspect</th><th>Serverless Task</th><th>User-Managed Task</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Warehouse</td>
+      <td>None needed (Snowflake-managed)</td>
+      <td>Must specify WAREHOUSE</td>
+    </tr>
+    <tr>
+      <td>Sizing</td>
+      <td>USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE (auto-adjusts)</td>
+      <td>Fixed warehouse size</td>
+    </tr>
+    <tr>
+      <td>Cold start</td>
+      <td><span class="status-warn">Yes</span> — first run after idle may have startup delay</td>
+      <td>Depends on warehouse suspend/resume</td>
+    </tr>
+    <tr>
+      <td>Cost model</td>
+      <td>Per-second compute × 1.5x serverless multiplier</td>
+      <td>Warehouse credit consumption</td>
+    </tr>
+    <tr>
+      <td>Max concurrent</td>
+      <td>Limited by account-level serverless credit quota</td>
+      <td>Limited by warehouse concurrency</td>
+    </tr>
+    <tr>
+      <td>WHEN clause evaluation</td>
+      <td><span class="status-safe">FREE</span> — no compute charged for WHEN=FALSE</td>
+      <td><span class="status-warn">Warehouse starts</span> just to evaluate WHEN</td>
+    </tr>
+    <tr>
+      <td>EXECUTE TASK</td>
+      <td>Supported — runs on serverless compute</td>
+      <td>Supported — runs on specified warehouse</td>
+    </tr>
+    <tr>
+      <td>Require privilege</td>
+      <td>EXECUTE MANAGED TASK on account</td>
+      <td>EXECUTE TASK on account + USAGE on warehouse</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="info">
+  <strong>Cost Advantage of Serverless + WHEN clause:</strong> If a task checks <code>SYSTEM$STREAM_HAS_DATA</code> and the stream is empty, serverless tasks charge NOTHING. User-managed tasks would still start the warehouse (and incur 60s minimum credit) just to evaluate the condition.
+</div>
+
+<!-- SECTION 6: STREAMS + TASKS -->
+<h2 id="streams-interaction">6. Streams + Tasks Interaction Edge Cases</h2>
+
+<table>
+  <thead><tr><th>Scenario</th><th>What Happens</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Task fails AFTER reading stream</strong></td>
+      <td><span class="status-safe">SAFE.</span> Stream offset only advances on successful COMMIT. Failed task = rollback = stream data preserved for retry.</td>
+    </tr>
+    <tr>
+      <td><strong>Stream goes stale while task is suspended</strong></td>
+      <td>Task resumes, tries to read stream, gets error "stream is stale". Task execution fails.</td>
+    </tr>
+    <tr>
+      <td><strong>WHEN SYSTEM$STREAM_HAS_DATA but stream is stale</strong></td>
+      <td>WHEN evaluation itself may fail or return FALSE. Task might not fire at all, hiding the staleness problem.</td>
+    </tr>
+    <tr>
+      <td><strong>Two tasks reading same stream</strong></td>
+      <td><span class="status-danger">Race condition.</span> First task to commit consumes the data. Second task sees empty stream.</td>
+    </tr>
+    <tr>
+      <td><strong>Task processes stream but INSERT fails (target full/permissions)</strong></td>
+      <td>Transaction rolls back. Stream data preserved. But task may keep failing until root cause fixed.</td>
+    </tr>
+    <tr>
+      <td><strong>Stream + Task + MERGE: source row updated 5 times between runs</strong></td>
+      <td>Stream shows only the NET CHANGE (final state). MERGE sees one row, not 5. This is correct behavior.</td>
+    </tr>
+    <tr>
+      <td><strong>ALLOW_OVERLAPPING_EXECUTION + Stream</strong></td>
+      <td><span class="status-danger">Dangerous.</span> Two concurrent task instances both try to consume same stream. One succeeds, other gets empty result.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- SECTION 7: RECOVERY -->
+<h2 id="recovery">7. Recovery Playbook</h2>
+
+<div class="recovery-box">
+  <h3>Scenario A: Task Auto-Suspended After Repeated Failures</h3>
+  <pre>-- 1. Check what happened
+SELECT *
+FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY(
+  TASK_NAME => 'my_task',
+  SCHEDULED_TIME_RANGE_START => DATEADD(days, -7, CURRENT_TIMESTAMP())
+))
+WHERE STATE = 'FAILED'
+ORDER BY SCHEDULED_TIME DESC
+LIMIT 10;
+
+-- 2. Read the error message from ERROR_MESSAGE column
+-- Common causes: permission revoked, table dropped, warehouse unavailable
+
+-- 3. Fix the root cause (grant permissions, recreate table, etc.)
+
+-- 4. Resume the task
+ALTER TASK my_task RESUME;
+
+-- 5. Verify it runs successfully
+EXECUTE TASK my_task;  -- Manual test run</pre>
+</div>
+
+<div class="recovery-box">
+  <h3>Scenario B: DAG Child Task Keeps Failing (Blocking Pipeline)</h3>
+  <pre>-- 1. Identify the failing child
+SELECT TASK_NAME, STATE, ERROR_MESSAGE, SCHEDULED_TIME
+FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY())
+WHERE ROOT_TASK_ID = (SELECT TASK_ID FROM INFORMATION_SCHEMA.TASKS
+                      WHERE TASK_NAME = 'root_task')
+  AND STATE = 'FAILED'
+ORDER BY SCHEDULED_TIME DESC LIMIT 10;
+
+-- 2. Suspend the entire DAG (root first)
+ALTER TASK root_task SUSPEND;
+
+-- 3. Fix the child task
+ALTER TASK failing_child SUSPEND;
+ALTER TASK failing_child SET AS = 'fixed SQL statement here';
+
+-- 4. Resume in correct order (children first, root last)
+ALTER TASK failing_child RESUME;
+ALTER TASK root_task RESUME;
+
+-- 5. Test manually
+EXECUTE TASK root_task;</pre>
+</div>
+
+<div class="recovery-box">
+  <h3>Scenario C: Task Running But Producing Wrong Results</h3>
+  <pre>-- 1. Suspend immediately to stop further damage
+ALTER TASK my_task SUSPEND;
+
+-- 2. Check when it started going wrong
+SELECT SCHEDULED_TIME, STATE, RETURN_VALUE
+FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY(TASK_NAME => 'my_task'))
+ORDER BY SCHEDULED_TIME DESC LIMIT 20;
+
+-- 3. Time Travel the target table to before the bad runs
+CREATE TABLE target_table_fixed CLONE target_table
+  AT(TIMESTAMP => '2026-08-14 10:00:00'::TIMESTAMP_LTZ);
+
+-- 4. Swap tables
+ALTER TABLE target_table RENAME TO target_table_bad;
+ALTER TABLE target_table_fixed RENAME TO target_table;
+
+-- 5. Fix the task SQL, recreate stream if needed
+ALTER TASK my_task SUSPEND;
+ALTER TASK my_task SET AS = 'corrected SQL';
+-- If stream was consumed during bad runs, may need to recreate:
+-- CREATE OR REPLACE STREAM my_stream ON TABLE source
+--   AT(TIMESTAMP => '2026-08-14 10:00:00'::TIMESTAMP_LTZ);
+
+-- 6. Resume
+ALTER TASK my_task RESUME;</pre>
+</div>
+
+<div class="recovery-box">
+  <h3>Scenario D: Ownership Transfer Gone Wrong</h3>
+  <pre>-- Task was transferred and auto-suspended. New owner didn't know.
+
+-- 1. Find suspended tasks owned by a role
+SHOW TASKS IN SCHEMA my_db.my_schema;
+-- Look for state = 'suspended' with the new owner role
+
+-- 2. As new owner, verify the task is safe to run
+SELECT GET_DDL('TASK', 'my_task');  -- Review what it does
+
+-- 3. Ensure the new owner has all required privileges
+-- (warehouse usage, table access, etc.)
+
+-- 4. Resume
+ALTER TASK my_task RESUME;</pre>
+</div>
+
+<div class="recovery-box">
+  <h3>Scenario E: Schedule Drift (Tasks Running Behind)</h3>
+  <pre>-- Task set to '5 MINUTE' but actual runs are 20 min apart
+
+-- 1. Check execution duration
+SELECT TASK_NAME,
+       SCHEDULED_TIME,
+       COMPLETED_TIME,
+       DATEDIFF(second, QUERY_START_TIME, COMPLETED_TIME) AS duration_sec
+FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY(TASK_NAME => 'my_task'))
+ORDER BY SCHEDULED_TIME DESC LIMIT 10;
+
+-- 2. If duration > schedule interval: runs are being skipped
+-- Options:
+-- a) Optimize the SQL (reduce runtime)
+-- b) Use a larger warehouse
+-- c) Increase the schedule interval to match reality
+-- d) Switch to serverless (auto-scales compute)
+
+ALTER TASK my_task SUSPEND;
+ALTER TASK my_task SET
+  USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = 'MEDIUM';  -- Serverless, bigger compute
+ALTER TASK my_task UNSET WAREHOUSE;  -- Remove warehouse = becomes serverless
+ALTER TASK my_task RESUME;</pre>
+</div>
+
+<!-- SECTION 8: EXAM SCENARIOS -->
+<h2 id="exam-scenarios">8. Exam Scenario Questions</h2>
+
+<table>
+  <thead><tr><th>Scenario</th><th>Correct Answer</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>"A root task's predecessor fails. What happens to downstream tasks?"</td>
+      <td>All downstream tasks are SKIPPED for that run. They don't execute. A finalizer (if configured) still runs.</td>
+    </tr>
+    <tr>
+      <td>"A task's WHEN clause evaluates to FALSE. Do successor tasks run?"</td>
+      <td>YES. SKIPPED (WHEN=false) ≠ FAILED. Successor tasks STILL execute. Only FAILED predecessors block successors.</td>
+    </tr>
+    <tr>
+      <td>"A task is created. Does it start running immediately?"</td>
+      <td>NO. All tasks start SUSPENDED. Must explicitly ALTER TASK ... RESUME to activate.</td>
+    </tr>
+    <tr>
+      <td>"Task OWNERSHIP is transferred to a new role. What's the task state after transfer?"</td>
+      <td>SUSPENDED. Ownership transfer auto-suspends the task. New owner must resume it.</td>
+    </tr>
+    <tr>
+      <td>"Can you run EXECUTE TASK on a child task in a DAG?"</td>
+      <td>NO. Only the ROOT task can be manually executed. Child tasks can only be triggered by predecessor completion.</td>
+    </tr>
+    <tr>
+      <td>"A task runs every 5 minutes but takes 8 minutes to complete. What happens?"</td>
+      <td>Scheduled runs at minutes 5 and 10 are SKIPPED (task still running). Next run starts after completion (minute 8+).</td>
+    </tr>
+    <tr>
+      <td>"What privilege is needed to create serverless tasks?"</td>
+      <td>EXECUTE MANAGED TASK ON ACCOUNT (not EXECUTE TASK, which is for user-managed warehouse tasks).</td>
+    </tr>
+    <tr>
+      <td>"A serverless task's WHEN clause evaluates to FALSE. Is there a compute charge?"</td>
+      <td>NO. Serverless tasks don't charge for WHEN evaluation. User-managed tasks DO start the warehouse to evaluate.</td>
+    </tr>
+    <tr>
+      <td>"What is the minimum task schedule interval?"</td>
+      <td>1 minute. Both CRON (using '*/1 * * * *') and INTERVAL ('1 MINUTE') support 1-minute minimum.</td>
+    </tr>
+    <tr>
+      <td>"How do you resume a DAG correctly?"</td>
+      <td>Resume CHILDREN first, then ROOT last. If root resumes first, it fires before children are active = children skipped.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="danger">
+  <strong>Top 3 Exam Traps for Tasks:</strong>
+  <ol>
+    <li>SKIPPED (WHEN=false) vs FAILED — only FAILED blocks successors</li>
+    <li>All tasks start SUSPENDED — must explicitly RESUME</li>
+    <li>Ownership transfer auto-suspends — new owner must RESUME</li>
+  </ol>
+</div>
+
+<p style="margin-top: 40px; padding-top: 20px; border-top: 1px solid light-dark(#e5e7eb, #374151); color: light-dark(#6b7280, #9ca3af); font-size: 0.85rem;">
+  Tasks Edge Cases & Recovery - Part 3 | SnowPro Core Exam | August 15, 2026
+</p>
+
+</body>
+</html>
