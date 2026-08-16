@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Security Deep Dive - Theory Part 1: Fundamentals</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Data Security Deep Dive - Theory Part 1",
+  "topic": "25 - Data Security Fundamentals",
+  "certification": "SnowPro Core",
+  "version": "1.0",
+  "created": "2026-08-16",
+  "color_scheme": "red-rose"
+}
+</script>
+<style>
+  :root {
+    --bg-primary: light-dark(#fff5f5, #1a0a0a);
+    --bg-secondary: light-dark(#ffe4e6, #2d1215);
+    --bg-card: light-dark(#ffffff, #1f0d0f);
+    --text-primary: light-dark(#1a0a0a, #fce4e8);
+    --text-secondary: light-dark(#4a1520, #e8b4bc);
+    --accent: light-dark(#dc2626, #f87171);
+    --accent-secondary: light-dark(#be123c, #fb7185);
+    --border: light-dark(#fecdd3, #4a1520);
+    --code-bg: light-dark(#fff1f2, #2a1015);
+    --highlight: light-dark(#fef2f2, #2d1215);
+    --shadow: light-dark(rgba(220, 38, 38, 0.1), rgba(0, 0, 0, 0.3));
+  }
+  color-scheme: light dark;
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.7;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 2rem;
+    color: var(--accent);
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  h2 {
+    font-size: 1.5rem;
+    color: var(--accent-secondary);
+    margin: 2rem 0 1rem;
+    padding-left: 0.75rem;
+    border-left: 4px solid var(--accent);
+  }
+  h3 {
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    margin: 1.5rem 0 0.75rem;
+  }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    box-shadow: 0 2px 8px var(--shadow);
+  }
+  .card-header {
+    font-weight: 700;
+    color: var(--accent);
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    margin: 0.75rem 0;
+    white-space: pre-wrap;
+  }
+  code {
+    background: var(--code-bg);
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.85rem;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+  }
+  th {
+    background: var(--bg-secondary);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  tr:nth-child(even) { background: var(--highlight); }
+  ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+  li { margin: 0.4rem 0; }
+  .badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--bg-secondary);
+    color: var(--accent);
+    border: 1px solid var(--border);
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  .important {
+    background: var(--bg-secondary);
+    border-left: 4px solid var(--accent);
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .important strong { color: var(--accent); }
+  .section-divider {
+    border: none;
+    border-top: 2px dashed var(--border);
+    margin: 2.5rem 0;
+  }
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 0.5rem;
+    margin: 1rem 0;
+  }
+  .feature-item, .limitation-item {
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+  .feature-item { background: light-dark(#dcfce7, #14532d); border-left: 3px solid #16a34a; }
+  .limitation-item { background: light-dark(#fef9c3, #422006); border-left: 3px solid #ca8a04; }
+</style>
+</head>
+<body>
+
+<h1>25 - Data Security Deep Dive: Theory Part 1 (Fundamentals)</h1>
+<p><span class="badge">SnowPro Core</span> <span class="badge">Column-Level Security</span> <span class="badge">Row-Level Security</span> <span class="badge">Data Governance</span></p>
+
+<h2>1. Dynamic Data Masking</h2>
+
+<div class="card">
+  <div class="card-header">What is Dynamic Data Masking?</div>
+  <p>Dynamic Data Masking (DDM) applies a <strong>column-level security</strong> policy that selectively masks data at query time based on the user's role. The underlying data is never physically modified — masking is applied dynamically when results are returned.</p>
+  <ul>
+    <li>Policy is a <strong>schema-level object</strong> (lives in a database.schema)</li>
+    <li>Applied to a column, not a table</li>
+    <li>Only ONE masking policy per column</li>
+    <li>Works on views, tables, materialized views, and stages (external tables)</li>
+    <li>Policy body is a SQL expression that returns the same data type as the column</li>
+  </ul>
+</div>
+
+<h3>Creating a Masking Policy</h3>
+<pre>
+-- Basic masking policy syntax
+CREATE OR REPLACE MASKING POLICY mask_ssn
+  AS (val STRING) RETURNS STRING ->
+  CASE
+    WHEN CURRENT_ROLE() IN ('HR_ADMIN', 'SECURITYADMIN')
+      THEN val
+    ELSE '***-**-' || RIGHT(val, 4)
+  END;
+
+-- Using IS_ROLE_IN_SESSION (respects role hierarchy!)
+CREATE OR REPLACE MASKING POLICY mask_email
+  AS (val STRING) RETURNS STRING ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('DATA_ADMIN')
+      THEN val
+    ELSE REGEXP_REPLACE(val, '.+@', '****@')
+  END;
+</pre>
+
+<div class="important">
+  <strong>EXAM TIP:</strong> <code>CURRENT_ROLE()</code> checks the EXACT active role only. <code>IS_ROLE_IN_SESSION()</code> checks if the role is in the current session's role hierarchy (includes inherited roles). For exams, know the difference — IS_ROLE_IN_SESSION is the recommended approach.
+</div>
+
+<h3>Applying a Masking Policy</h3>
+<pre>
+-- Apply to a column
+ALTER TABLE employees
+  ALTER COLUMN ssn SET MASKING POLICY mask_ssn;
+
+-- Apply during table creation
+CREATE TABLE customers (
+  id NUMBER,
+  email STRING MASKING POLICY mask_email,
+  phone STRING MASKING POLICY mask_phone
+);
+
+-- Remove a masking policy
+ALTER TABLE employees
+  ALTER COLUMN ssn UNSET MASKING POLICY;
+
+-- Replace (must unset first, then set new one)
+ALTER TABLE employees ALTER COLUMN ssn UNSET MASKING POLICY;
+ALTER TABLE employees ALTER COLUMN ssn SET MASKING POLICY mask_ssn_v2;
+</pre>
+
+<hr class="section-divider">
+
+<h2>2. Row Access Policies</h2>
+
+<div class="card">
+  <div class="card-header">What is a Row Access Policy (RAP)?</div>
+  <p>A Row Access Policy provides <strong>row-level security</strong> by filtering rows at query time. The policy body returns a <strong>boolean</strong> — if TRUE, the row is visible; if FALSE, the row is excluded from results.</p>
+  <ul>
+    <li>Schema-level object</li>
+    <li>Only ONE row access policy per table/view</li>
+    <li>Evaluated per row (performance consideration)</li>
+    <li>Can reference other tables (mapping tables for dynamic filtering)</li>
+    <li>Applied with ADD (not SET like masking policies)</li>
+  </ul>
+</div>
+
+<h3>Creating a Row Access Policy</h3>
+<pre>
+-- Basic role-based row access policy
+CREATE OR REPLACE ROW ACCESS POLICY rap_by_region
+  AS (region_col VARCHAR) RETURNS BOOLEAN ->
+  CASE
+    WHEN CURRENT_ROLE() = 'ADMIN'
+      THEN TRUE  -- admin sees all rows
+    WHEN CURRENT_ROLE() = 'US_ANALYST'
+      AND region_col = 'US'
+      THEN TRUE
+    WHEN CURRENT_ROLE() = 'EU_ANALYST'
+      AND region_col = 'EU'
+      THEN TRUE
+    ELSE FALSE   -- default: hide row
+  END;
+
+-- Mapping table pattern (most common in production)
+CREATE OR REPLACE ROW ACCESS POLICY rap_mapping_table
+  AS (region_col VARCHAR) RETURNS BOOLEAN ->
+    EXISTS (
+      SELECT 1 FROM security_db.public.role_region_mapping m
+      WHERE m.role_name = CURRENT_ROLE()
+        AND m.allowed_region = region_col
+    )
+    OR IS_ROLE_IN_SESSION('SYSADMIN');
+</pre>
+
+<h3>Applying a Row Access Policy</h3>
+<pre>
+-- Apply (note: ADD not SET)
+ALTER TABLE sales
+  ADD ROW ACCESS POLICY rap_by_region ON (region);
+
+-- Remove
+ALTER TABLE sales
+  DROP ROW ACCESS POLICY rap_by_region;
+
+-- The ON clause maps policy arguments to table columns
+-- Policy takes (region_col VARCHAR) → maps to table column (region)
+ALTER TABLE orders
+  ADD ROW ACCESS POLICY rap_by_region ON (ship_region);
+</pre>
+
+<div class="important">
+  <strong>EXAM TIP:</strong> Masking policies use <code>SET/UNSET</code>. Row access policies use <code>ADD/DROP</code>. This is a common trick question!
+</div>
+
+<hr class="section-divider">
+
+<h2>3. Object Tagging</h2>
+
+<div class="card">
+  <div class="card-header">What are Tags?</div>
+  <p>Tags are metadata labels you can assign to Snowflake objects. They enable <strong>governance at scale</strong> through tag-based policies — assign a masking policy to a tag, and every column with that tag is automatically masked.</p>
+  <ul>
+    <li>Tag is a schema-level object with an optional set of allowed values</li>
+    <li>Tags can be applied to: databases, schemas, tables, views, columns, warehouses, users, roles, etc.</li>
+    <li>A column can have multiple different tags (but only one value per tag name)</li>
+    <li>Tags do NOT automatically propagate from parent to child objects</li>
+  </ul>
+</div>
+
+<h3>Creating and Assigning Tags</h3>
+<pre>
+-- Create a tag (with optional allowed values)
+CREATE OR REPLACE TAG pii_type
+  ALLOWED_VALUES 'email', 'phone', 'ssn', 'name', 'address';
+
+CREATE OR REPLACE TAG sensitivity
+  ALLOWED_VALUES 'high', 'medium', 'low';
+
+-- Assign tag to a column
+ALTER TABLE customers ALTER COLUMN email SET TAG pii_type = 'email';
+ALTER TABLE customers ALTER COLUMN phone SET TAG pii_type = 'phone';
+ALTER TABLE customers ALTER COLUMN ssn SET TAG pii_type = 'ssn';
+
+-- Assign tag to a table
+ALTER TABLE customers SET TAG sensitivity = 'high';
+
+-- Assign tag to a schema (does NOT cascade to objects inside!)
+ALTER SCHEMA hr_data SET TAG sensitivity = 'high';
+
+-- Remove a tag
+ALTER TABLE customers ALTER COLUMN email UNSET TAG pii_type;
+</pre>
+
+<h3>Tag-Based Masking Policies</h3>
+<pre>
+-- Assign masking policy to a tag (not to individual columns!)
+ALTER TAG pii_type SET MASKING POLICY mask_pii_data;
+
+-- Now EVERY column tagged with pii_type will be masked automatically!
+-- This is the scalable approach for large environments
+</pre>
+
+<div class="important">
+  <strong>KEY CONCEPT:</strong> Tag-based policies allow governance at scale. Instead of assigning masking policies to 1000 columns individually, tag them with <code>pii_type</code> and attach the policy to the tag once. New columns tagged later are automatically protected.
+</div>
+
+<hr class="section-divider">
+
+<h2>4. Data Classification</h2>
+
+<div class="card">
+  <div class="card-header">Automatic Data Classification</div>
+  <p>Snowflake can automatically detect sensitive data (PII, financial data, health data) using built-in classifiers. Classification analyzes column names AND data patterns to assign semantic and privacy categories.</p>
+</div>
+
+<h3>Classification Functions</h3>
+<pre>
+-- Classify all columns in a table (returns JSON)
+SELECT SYSTEM$CLASSIFY('my_db.my_schema.customers');
+
+-- Classify with options (sample size, custom categories)
+SELECT SYSTEM$CLASSIFY('my_db.my_schema.customers',
+  {'auto_tag': true}  -- automatically apply system tags
+);
+
+-- Extract semantic categories from classification result
+SELECT *
+FROM TABLE(
+  EXTRACT_SEMANTIC_CATEGORIES('my_db.my_schema.customers')
+);
+
+-- Result columns: column_name, semantic_category, privacy_category,
+-- probability, alternates
+</pre>
+
+<h3>Snowflake System Classification Tags</h3>
+<div class="card">
+  <table>
+    <tr><th>Tag</th><th>Category</th><th>Examples</th></tr>
+    <tr><td><code>SNOWFLAKE.CORE.SEMANTIC_CATEGORY</code></td><td>What the data IS</td><td>EMAIL, PHONE_NUMBER, US_SSN, NAME, IP_ADDRESS, CREDIT_CARD</td></tr>
+    <tr><td><code>SNOWFLAKE.CORE.PRIVACY_CATEGORY</code></td><td>How sensitive it is</td><td>IDENTIFIER, QUASI_IDENTIFIER, SENSITIVE</td></tr>
+  </table>
+</div>
+
+<h3>Classification Workflow</h3>
+<pre>
+-- Step 1: Run classification (detect)
+SELECT EXTRACT_SEMANTIC_CATEGORIES('my_db.public.customers');
+
+-- Step 2: Review results (human review recommended)
+
+-- Step 3: Apply system tags (auto or manual)
+-- Auto:
+CALL ASSOCIATE_SEMANTIC_CATEGORY_TAGS(
+  'my_db.public.customers',
+  EXTRACT_SEMANTIC_CATEGORIES('my_db.public.customers')
+);
+
+-- Step 4: Attach masking policies to tags
+ALTER TAG SNOWFLAKE.CORE.SEMANTIC_CATEGORY
+  SET MASKING POLICY mask_by_semantic_category;
+</pre>
+
+<hr class="section-divider">
+
+<h2>5. Column-Level Security Overview</h2>
+
+<div class="card">
+  <div class="card-header">Security Layers in Snowflake</div>
+  <table>
+    <tr><th>Layer</th><th>Mechanism</th><th>Granularity</th><th>Returns</th></tr>
+    <tr><td>Object Access</td><td>RBAC (GRANT)</td><td>Object-level</td><td>Allow/Deny</td></tr>
+    <tr><td>Row Filtering</td><td>Row Access Policy</td><td>Row-level</td><td>Boolean</td></tr>
+    <tr><td>Column Masking</td><td>Masking Policy</td><td>Column-level</td><td>Masked value</td></tr>
+    <tr><td>Column Encryption</td><td>External Tokenization</td><td>Column-level</td><td>Token/cipher</td></tr>
+  </table>
+  <p style="margin-top:0.75rem;">All layers compose: a user must pass RBAC, then RAP filters rows, then masking transforms column values.</p>
+</div>
+
+<div class="important">
+  <strong>Execution Order:</strong> RBAC check → Row Access Policy (filter rows) → Masking Policy (mask columns) → Return results. If a row is filtered by RAP, masking never executes on it (it's already gone).
+</div>
+
+<hr class="section-divider">
+
+<h2>6. Features (15)</h2>
+
+<div class="features-grid">
+  <div class="feature-item">Dynamic masking at query time — no physical data change</div>
+  <div class="feature-item">Column-level granularity for masking policies</div>
+  <div class="feature-item">Row-level filtering via Row Access Policies</div>
+  <div class="feature-item">Tag-based policies for governance at scale</div>
+  <div class="feature-item">Automatic PII classification with SYSTEM$CLASSIFY</div>
+  <div class="feature-item">IS_ROLE_IN_SESSION respects full role hierarchy</div>
+  <div class="feature-item">Mapping table pattern for dynamic role-based access</div>
+  <div class="feature-item">Policies travel with shared data (enforced on consumer side)</div>
+  <div class="feature-item">Works on tables, views, materialized views, external tables</div>
+  <div class="feature-item">Conditional masking (different masks for different roles)</div>
+  <div class="feature-item">Tags with ALLOWED_VALUES for constrained metadata</div>
+  <div class="feature-item">POLICY_REFERENCES function for governance auditing</div>
+  <div class="feature-item">External tokenization integration via secure UDFs</div>
+  <div class="feature-item">TAG_REFERENCES for tracking tag assignments across objects</div>
+  <div class="feature-item">Classification probability scores for confidence assessment</div>
+</div>
+
+<h2>7. Limitations (15)</h2>
+
+<div class="features-grid">
+  <div class="limitation-item">Only ONE masking policy per column (cannot stack)</div>
+  <div class="limitation-item">Only ONE row access policy per table/view (cannot stack)</div>
+  <div class="limitation-item">Cannot mask VARIANT sub-fields individually (whole column only)</div>
+  <div class="limitation-item">Tags do NOT propagate from parent objects (schema→table)</div>
+  <div class="limitation-item">Row access policies evaluated per row (performance impact)</div>
+  <div class="limitation-item">CURRENT_ROLE() does NOT respect role hierarchy (use IS_ROLE_IN_SESSION)</div>
+  <div class="limitation-item">Must UNSET a masking policy before applying a different one</div>
+  <div class="limitation-item">Classification is probabilistic — may produce false positives/negatives</div>
+  <div class="limitation-item">Consumer cannot remove masking policies on shared data</div>
+  <div class="limitation-item">Masking policy body cannot contain subqueries (in some contexts)</div>
+  <div class="limitation-item">Cannot use JavaScript UDFs in masking policy bodies</div>
+  <div class="limitation-item">Row access policy cannot reference the same table it's applied to</div>
+  <div class="limitation-item">Enterprise Edition or higher required for masking/RAP</div>
+  <div class="limitation-item">Tag allowed_values have a maximum limit per tag</div>
+  <div class="limitation-item">Cannot create conditional policies based on the specific query being run</div>
+</div>
+
+<hr class="section-divider">
+
+<h2>Quick Reference Table</h2>
+
+<div class="card">
+  <table>
+    <tr><th>Feature</th><th>Object Type</th><th>Apply Syntax</th><th>Remove Syntax</th><th>Max Per Target</th></tr>
+    <tr><td>Masking Policy</td><td>Schema-level</td><td>ALTER ... SET MASKING POLICY</td><td>ALTER ... UNSET MASKING POLICY</td><td>1 per column</td></tr>
+    <tr><td>Row Access Policy</td><td>Schema-level</td><td>ALTER ... ADD ROW ACCESS POLICY</td><td>ALTER ... DROP ROW ACCESS POLICY</td><td>1 per table/view</td></tr>
+    <tr><td>Tag</td><td>Schema-level</td><td>ALTER ... SET TAG</td><td>ALTER ... UNSET TAG</td><td>Multiple tags OK</td></tr>
+    <tr><td>Tag-Based Masking</td><td>Policy on Tag</td><td>ALTER TAG ... SET MASKING POLICY</td><td>ALTER TAG ... UNSET MASKING POLICY</td><td>1 per tag</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header">Required Privileges Summary</div>
+  <table>
+    <tr><th>Action</th><th>Privilege Needed</th></tr>
+    <tr><td>Create masking policy</td><td>CREATE MASKING POLICY on schema</td></tr>
+    <tr><td>Apply masking policy to column</td><td>APPLY MASKING POLICY on account</td></tr>
+    <tr><td>Create row access policy</td><td>CREATE ROW ACCESS POLICY on schema</td></tr>
+    <tr><td>Apply row access policy to table</td><td>APPLY ROW ACCESS POLICY on account</td></tr>
+    <tr><td>Create tag</td><td>CREATE TAG on schema</td></tr>
+    <tr><td>Apply tag to object</td><td>APPLY TAG on account</td></tr>
+  </table>
+</div>
+
+</body>
+</html>

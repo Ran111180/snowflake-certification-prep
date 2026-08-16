@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>25_03 Data Security - 50 Practice Questions</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Snowflake certification prep - 50 interactive practice questions on Data Security (masking, RAP, tags, classification)",
+    "sections": [
+      { "id": "quiz", "title": "50 Interactive Questions", "dataSources": [], "producerNotes": "Click to reveal answers, covers all data security topics" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+      max-width: 920px; margin: 0 auto; padding: 24px;
+      color: light-dark(#1f2937, #e5e7eb);
+      background: light-dark(#ffffff, #0f1219);
+    }
+    h1 { color: light-dark(#9b1c31, #f87171); border-bottom: 3px solid light-dark(#dc2626, #f87171); padding-bottom: 8px; }
+    h2 { color: light-dark(#b91c1c, #fca5a5); margin-top: 36px; }
+    .score-bar {
+      background: light-dark(#fee2e2, #1c1017); border-radius: 8px;
+      padding: 16px; margin: 20px 0; text-align: center;
+      border: 1px solid light-dark(#fecdd3, #4c1d24);
+    }
+    .score-bar span { font-size: 1.4rem; font-weight: 700; color: light-dark(#dc2626, #f87171); }
+    .q-card {
+      background: light-dark(#fff1f2, #1c1017);
+      border: 1px solid light-dark(#fecdd3, #4c1d24);
+      border-radius: 8px; margin: 14px 0; overflow: hidden;
+    }
+    .q-header {
+      padding: 14px 18px; cursor: pointer; display: flex;
+      justify-content: space-between; align-items: center;
+    }
+    .q-header:hover { background: light-dark(#ffe4e6, #2a0f14); }
+    .q-num { font-weight: 700; color: light-dark(#dc2626, #f87171); margin-right: 10px; }
+    .q-text { flex: 1; }
+    .q-toggle { font-size: 1.2rem; color: light-dark(#dc2626, #f87171); }
+    .q-options { padding: 0 18px 4px; }
+    .q-options label { display: block; padding: 5px 0; cursor: pointer; }
+    .q-options input[type="radio"] { margin-right: 8px; accent-color: light-dark(#dc2626, #f87171); }
+    .q-answer {
+      display: none; padding: 14px 18px;
+      background: light-dark(#f0fdf4, #0a1a0f);
+      border-top: 1px solid light-dark(#bbf7d0, #166534);
+    }
+    .q-answer.visible { display: block; }
+    .q-answer strong { color: light-dark(#16a34a, #4ade80); }
+    .btn-reveal {
+      background: light-dark(#dc2626, #991b1b); color: #fff;
+      border: none; padding: 6px 14px; border-radius: 4px;
+      cursor: pointer; font-size: 0.8rem; margin: 8px 18px 14px;
+    }
+    .btn-reveal:hover { background: light-dark(#b91c1c, #7f1d1d); }
+    .btn-all {
+      background: light-dark(#dc2626, #991b1b); color: #fff;
+      border: none; padding: 10px 20px; border-radius: 6px;
+      cursor: pointer; font-size: 0.95rem; margin: 10px 5px;
+    }
+    .btn-all:hover { background: light-dark(#b91c1c, #7f1d1d); }
+  </style>
+</head>
+<body>
+
+  <h1>Data Security - 50 Practice Questions</h1>
+  <div class="score-bar">Score: <span id="score">0</span> / 50 answered</div>
+  <div style="text-align:center; margin-bottom:20px;">
+    <button class="btn-all" id="showAll">Show All Answers</button>
+    <button class="btn-all" id="hideAll">Hide All Answers</button>
+  </div>
+
+  <div id="quiz"></div>
+
+  <script>
+    const questions = [
+      { q: "What data type must a masking policy return?", opts: ["BOOLEAN", "The same type as the input column", "VARCHAR always", "VARIANT"], ans: 1, exp: "A masking policy must return the SAME data type as the input parameter. If the input is VARCHAR, return VARCHAR; if NUMBER, return NUMBER." },
+      { q: "What data type does a row access policy return?", opts: ["VARCHAR", "NUMBER", "BOOLEAN", "Same as input column"], ans: 2, exp: "Row access policies ALWAYS return BOOLEAN. TRUE = row is visible, FALSE = row is filtered out." },
+      { q: "How many masking policies can be applied to a single column?", opts: ["Unlimited", "Two (one direct, one tag-based)", "One", "Three"], ans: 2, exp: "Only ONE masking policy per column. If both direct and tag-based exist, the direct policy takes precedence." },
+      { q: "How many row access policies can be applied to a single table?", opts: ["One per column", "Unlimited", "One", "Two"], ans: 2, exp: "Only ONE row access policy per table or view. You cannot stack multiple RAPs." },
+      { q: "Which function respects the role hierarchy?", opts: ["CURRENT_ROLE()", "IS_ROLE_IN_SESSION()", "SYSTEM$GET_ROLE()", "SESSION_ROLE()"], ans: 1, exp: "IS_ROLE_IN_SESSION() checks if the specified role is active in the current session INCLUDING inherited roles. CURRENT_ROLE() only returns the single active role." },
+      { q: "What SQL command applies a masking policy to an existing column?", opts: ["ALTER TABLE ADD MASKING POLICY", "ALTER TABLE ALTER COLUMN SET MASKING POLICY", "CREATE MASKING POLICY ON", "GRANT MASKING POLICY TO COLUMN"], ans: 1, exp: "ALTER TABLE t ALTER COLUMN c SET MASKING POLICY policy_name;" },
+      { q: "What SQL command applies a row access policy to a table?", opts: ["ALTER TABLE SET ROW ACCESS POLICY", "ALTER TABLE ADD ROW ACCESS POLICY ... ON (...)", "ALTER TABLE ALTER ROW ACCESS POLICY", "CREATE ROW ACCESS POLICY ON TABLE"], ans: 1, exp: "ALTER TABLE t ADD ROW ACCESS POLICY policy ON (col1, col2);" },
+      { q: "What does SYSTEM$CLASSIFY do?", opts: ["Encrypts columns", "Analyzes columns to detect sensitive data categories", "Applies masking policies automatically", "Creates row access policies"], ans: 1, exp: "SYSTEM$CLASSIFY analyzes column data and metadata to identify semantic and privacy categories (e.g., EMAIL, SSN, PHONE_NUMBER)." },
+      { q: "What does EXTRACT_SEMANTIC_CATEGORIES return?", opts: ["A table with one row per column", "A VARIANT with classification results", "Tags applied to columns", "Boolean per column"], ans: 1, exp: "EXTRACT_SEMANTIC_CATEGORIES returns a VARIANT containing classification details for each column including semantic_category, privacy_category, and probability." },
+      { q: "Which privilege allows applying masking policies to columns?", opts: ["CREATE MASKING POLICY", "APPLY MASKING POLICY on ACCOUNT", "ALTER TABLE", "OWNERSHIP on table"], ans: 1, exp: "APPLY MASKING POLICY on ACCOUNT is required to set/unset masking policies on columns." },
+      { q: "At what level is APPLY MASKING POLICY granted?", opts: ["Schema", "Database", "Account", "Column"], ans: 2, exp: "APPLY MASKING POLICY is granted at the ACCOUNT level: GRANT APPLY MASKING POLICY ON ACCOUNT TO ROLE r;" },
+      { q: "At what level is CREATE MASKING POLICY granted?", opts: ["Account", "Database", "Schema", "Table"], ans: 2, exp: "CREATE MASKING POLICY is a schema-level privilege: GRANT CREATE MASKING POLICY ON SCHEMA s TO ROLE r;" },
+      { q: "What happens when you SELECT from a table with a masking policy using a non-privileged role?", opts: ["Error is thrown", "Query returns NULL for all rows", "Masked values are returned", "Empty result set"], ans: 2, exp: "The query succeeds and masked values are returned. There is no error - the user simply sees the masked output defined in the policy's ELSE branch." },
+      { q: "What happens when a row access policy returns FALSE for a row?", opts: ["The row shows NULL values", "The row shows masked data", "The row is not returned at all", "An error is thrown"], ans: 2, exp: "When RAP returns FALSE, the row is completely filtered out - it does not appear in results at all." },
+      { q: "Can you apply a masking policy to a VARIANT column?", opts: ["Yes, to individual keys within the VARIANT", "Yes, but only to the whole column", "No, VARIANT is not supported", "Yes, with FLATTEN only"], ans: 1, exp: "You can apply a masking policy to a VARIANT column, but only to the WHOLE column. You cannot mask individual keys within the VARIANT." },
+      { q: "Which is applied first: masking policy or row access policy?", opts: ["Masking policy first", "Row access policy first", "They are applied simultaneously", "Depends on creation order"], ans: 1, exp: "Row access policy is applied FIRST (filters rows), then masking policy is applied to the visible rows." },
+      { q: "What does the USING clause do in masking policy application?", opts: ["Specifies which roles can see data", "References additional columns for conditional masking", "Defines the masking pattern", "Links to a mapping table"], ans: 1, exp: "USING clause allows a masking policy to reference OTHER columns in the same table for conditional logic (e.g., mask based on a visibility_flag column)." },
+      { q: "How do you create a tag with controlled values?", opts: ["CREATE TAG t VALUES ('A','B')", "CREATE TAG t ALLOWED_VALUES 'A','B'", "CREATE TAG t WITH VALUES 'A','B'", "CREATE TAG t CHECK ('A','B')"], ans: 1, exp: "CREATE TAG tag_name ALLOWED_VALUES 'val1', 'val2', 'val3';" },
+      { q: "Do tags inherit from database to table?", opts: ["Yes, automatically", "Yes, if INHERIT is specified", "No, tags must be set explicitly", "Only for sensitivity tags"], ans: 2, exp: "Tags do NOT propagate/inherit. A tag on a database does NOT flow to schemas or tables within it. Tags must be explicitly assigned." },
+      { q: "Which takes precedence: direct column masking policy or tag-based masking policy?", opts: ["Tag-based always wins", "Direct column policy always wins", "Last applied wins", "Error - cannot have both"], ans: 1, exp: "Direct column masking policy ALWAYS takes precedence over tag-based masking policy." },
+      { q: "What function shows where a masking policy is applied?", opts: ["SHOW MASKING POLICIES", "POLICY_REFERENCES()", "DESCRIBE MASKING POLICY", "SYSTEM$POLICY_STATUS()"], ans: 1, exp: "INFORMATION_SCHEMA.POLICY_REFERENCES() shows all objects where a specific policy is applied." },
+      { q: "Which INFORMATION_SCHEMA function shows all tags on a table's columns?", opts: ["TAG_REFERENCES()", "TAG_REFERENCES_ALL_COLUMNS()", "COLUMN_TAGS()", "SHOW TAGS IN TABLE"], ans: 1, exp: "TAG_REFERENCES_ALL_COLUMNS('db.schema.table', 'TABLE') returns tags on all columns of the specified table." },
+      { q: "Can masking policies reference session variables?", opts: ["No", "Yes", "Only in Enterprise edition", "Only with USING clause"], ans: 1, exp: "Yes, masking policies can reference session variables, CURRENT_ROLE(), CURRENT_USER(), IS_ROLE_IN_SESSION(), and other context functions." },
+      { q: "What Snowflake edition is required for masking policies?", opts: ["Standard", "Enterprise or higher", "Business Critical only", "Any edition"], ans: 1, exp: "Dynamic Data Masking requires Enterprise edition or higher." },
+      { q: "What Snowflake edition is required for row access policies?", opts: ["Standard", "Enterprise or higher", "Business Critical only", "Any edition"], ans: 1, exp: "Row Access Policies require Enterprise edition or higher." },
+      { q: "Can a masking policy call an external function?", opts: ["Yes, in any edition", "Yes, in Enterprise or higher", "No, never", "Only for tokenization"], ans: 1, exp: "Yes, masking policies can call external functions (used for external tokenization), but requires Enterprise edition or higher." },
+      { q: "What happens to masking policies during table cloning?", opts: ["Policies are removed from clone", "Policies are cloned with the table", "Only tag-based policies are cloned", "Error - cannot clone masked tables"], ans: 1, exp: "Cloned tables RETAIN masking policy references. The same policies apply to the cloned table." },
+      { q: "Does CTAS (CREATE TABLE AS SELECT) carry masking policy assignments?", opts: ["Yes, always", "Yes, if COPY GRANTS is used", "No, policies are not carried to new table", "Only if target schema has CREATE POLICY privilege"], ans: 2, exp: "CTAS does NOT carry masking policy assignments to the new table. You must re-apply policies after CTAS." },
+      { q: "What does the policy owner see when querying masked data?", opts: ["Masked data like everyone else", "Unmasked data (ownership bypasses masking)", "Error - owner cannot query", "Depends on the policy definition"], ans: 1, exp: "The OWNER of a masking policy can ALWAYS see unmasked data - ownership effectively bypasses the masking policy." },
+      { q: "How does masking work with Time Travel?", opts: ["Time Travel data is never masked", "Current masking policy applies to Time Travel data", "Original masking at time of write applies", "Time Travel is disabled for masked columns"], ans: 1, exp: "The CURRENT masking policy applies to Time Travel data. Even when querying historical data via AT/BEFORE, today's policy logic is evaluated." },
+      { q: "What does IS_ROLE_IN_SESSION('ADMIN') check?", opts: ["If ADMIN is the current role exactly", "If ADMIN is active or inherited in the session", "If user was ever granted ADMIN", "If ADMIN exists in the account"], ans: 1, exp: "IS_ROLE_IN_SESSION checks if the specified role is the current active role OR any role inherited (directly or indirectly) by the current role in the session." },
+      { q: "What is the difference between CURRENT_ROLE() and IS_ROLE_IN_SESSION()?", opts: ["No difference", "CURRENT_ROLE returns name; IS_ROLE_IN_SESSION checks hierarchy", "CURRENT_ROLE checks hierarchy; IS_ROLE_IN_SESSION checks exact match", "CURRENT_ROLE is deprecated"], ans: 1, exp: "CURRENT_ROLE() returns the single active role name (no hierarchy). IS_ROLE_IN_SESSION() returns TRUE if the role is active OR inherited through the role hierarchy." },
+      { q: "Can a row access policy reference columns not listed in the ON clause?", opts: ["Yes, any column in the table", "No, only columns in the ON clause", "Yes, but only key columns", "Only with USING clause"], ans: 1, exp: "No, the RAP can only use columns specified in the ON clause. The policy signature parameters map to the ON columns." },
+      { q: "What privacy category does an email address have in classification?", opts: ["SENSITIVE", "QUASI_IDENTIFIER", "IDENTIFIER", "PII"], ans: 2, exp: "Email addresses are classified as IDENTIFIER (direct identifier) in the privacy category taxonomy." },
+      { q: "What privacy category does age have?", opts: ["IDENTIFIER", "QUASI_IDENTIFIER", "SENSITIVE", "PUBLIC"], ans: 1, exp: "Age is classified as QUASI_IDENTIFIER - it cannot directly identify someone alone but can contribute to re-identification when combined with other attributes." },
+      { q: "Which parameter enables auto-tagging during classification?", opts: ["apply_tags: true", "auto_tag: true", "set_tags: true", "tag_columns: true"], ans: 1, exp: "Pass {'auto_tag': true} as the second argument to SYSTEM$CLASSIFY to automatically apply system tags." },
+      { q: "What system tags does SYSTEM$CLASSIFY apply?", opts: ["Custom tags you define", "SNOWFLAKE.CORE.SEMANTIC_CATEGORY and PRIVACY_CATEGORY", "PII_TYPE tag only", "SENSITIVITY tag only"], ans: 1, exp: "SYSTEM$CLASSIFY applies the system tags SNOWFLAKE.CORE.SEMANTIC_CATEGORY and SNOWFLAKE.CORE.PRIVACY_CATEGORY." },
+      { q: "How do you remove a masking policy from a column?", opts: ["DROP MASKING POLICY", "ALTER TABLE ALTER COLUMN UNSET MASKING POLICY", "ALTER TABLE DROP MASKING POLICY", "REVOKE MASKING POLICY FROM COLUMN"], ans: 1, exp: "ALTER TABLE t ALTER COLUMN c UNSET MASKING POLICY;" },
+      { q: "Can you alter a masking policy that is currently applied to columns?", opts: ["No, must unset first", "Yes, with ALTER MASKING POLICY", "Yes, with CREATE OR REPLACE", "Only if no queries are running"], ans: 2, exp: "You cannot ALTER a masking policy body directly. Use CREATE OR REPLACE MASKING POLICY to update the logic while it remains applied." },
+      { q: "What happens to shared data consumers regarding masking policies?", opts: ["They can override provider policies", "They see data according to provider's policies", "No masking applies to shared data", "They must apply their own policies"], ans: 1, exp: "Consumers of shared data see data as masked by the PROVIDER's policies. Consumers cannot override or remove provider-side policies." },
+      { q: "Can you apply a masking policy to a materialized view?", opts: ["No", "Yes", "Only if base table has no policy", "Only in Business Critical"], ans: 1, exp: "Yes, masking policies can be applied to materialized views, just like regular views and tables." },
+      { q: "What is the APPLY TAG privilege used for?", opts: ["Creating new tags", "Assigning tag values to objects", "Viewing existing tags", "Dropping tags"], ans: 1, exp: "APPLY TAG allows a role to SET or UNSET tags on objects. It does not allow creating or dropping tags." },
+      { q: "How do you assign a masking policy to a tag?", opts: ["CREATE MASKING POLICY ... ON TAG", "ALTER TAG tag_name SET MASKING POLICY policy_name", "GRANT MASKING POLICY TO TAG", "ALTER MASKING POLICY SET TAG"], ans: 1, exp: "ALTER TAG tag_name SET MASKING POLICY policy_name; -- Any column with this tag inherits the masking policy" },
+      { q: "What is the latency for ACCOUNT_USAGE.POLICY_REFERENCES?", opts: ["Real-time", "Up to 45 minutes", "Up to 2 hours", "Up to 24 hours"], ans: 2, exp: "ACCOUNT_USAGE views have latency of up to 2 hours. For real-time results, use INFORMATION_SCHEMA.POLICY_REFERENCES()." },
+      { q: "Can a masking policy use a subquery?", opts: ["No, only simple expressions", "Yes, including correlated subqueries", "Yes, but only uncorrelated subqueries", "Only in row access policies"], ans: 2, exp: "Masking policies CAN use subqueries, but only uncorrelated subqueries (subqueries that don't reference the outer query)." },
+      { q: "What is required to run SYSTEM$CLASSIFY on a table?", opts: ["SYSADMIN role", "OWNERSHIP on the table", "APPLY TAG privilege only", "SELECT privilege only"], ans: 1, exp: "Running SYSTEM$CLASSIFY requires OWNERSHIP on the table (or the GOVERNANCE_ADMIN database role)." },
+      { q: "Can you apply both a masking policy and a row access policy to the same table?", opts: ["No, only one type", "Yes, RAP filters rows then masking applies to visible rows", "Yes, but only with Enterprise edition", "No, they conflict"], ans: 1, exp: "Yes. RAP is applied first (filters rows), then masking policy is applied to the columns of the visible rows. They work together." },
+      { q: "What does GET_DDL return for a masked table?", opts: ["Full DDL including masking policy assignments", "DDL without masking policy assignments", "Error for masked tables", "DDL with policy names but not definitions"], ans: 1, exp: "GET_DDL does NOT include masking policy assignments in the output. This is a known limitation." },
+      { q: "How does a masking policy handle NULL input values?", opts: ["Always returns NULL regardless of policy", "NULL is processed through the CASE statement like any other value", "Error on NULL input", "NULL values are never masked"], ans: 1, exp: "NULL values are processed through the policy's CASE statement like any other value. If the ELSE returns '***', NULL inputs will also return '***' unless you handle NULL explicitly." },
+      { q: "What is the purpose of ALLOWED_VALUES in CREATE TAG?", opts: ["Defines which values the tagged column can contain", "Restricts which tag values can be assigned", "Sets default values for the tag", "Lists roles allowed to use the tag"], ans: 1, exp: "ALLOWED_VALUES restricts what values can be assigned to the TAG itself. E.g., a sensitivity tag might only allow 'PUBLIC', 'INTERNAL', 'CONFIDENTIAL'." }
+    ];
+
+    let answered = 0;
+    const container = document.getElementById('quiz');
+
+    questions.forEach(function(item, idx) {
+      const card = document.createElement('div');
+      card.className = 'q-card';
+      card.setAttribute('data-idx', idx);
+
+      let optsHtml = '';
+      item.opts.forEach(function(opt, oi) {
+        optsHtml += '<label><input type="radio" name="q' + idx + '" value="' + oi + '"> ' + opt + '</label>';
+      });
+
+      card.innerHTML =
+        '<div class="q-header"><span class="q-num">Q' + (idx + 1) + '</span><span class="q-text">' + item.q + '</span><span class="q-toggle">+</span></div>' +
+        '<div class="q-options">' + optsHtml + '</div>' +
+        '<button class="btn-reveal" data-idx="' + idx + '">Show Answer</button>' +
+        '<div class="q-answer" id="ans' + idx + '"><strong>Answer: ' + item.opts[item.ans] + '</strong><br>' + item.exp + '</div>';
+
+      container.appendChild(card);
+    });
+
+    container.addEventListener('click', function(e) {
+      if (e.target.classList.contains('btn-reveal')) {
+        var idx = parseInt(e.target.getAttribute('data-idx'));
+        var ansDiv = document.getElementById('ans' + idx);
+        if (!ansDiv.classList.contains('visible')) {
+          ansDiv.classList.add('visible');
+          answered++;
+          document.getElementById('score').textContent = answered;
+        }
+      }
+    });
+
+    document.getElementById('showAll').addEventListener('click', function() {
+      var allAns = document.querySelectorAll('.q-answer');
+      answered = questions.length;
+      allAns.forEach(function(el) { el.classList.add('visible'); });
+      document.getElementById('score').textContent = answered;
+    });
+
+    document.getElementById('hideAll').addEventListener('click', function() {
+      var allAns = document.querySelectorAll('.q-answer');
+      answered = 0;
+      allAns.forEach(function(el) { el.classList.remove('visible'); });
+      document.getElementById('score').textContent = answered;
+    });
+  </script>
+
+</body>
+</html>

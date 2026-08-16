@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL Fundamentals Theory Part 1 - Window Functions, CTEs, MERGE, LATERAL</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "SQL Fundamentals Theory Part 1",
+  "description": "Window functions, QUALIFY, CTEs, recursive CTEs, MERGE, LATERAL joins for SnowPro certification",
+  "author": "Snowflake Certification Prep",
+  "version": "1.0",
+  "created": "2026-08-15",
+  "topic": "SQL Fundamentals Deep Dive",
+  "module": "24"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#f0f7ff, #0a1929);
+  --bg-secondary: light-dark(#ffffff, #112240);
+  --bg-card: light-dark(#ffffff, #1a2d4d);
+  --text-primary: light-dark(#1a2d4d, #e0eaff);
+  --text-secondary: light-dark(#3a5a8a, #a0b8d8);
+  --accent: light-dark(#0078d4, #4db8ff);
+  --accent-light: light-dark(#e6f3ff, #0d3868);
+  --border: light-dark(#c8ddf0, #1e3a5f);
+  --code-bg: light-dark(#edf4fc, #0d2847);
+  --success: light-dark(#0a7c42, #4cda8a);
+  --warning: light-dark(#a85d00, #ffb74d);
+  --highlight: light-dark(#fff3cd, #3d2e00);
+}
+html { color-scheme: light dark; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+}
+.container { max-width: 1100px; margin: 0 auto; }
+h1 { font-size: 2rem; color: var(--accent); margin-bottom: 0.5rem; border-bottom: 3px solid var(--accent); padding-bottom: 0.5rem; }
+h2 { font-size: 1.5rem; color: var(--accent); margin: 2rem 0 1rem; padding-left: 0.75rem; border-left: 4px solid var(--accent); }
+h3 { font-size: 1.2rem; color: var(--text-primary); margin: 1.5rem 0 0.75rem; }
+.subtitle { color: var(--text-secondary); margin-bottom: 2rem; font-size: 1.1rem; }
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem;
+  overflow-x: auto;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.9rem;
+  margin: 0.75rem 0;
+}
+code { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.9rem; color: var(--accent); }
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+th, td { padding: 0.6rem 0.8rem; border: 1px solid var(--border); text-align: left; }
+th { background: var(--accent-light); font-weight: 600; }
+tr:nth-child(even) { background: var(--bg-secondary); }
+.exam-tip {
+  background: var(--highlight);
+  border-left: 4px solid var(--warning);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  border-radius: 0 6px 6px 0;
+}
+.exam-tip strong { color: var(--warning); }
+ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+li { margin: 0.3rem 0; }
+.features-limits { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 1rem 0; }
+.feat-col h3 { color: var(--success); }
+.limit-col h3 { color: var(--warning); }
+@media (max-width: 768px) { .features-limits { grid-template-columns: 1fr; } body { padding: 1rem; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>SQL Fundamentals Theory - Part 1</h1>
+<p class="subtitle">Window Functions, QUALIFY, CTEs, Recursive CTEs, MERGE, LATERAL Joins</p>
+
+<h2>1. Window Functions Overview</h2>
+<div class="card">
+<p>Window functions perform calculations across a set of rows related to the current row WITHOUT collapsing rows (unlike GROUP BY). They use the <code>OVER()</code> clause.</p>
+<pre>
+SELECT column,
+       window_function() OVER (
+         [PARTITION BY partition_cols]
+         [ORDER BY order_cols]
+         [window_frame]
+       )
+FROM table;
+</pre>
+<p><strong>Key concept:</strong> Window functions execute AFTER WHERE, GROUP BY, and HAVING but BEFORE ORDER BY and LIMIT.</p>
+</div>
+
+<h3>1.1 Ranking Functions</h3>
+<div class="card">
+<table>
+<tr><th>Function</th><th>Behavior with Ties</th><th>Gaps?</th><th>Example (vals: 10,20,20,30)</th></tr>
+<tr><td><code>ROW_NUMBER()</code></td><td>Assigns unique sequential number</td><td>No gaps, no ties</td><td>1, 2, 3, 4</td></tr>
+<tr><td><code>RANK()</code></td><td>Same rank for ties</td><td>Yes, gaps after ties</td><td>1, 2, 2, 4</td></tr>
+<tr><td><code>DENSE_RANK()</code></td><td>Same rank for ties</td><td>No gaps</td><td>1, 2, 2, 3</td></tr>
+<tr><td><code>NTILE(n)</code></td><td>Divides into n buckets</td><td>Distributes evenly</td><td>NTILE(2): 1,1,2,2</td></tr>
+</table>
+
+<pre>
+-- ROW_NUMBER: always unique (non-deterministic with ties unless ORDER BY is unique)
+SELECT name, salary,
+  ROW_NUMBER() OVER (ORDER BY salary DESC) as row_num,
+  RANK()       OVER (ORDER BY salary DESC) as rnk,
+  DENSE_RANK() OVER (ORDER BY salary DESC) as dense_rnk
+FROM employees;
+
+-- NTILE: divide into quartiles
+SELECT name, salary,
+  NTILE(4) OVER (ORDER BY salary) as quartile
+FROM employees;
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> ROW_NUMBER with ties is NON-DETERMINISTIC — the same query may return different row numbers for tied values across executions. Add a tiebreaker column to make it deterministic.
+</div>
+</div>
+
+<h3>1.2 Value Functions: LEAD, LAG, FIRST_VALUE, LAST_VALUE</h3>
+<div class="card">
+<table>
+<tr><th>Function</th><th>Purpose</th><th>Syntax</th></tr>
+<tr><td><code>LAG(col, n, default)</code></td><td>Access previous row's value</td><td>n=offset (default 1), default if no row</td></tr>
+<tr><td><code>LEAD(col, n, default)</code></td><td>Access next row's value</td><td>n=offset (default 1), default if no row</td></tr>
+<tr><td><code>FIRST_VALUE(col)</code></td><td>First value in window frame</td><td>Respects frame clause</td></tr>
+<tr><td><code>LAST_VALUE(col)</code></td><td>Last value in window frame</td><td>Default frame may surprise you!</td></tr>
+</table>
+
+<pre>
+-- LAG/LEAD for comparing with previous/next row
+SELECT date, revenue,
+  LAG(revenue, 1, 0)  OVER (ORDER BY date) as prev_revenue,
+  LEAD(revenue, 1, 0) OVER (ORDER BY date) as next_revenue,
+  revenue - LAG(revenue) OVER (ORDER BY date) as daily_change
+FROM daily_sales;
+
+-- FIRST_VALUE / LAST_VALUE
+SELECT department, employee, salary,
+  FIRST_VALUE(employee) OVER (
+    PARTITION BY department ORDER BY salary DESC
+  ) as highest_paid,
+  LAST_VALUE(employee) OVER (
+    PARTITION BY department ORDER BY salary DESC
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  ) as lowest_paid
+FROM employees;
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> LAST_VALUE with the default frame (ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) gives you the CURRENT row's value, not the actual last value! Always use <code>ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING</code> with LAST_VALUE.
+</div>
+</div>
+
+<h2>2. Window Frames: ROWS vs RANGE</h2>
+<div class="card">
+<pre>
+window_frame ::=
+  { ROWS | RANGE } BETWEEN frame_start AND frame_end
+
+frame_start/end ::=
+  UNBOUNDED PRECEDING
+  | n PRECEDING
+  | CURRENT ROW
+  | n FOLLOWING
+  | UNBOUNDED FOLLOWING
+</pre>
+
+<table>
+<tr><th>Frame Type</th><th>Behavior</th><th>Use Case</th></tr>
+<tr><td><code>ROWS</code></td><td>Physical rows: exact count of rows before/after</td><td>Moving average over N rows</td></tr>
+<tr><td><code>RANGE</code></td><td>Logical range: includes all rows with same ORDER BY value</td><td>Running total (includes ties)</td></tr>
+</table>
+
+<pre>
+-- ROWS: exactly 2 preceding physical rows + current
+SELECT date, amount,
+  SUM(amount) OVER (ORDER BY date ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
+    as moving_3day_sum
+FROM sales;
+
+-- RANGE: all rows with same value (ties included)
+SELECT date, amount,
+  SUM(amount) OVER (ORDER BY date RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+    as running_total
+FROM sales;
+
+-- Default frame when ORDER BY is specified:
+-- RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+-- Default frame when NO ORDER BY:
+-- ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING (entire partition)
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> The DEFAULT frame is RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW when ORDER BY is present. This means SUM() OVER (ORDER BY date) gives a running total, not a grand total!
+</div>
+</div>
+
+<h2>3. QUALIFY Clause</h2>
+<div class="card">
+<p>QUALIFY filters the results of window functions — it is to window functions what HAVING is to GROUP BY.</p>
+<pre>
+-- SQL execution order: FROM → WHERE → GROUP BY → HAVING → 
+--   Window Functions → QUALIFY → DISTINCT → ORDER BY → LIMIT
+
+-- Get top 1 per department (Snowflake-specific, much cleaner than subquery)
+SELECT department, employee, salary
+FROM employees
+QUALIFY ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary DESC) = 1;
+
+-- Equivalent without QUALIFY (standard SQL):
+SELECT * FROM (
+  SELECT department, employee, salary,
+    ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary DESC) as rn
+  FROM employees
+) WHERE rn = 1;
+
+-- QUALIFY with RANK (get all tied top earners)
+SELECT department, employee, salary
+FROM employees
+QUALIFY RANK() OVER (PARTITION BY department ORDER BY salary DESC) = 1;
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> QUALIFY is a Snowflake extension (not standard SQL). It executes AFTER window functions. You can reference window functions in QUALIFY even without them in SELECT. It drastically simplifies "top-N per group" queries.
+</div>
+</div>
+
+<h2>4. Common Table Expressions (CTEs)</h2>
+<div class="card">
+<pre>
+-- Basic CTE
+WITH monthly_totals AS (
+  SELECT DATE_TRUNC('month', order_date) as month,
+         SUM(amount) as total
+  FROM orders
+  GROUP BY 1
+),
+ranked AS (
+  SELECT month, total,
+    RANK() OVER (ORDER BY total DESC) as rnk
+  FROM monthly_totals
+)
+SELECT * FROM ranked WHERE rnk <= 3;
+
+-- Key properties:
+-- 1. CTEs are evaluated once per reference (not materialized by default)
+-- 2. Multiple CTEs separated by commas
+-- 3. Later CTEs can reference earlier CTEs
+-- 4. Column aliases in CTE are optional: WITH cte(col1, col2) AS (...)
+</pre>
+</div>
+
+<h3>4.1 Recursive CTEs</h3>
+<div class="card">
+<pre>
+-- Recursive CTE structure
+WITH RECURSIVE cte_name AS (
+  -- Anchor member (base case): executed once
+  SELECT initial_columns FROM table WHERE base_condition
+  
+  UNION ALL
+  
+  -- Recursive member: references cte_name, executed repeatedly
+  SELECT derived_columns FROM table
+  JOIN cte_name ON recursive_condition
+)
+SELECT * FROM cte_name;
+
+-- Example: Org hierarchy
+WITH RECURSIVE org_tree AS (
+  -- Anchor: top-level managers (no manager)
+  SELECT employee_id, name, manager_id, 1 as level,
+         name::VARCHAR as path
+  FROM employees
+  WHERE manager_id IS NULL
+  
+  UNION ALL
+  
+  -- Recursive: find reports of current level
+  SELECT e.employee_id, e.name, e.manager_id, t.level + 1,
+         t.path || ' > ' || e.name
+  FROM employees e
+  JOIN org_tree t ON e.manager_id = t.employee_id
+)
+SELECT * FROM org_tree ORDER BY path;
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> Recursive CTEs require <code>RECURSIVE</code> keyword in Snowflake. Default max recursion depth is 100 iterations. Use <code>ALTER SESSION SET MAX_RECURSIONS = n;</code> to change. UNION ALL (not UNION) is required in the recursive member.
+</div>
+</div>
+
+<h2>5. MERGE Statement</h2>
+<div class="card">
+<p>MERGE performs INSERT, UPDATE, and/or DELETE in a single atomic statement (upsert pattern).</p>
+<pre>
+MERGE INTO target_table t
+USING source_table s
+ON t.id = s.id
+
+-- When rows match (exist in both)
+WHEN MATCHED AND s.status = 'DELETE' THEN DELETE
+WHEN MATCHED THEN UPDATE SET
+  t.name = s.name,
+  t.updated_at = CURRENT_TIMESTAMP()
+
+-- When rows exist only in source
+WHEN NOT MATCHED THEN INSERT (id, name, created_at)
+  VALUES (s.id, s.name, CURRENT_TIMESTAMP());
+</pre>
+
+<h3>MERGE Rules and Behavior</h3>
+<table>
+<tr><th>Rule</th><th>Detail</th></tr>
+<tr><td>Multiple WHEN MATCHED</td><td>Up to 2 clauses allowed (with different conditions)</td></tr>
+<tr><td>Multiple WHEN NOT MATCHED</td><td>Up to 1 INSERT clause allowed</td></tr>
+<tr><td>Clause Order</td><td>Clauses evaluated in order written; first match wins</td></tr>
+<tr><td>Duplicate Handling</td><td>Error if source has duplicates matching same target row (non-deterministic)</td></tr>
+<tr><td>Atomicity</td><td>Entire MERGE is a single transaction</td></tr>
+</table>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> If source has duplicate keys matching the same target row, MERGE raises a non-deterministic error. Deduplicate your source first! Also: MERGE does NOT support WHEN NOT MATCHED BY SOURCE (unlike SQL Server).
+</div>
+</div>
+
+<h2>6. LATERAL Joins</h2>
+<div class="card">
+<p>LATERAL allows a subquery in FROM to reference columns from preceding tables in the same FROM clause (correlated inline view).</p>
+<pre>
+-- Without LATERAL (doesn't work - can't reference o.order_id in subquery)
+-- SELECT * FROM orders o, (SELECT * FROM items WHERE order_id = o.order_id);
+
+-- With LATERAL (works!)
+SELECT o.order_id, o.customer_id, i.item_name, i.amount
+FROM orders o,
+LATERAL (
+  SELECT item_name, amount
+  FROM order_items
+  WHERE order_id = o.order_id
+  ORDER BY amount DESC
+  LIMIT 3
+) i;
+
+-- LATERAL FLATTEN (most common Snowflake use)
+SELECT r.id, f.value::STRING as tag
+FROM raw_data r,
+LATERAL FLATTEN(input => r.tags_array) f;
+
+-- LATERAL with table function
+SELECT e.name, d.value
+FROM events e,
+LATERAL FLATTEN(input => PARSE_JSON(e.payload)) d;
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> LATERAL FLATTEN is the standard pattern for expanding arrays/objects in Snowflake semi-structured data. LATERAL is required when the subquery/function references the outer table. Without LATERAL, subqueries in FROM are independent.
+</div>
+</div>
+
+<h2>7. Features and Limitations Summary</h2>
+<div class="features-limits">
+<div class="feat-col card">
+<h3>15 Key Features</h3>
+<ol>
+<li>Window functions preserve all rows (no collapsing)</li>
+<li>PARTITION BY creates independent groups within windows</li>
+<li>Multiple window functions in single SELECT</li>
+<li>QUALIFY eliminates subquery wrappers for filtering</li>
+<li>Named windows with WINDOW clause for reuse</li>
+<li>CTEs improve readability and enable self-referencing</li>
+<li>Recursive CTEs handle hierarchical/graph data</li>
+<li>MERGE combines INSERT/UPDATE/DELETE atomically</li>
+<li>LATERAL enables correlated subqueries in FROM</li>
+<li>LATERAL FLATTEN expands semi-structured data inline</li>
+<li>Window frames (ROWS/RANGE) give precise control</li>
+<li>LAG/LEAD access adjacent rows without self-join</li>
+<li>NTILE provides bucket-based distribution</li>
+<li>FIRST_VALUE/LAST_VALUE with frames for extremes</li>
+<li>QUALIFY works with aliases defined in same SELECT</li>
+</ol>
+</div>
+<div class="limit-col card">
+<h3>15 Key Limitations</h3>
+<ol>
+<li>ROW_NUMBER with ties is non-deterministic</li>
+<li>LAST_VALUE default frame only sees up to current row</li>
+<li>RANGE frame requires exactly one ORDER BY column</li>
+<li>Window functions cannot be nested inside other window functions</li>
+<li>Cannot use window functions in WHERE clause (use QUALIFY)</li>
+<li>Cannot use window functions in GROUP BY or HAVING</li>
+<li>Recursive CTEs max 100 iterations by default</li>
+<li>Recursive CTEs require UNION ALL (not UNION)</li>
+<li>MERGE errors on duplicate source-to-target matches</li>
+<li>MERGE: max 2 WHEN MATCHED, 1 WHEN NOT MATCHED</li>
+<li>No WHEN NOT MATCHED BY SOURCE in Snowflake MERGE</li>
+<li>QUALIFY is Snowflake-specific (not portable SQL)</li>
+<li>CTEs are not materialized by default (re-executed per reference)</li>
+<li>LATERAL subqueries execute per outer row (performance cost)</li>
+<li>Window frames with RANGE only work with numeric/date types</li>
+</ol>
+</div>
+</div>
+
+<h2>8. Quick Reference: Execution Order</h2>
+<div class="card">
+<pre>
+┌─────────────────────────────────────────────────┐
+│        SQL Execution Order in Snowflake          │
+├─────────────────────────────────────────────────┤
+│  1. FROM / JOIN / LATERAL                        │
+│  2. WHERE                                        │
+│  3. GROUP BY                                     │
+│  4. HAVING                                       │
+│  5. SELECT (expressions, window functions)       │
+│  6. QUALIFY  ← filters window function results   │
+│  7. DISTINCT                                     │
+│  8. ORDER BY                                     │
+│  9. LIMIT / FETCH                                │
+└─────────────────────────────────────────────────┘
+</pre>
+</div>
+
+</div>
+</body>
+</html>

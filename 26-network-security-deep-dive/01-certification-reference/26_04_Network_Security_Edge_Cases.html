@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>26.04 Network Security Edge Cases - Snowflake Certification Prep</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Network Security Deep Dive - Edge Cases & Exam Scenarios",
+  "topic": "Lockouts, Precedence Traps, PrivateLink Gaps, Exam Tricks",
+  "category": "certification-prep",
+  "module": "26",
+  "part": "04",
+  "version": "1.0"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#f8f9fa, #1a1d23);
+  --bg-secondary: light-dark(#ffffff, #22262e);
+  --bg-tertiary: light-dark(#f1f3f5, #2a2f38);
+  --bg-card: light-dark(#ffffff, #282c34);
+  --text-primary: light-dark(#1a1d23, #e8eaed);
+  --text-secondary: light-dark(#4a5568, #a0aab4);
+  --text-muted: light-dark(#6b7280, #7a8490);
+  --accent: light-dark(#475569, #94a3b8);
+  --accent-bright: light-dark(#334155, #cbd5e1);
+  --border: light-dark(#e2e8f0, #374151);
+  --border-accent: light-dark(#94a3b8, #475569);
+  --success: light-dark(#166534, #4ade80);
+  --warning: light-dark(#92400e, #fbbf24);
+  --danger: light-dark(#991b1b, #f87171);
+  --info: light-dark(#1e40af, #60a5fa);
+  --code-bg: light-dark(#f1f5f9, #1e293b);
+  --shadow: light-dark(0 2px 8px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.3));
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { color-scheme: light dark; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--accent-bright); }
+h2 { font-size: 1.5rem; font-weight: 600; margin: 2.5rem 0 1rem; color: var(--accent-bright); border-bottom: 2px solid var(--border-accent); padding-bottom: 0.5rem; }
+h3 { font-size: 1.15rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: var(--text-primary); }
+.subtitle { color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 2rem; }
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  box-shadow: var(--shadow);
+}
+.card-header {
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin-bottom: 0.75rem;
+  color: var(--accent-bright);
+}
+code {
+  background: var(--code-bg);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.88rem;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1.25rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+ul, ol { padding-left: 1.5rem; margin: 0.75rem 0; }
+li { margin: 0.4rem 0; }
+.edge-case {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--danger);
+  border-radius: 0 8px 8px 0;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  box-shadow: var(--shadow);
+}
+.edge-case-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--danger);
+  margin-bottom: 0.75rem;
+}
+.scenario {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  box-shadow: var(--shadow);
+}
+.scenario-header {
+  font-weight: 700;
+  color: var(--info);
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+}
+.scenario-answer {
+  background: var(--code-bg);
+  padding: 1rem;
+  border-radius: 6px;
+  margin-top: 0.75rem;
+  border-left: 3px solid var(--success);
+  display: none;
+}
+.scenario-answer.visible { display: block; }
+.reveal-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  margin-top: 0.75rem;
+}
+.reveal-btn:hover { opacity: 0.85; }
+.exam-tip {
+  background: light-dark(#f0f9ff, #0c1929);
+  border-left: 4px solid var(--info);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  border-radius: 0 6px 6px 0;
+}
+.warning-box {
+  background: light-dark(#fef2f2, #1c0f0f);
+  border-left: 4px solid var(--danger);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  border-radius: 0 6px 6px 0;
+}
+.section-divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+th, td { padding: 0.75rem; border: 1px solid var(--border); text-align: left; }
+th { background: var(--bg-tertiary); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>26.04 Network Security - Edge Cases & Exam Scenarios</h1>
+<p class="subtitle">Tricky scenarios, common traps, and exam-ready edge cases</p>
+
+<h2>Critical Edge Cases</h2>
+
+<div class="edge-case">
+<div class="edge-case-title">Edge Case 1: Locking Yourself Out</div>
+<p><strong>Scenario:</strong> You set a network policy with ALLOWED_IP_LIST that doesn't include your current IP.</p>
+<p><strong>What happens:</strong></p>
+<ul>
+<li>Your CURRENT session continues normally (existing sessions are not affected)</li>
+<li>Once you disconnect, you CANNOT reconnect</li>
+<li>Snowflake does NOT warn you or prevent this</li>
+<li>Recovery requires contacting Snowflake Support</li>
+</ul>
+<p><strong>Prevention:</strong></p>
+<pre>
+-- Always check your IP first
+SELECT CURRENT_CLIENT();
+
+-- Apply to a test user first
+ALTER USER test_user SET NETWORK_POLICY = 'new_policy';
+-- Test that test_user can still connect
+-- Only then apply to account
+
+-- Keep a "break glass" user with a broader user-level policy
+ALTER USER emergency_admin SET NETWORK_POLICY = 'emergency_policy';
+</pre>
+</div>
+
+<div class="edge-case">
+<div class="edge-case-title">Edge Case 2: Empty ALLOWED_IP_LIST = Allow All</div>
+<p><strong>Trap:</strong> Students think empty allowed list means "deny all." It's the opposite.</p>
+<table>
+<tr><th>Configuration</th><th>Effect</th></tr>
+<tr><td>ALLOWED_IP_LIST not specified / empty</td><td>ALL IPs allowed (open)</td></tr>
+<tr><td>ALLOWED_IP_LIST = ('10.0.0.0/8')</td><td>ONLY 10.x.x.x allowed; everything else denied</td></tr>
+<tr><td>BLOCKED_IP_LIST = ('1.2.3.4') with empty allowed</td><td>All IPs allowed EXCEPT 1.2.3.4</td></tr>
+</table>
+<p><strong>Rule:</strong> Once you put ANY IP in ALLOWED_IP_LIST, it becomes an explicit allowlist — all non-listed IPs are implicitly denied.</p>
+</div>
+
+<div class="edge-case">
+<div class="edge-case-title">Edge Case 3: User Policy Overrides Account (NOT Additive)</div>
+<p><strong>Common misconception:</strong> "If account allows 10.0.0.0/8 and user allows 192.168.1.0/24, both ranges work for that user."</p>
+<p><strong>Reality:</strong> The user is ONLY evaluated against their user-level policy. The account policy is completely ignored.</p>
+<pre>
+-- Account policy allows: 10.0.0.0/8
+ALTER ACCOUNT SET NETWORK_POLICY = 'account_policy';
+
+-- User policy allows: 192.168.1.0/24 ONLY
+ALTER USER jsmith SET NETWORK_POLICY = 'user_policy';
+
+-- Result for jsmith:
+-- Connecting from 10.0.0.1 → BLOCKED (not in user policy)
+-- Connecting from 192.168.1.50 → ALLOWED (in user policy)
+-- The account policy's 10.0.0.0/8 does NOT apply to jsmith at all
+</pre>
+</div>
+
+<div class="edge-case">
+<div class="edge-case-title">Edge Case 4: 0.0.0.0/0 in BLOCKED_IP_LIST</div>
+<p><strong>Effect:</strong> Blocks ALL IPv4 addresses. Nobody can connect.</p>
+<pre>
+-- This locks out EVERYONE including ACCOUNTADMIN
+CREATE NETWORK POLICY lockout_policy
+  BLOCKED_IP_LIST = ('0.0.0.0/0');
+
+ALTER ACCOUNT SET NETWORK_POLICY = 'lockout_policy';
+-- Game over. Contact Snowflake support.
+</pre>
+<p><strong>With allowed list:</strong> If you set ALLOWED_IP_LIST = ('10.0.0.1') and BLOCKED_IP_LIST = ('0.0.0.0/0'), the blocked list wins — even 10.0.0.1 is blocked because blocked takes precedence.</p>
+</div>
+
+<div class="edge-case">
+<div class="edge-case-title">Edge Case 5: Snowpipe Not Affected by Network Policies</div>
+<p><strong>Key fact:</strong> Snowpipe (both auto-ingest and REST API-triggered) uses a separate internal authentication path and is NOT subject to network policies.</p>
+<ul>
+<li>Snowpipe uses key-pair authentication with Snowflake's internal queue</li>
+<li>The data loading happens from Snowflake's infrastructure, not from your IP</li>
+<li>You CANNOT restrict Snowpipe by IP using network policies</li>
+<li>This is intentional — Snowpipe needs to work regardless of user IP restrictions</li>
+</ul>
+</div>
+
+<div class="edge-case">
+<div class="edge-case-title">Edge Case 6: PrivateLink Alone Isn't Enough</div>
+<p><strong>Misconception:</strong> "Enabling PrivateLink means data never goes over the public internet."</p>
+<p><strong>Reality:</strong> PrivateLink provides a private PATH, but doesn't disable the public path.</p>
+<pre>
+-- After setting up PrivateLink, BOTH these still work:
+-- https://account.region.snowflakecomputing.com (PUBLIC)
+-- https://account.region.privatelink.snowflakecomputing.com (PRIVATE)
+
+-- You MUST enforce private-only with a network policy:
+CREATE NETWORK POLICY private_only
+  ALLOWED_IP_LIST = ('10.0.0.0/8');  -- Only private IPs from your VPC
+
+ALTER ACCOUNT SET NETWORK_POLICY = 'private_only';
+-- Now public internet access is blocked
+</pre>
+</div>
+
+<div class="edge-case">
+<div class="edge-case-title">Edge Case 7: External Access Deny-by-Default</div>
+<p><strong>Behavior:</strong> UDFs and stored procedures have ZERO outbound network access by default.</p>
+<ul>
+<li>No HTTP/HTTPS calls possible without External Access Integration</li>
+<li>No DNS resolution to external hosts</li>
+<li>Even <code>requests.get('https://google.com')</code> fails in a Python UDF</li>
+<li>Each endpoint must be explicitly allowed via HOST_PORT network rule + integration</li>
+<li>Secrets must also be explicitly allowed in the integration</li>
+</ul>
+<p><strong>This is security-by-design:</strong> Customer code running in Snowflake cannot exfiltrate data without explicit admin approval.</p>
+</div>
+
+<hr class="section-divider">
+
+<h2>10 Exam Scenarios</h2>
+
+<div class="scenario">
+<div class="scenario-header">Scenario 1: The Absent-Minded Admin</div>
+<p>An admin creates a network policy allowing only 172.16.0.0/16 and applies it to the account. The admin's current IP is 203.0.113.50. The admin then closes their SnowSQL session. What happens?</p>
+<button class="reveal-btn" data-target="ans-1">Reveal Answer</button>
+<div class="scenario-answer" id="ans-1">
+<strong>Answer:</strong> The admin is locked out. Their IP (203.0.113.50) is not in the allowed range (172.16.0.0/16). Their existing session worked fine, but once closed, they cannot establish a new connection. They must contact Snowflake Support for recovery.<br><br>
+<strong>Exam lesson:</strong> Always verify your current IP is in the allowed list before applying. Use CURRENT_CLIENT() to check.
+</div>
+</div>
+
+<div class="scenario">
+<div class="scenario-header">Scenario 2: The Override Surprise</div>
+<p>Account policy: ALLOWED_IP_LIST = ('10.0.0.0/8', '172.16.0.0/12'). User 'analyst1' has user-level policy: ALLOWED_IP_LIST = ('192.168.1.0/24'). Analyst1 connects from 10.0.0.50. Access granted or denied?</p>
+<button class="reveal-btn" data-target="ans-2">Reveal Answer</button>
+<div class="scenario-answer" id="ans-2">
+<strong>Answer:</strong> DENIED. The user-level policy completely overrides the account policy. Analyst1 is evaluated ONLY against their policy (192.168.1.0/24). The IP 10.0.0.50 is not in that range, so access is denied — even though the account policy would allow it.<br><br>
+<strong>Exam lesson:</strong> User-level policies are NOT additive. They replace the account policy for that user entirely.
+</div>
+</div>
+
+<div class="scenario">
+<div class="scenario-header">Scenario 3: The PrivateLink False Sense of Security</div>
+<p>A company sets up AWS PrivateLink for their Snowflake account but does NOT set any network policy. A disgruntled employee copies the account URL and connects from their home network (public internet). Can they connect?</p>
+<button class="reveal-btn" data-target="ans-3">Reveal Answer</button>
+<div class="scenario-answer" id="ans-3">
+<strong>Answer:</strong> YES, they can connect. PrivateLink enables private connectivity but does NOT disable public connectivity. Without a network policy restricting IPs to the private VPC range, the public URL still accepts connections from anywhere.<br><br>
+<strong>Exam lesson:</strong> PrivateLink + Network Policy = complete private access. PrivateLink alone = private path available but public still works.
+</div>
+</div>
+
+<div class="scenario">
+<div class="scenario-header">Scenario 4: The Snowpipe Exception</div>
+<p>A company sets a strict network policy: ALLOWED_IP_LIST = ('10.0.0.0/8'). Their data pipelines use Snowpipe (auto-ingest from S3). Will Snowpipe data loading be affected?</p>
+<button class="reveal-btn" data-target="ans-4">Reveal Answer</button>
+<div class="scenario-answer" id="ans-4">
+<strong>Answer:</strong> NO. Snowpipe is NOT affected by network policies. It uses separate internal authentication and Snowflake's own infrastructure for data loading. The pipeline continues to work normally regardless of the network policy.<br><br>
+<strong>Exam lesson:</strong> Snowpipe bypasses network policies. This is by design.
+</div>
+</div>
+
+<div class="scenario">
+<div class="scenario-header">Scenario 5: The SCIM Provisioning Failure</div>
+<p>A company uses Okta for SCIM provisioning and sets a network policy allowing only their corporate IP range (10.0.0.0/8). New hires stop appearing in Snowflake. Why?</p>
+<button class="reveal-btn" data-target="ans-5">Reveal Answer</button>
+<div class="scenario-answer" id="ans-5">
+<strong>Answer:</strong> Okta's SCIM provisioning servers have public IPs (not in 10.0.0.0/8). Since SCIM requests ARE subject to network policies, Okta's provisioning calls are being blocked. The fix is to add Okta's SCIM server IPs to the ALLOWED_IP_LIST.<br><br>
+<strong>Exam lesson:</strong> When implementing network policies with SCIM/SSO, you must allow your IdP's server IPs, not just your users' IPs.
+</div>
+</div>
+
+<div class="scenario">
+<div class="scenario-header">Scenario 6: The UDF That Can't Phone Home</div>
+<p>A developer creates a Python UDF that calls an internal REST API at https://internal-api.company.com:8443. The UDF fails with a connection error. The developer's IP is in the network policy's allowed list. What's wrong?</p>
+<button class="reveal-btn" data-target="ans-6">Reveal Answer</button>
+<div class="scenario-answer" id="ans-6">
+<strong>Answer:</strong> Network policies (ingress) and External Access Integrations (egress) are separate concerns. The developer can connect TO Snowflake (ingress allowed), but the UDF cannot connect OUT to the API because there's no External Access Integration configured. They need: (1) a network rule with TYPE=HOST_PORT, MODE=EGRESS for 'internal-api.company.com:8443', (2) an External Access Integration referencing that rule, (3) the UDF must specify EXTERNAL_ACCESS_INTEGRATIONS.<br><br>
+<strong>Exam lesson:</strong> Ingress policies (who connects to Snowflake) and egress controls (where Snowflake connects out) are completely independent systems.
+</div>
+</div>
+
+<div class="scenario">
+<div class="scenario-header">Scenario 7: The Contradictory Policy</div>
+<p>Admin creates: ALLOWED_IP_LIST = ('10.0.0.1') and BLOCKED_IP_LIST = ('10.0.0.1'). What happens when 10.0.0.1 tries to connect?</p>
+<button class="reveal-btn" data-target="ans-7">Reveal Answer</button>
+<div class="scenario-answer" id="ans-7">
+<strong>Answer:</strong> BLOCKED. The blocked list takes precedence over the allowed list. If an IP appears in both, it is denied. This is the consistent rule: blocked always wins.<br><br>
+<strong>Exam lesson:</strong> BLOCKED_IP_LIST > ALLOWED_IP_LIST in precedence. Always.
+</div>
+</div>
+
+<div class="scenario">
+<div class="scenario-header">Scenario 8: The Active Session Surprise</div>
+<p>User 'data_eng' is connected via SnowSQL from IP 203.0.113.10. An admin changes the account network policy to only allow 10.0.0.0/8. Is data_eng's current session terminated?</p>
+<button class="reveal-btn" data-target="ans-8">Reveal Answer</button>
+<div class="scenario-answer" id="ans-8">
+<strong>Answer:</strong> NO. The existing session continues working. Network policy changes only affect NEW connections. When data_eng eventually disconnects and tries to reconnect from 203.0.113.10, they will be blocked.<br><br>
+<strong>Exam lesson:</strong> Policy changes are NOT retroactive to existing sessions. Only new connection attempts are evaluated.
+</div>
+</div>
+
+<div class="scenario">
+<div class="scenario-header">Scenario 9: The DROP Policy Attempt</div>
+<p>Admin wants to remove restrictions and runs: <code>DROP NETWORK POLICY strict_policy;</code> — but this policy is currently applied to the account. What happens?</p>
+<button class="reveal-btn" data-target="ans-9">Reveal Answer</button>
+<div class="scenario-answer" id="ans-9">
+<strong>Answer:</strong> ERROR. You cannot DROP a network policy that is currently in use (applied to an account or user). You must first UNSET it:<br>
+<code>ALTER ACCOUNT UNSET NETWORK_POLICY;</code><br>
+Then you can drop it:<br>
+<code>DROP NETWORK POLICY strict_policy;</code><br><br>
+<strong>Exam lesson:</strong> Active policies must be unset before they can be dropped.
+</div>
+</div>
+
+<div class="scenario">
+<div class="scenario-header">Scenario 10: The Multi-Cloud PrivateLink</div>
+<p>A company has Snowflake on AWS us-east-1 and wants PrivateLink. They also have a GCP workload that needs to access the same Snowflake account privately. What must they use?</p>
+<button class="reveal-btn" data-target="ans-10">Reveal Answer</button>
+<div class="scenario-answer" id="ans-10">
+<strong>Answer:</strong> Cross-cloud private connectivity is complex. The GCP workload cannot use AWS PrivateLink directly. Options: (1) Route GCP traffic through a VPN/interconnect to their AWS VPC, then through the AWS PrivateLink endpoint, or (2) If Snowflake supports GCP Private Service Connect for cross-region access to the AWS account (limited/unsupported), or (3) Accept that GCP workload uses the public endpoint with strict network policy controls. Private connectivity is cloud-specific and region-specific.<br><br>
+<strong>Exam lesson:</strong> Private connectivity is per-cloud and per-region. Cross-cloud private access requires network infrastructure bridging.
+</div>
+</div>
+
+<hr class="section-divider">
+
+<h2>Quick Reference: Edge Case Decision Matrix</h2>
+
+<table>
+<tr><th>Situation</th><th>Result</th><th>Recovery</th></tr>
+<tr><td>Blocked own IP at account level</td><td>Locked out after session ends</td><td>Snowflake Support</td></tr>
+<tr><td>User policy set, account policy irrelevant</td><td>Only user policy evaluated</td><td>UNSET user policy to fall back to account</td></tr>
+<tr><td>PrivateLink without network policy</td><td>Public access still works</td><td>Add restrictive network policy</td></tr>
+<tr><td>0.0.0.0/0 in blocked list</td><td>All IPs blocked</td><td>Snowflake Support (if locked out)</td></tr>
+<tr><td>UDF needs outbound access</td><td>Denied by default</td><td>Create EAI with egress network rule</td></tr>
+<tr><td>SCIM server IP not allowed</td><td>Provisioning silently fails</td><td>Add IdP SCIM IPs to allowed list</td></tr>
+<tr><td>DROP active policy</td><td>Error thrown</td><td>UNSET first, then DROP</td></tr>
+<tr><td>Policy change on active sessions</td><td>No effect until reconnect</td><td>Wait for sessions to end or ask users to reconnect</td></tr>
+</table>
+
+<script>
+document.querySelectorAll('.reveal-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const target = document.getElementById(this.dataset.target);
+    target.classList.toggle('visible');
+    this.textContent = target.classList.contains('visible') ? 'Hide Answer' : 'Reveal Answer';
+  });
+});
+</script>
+
+</body>
+</html>

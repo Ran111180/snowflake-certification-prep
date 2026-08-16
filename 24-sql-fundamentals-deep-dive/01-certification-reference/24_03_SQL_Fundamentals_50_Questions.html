@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL Fundamentals - 50 Practice Questions</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "SQL Fundamentals 50 Questions",
+  "description": "Interactive practice questions covering window functions, CTEs, MERGE, PIVOT, conditionals, dates, and more",
+  "author": "Snowflake Certification Prep",
+  "version": "1.0",
+  "created": "2026-08-15",
+  "topic": "SQL Fundamentals Deep Dive",
+  "module": "24"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#f0f7ff, #0a1929);
+  --bg-secondary: light-dark(#ffffff, #112240);
+  --bg-card: light-dark(#ffffff, #1a2d4d);
+  --text-primary: light-dark(#1a2d4d, #e0eaff);
+  --text-secondary: light-dark(#3a5a8a, #a0b8d8);
+  --accent: light-dark(#0078d4, #4db8ff);
+  --accent-light: light-dark(#e6f3ff, #0d3868);
+  --border: light-dark(#c8ddf0, #1e3a5f);
+  --code-bg: light-dark(#edf4fc, #0d2847);
+  --success: light-dark(#0a7c42, #4cda8a);
+  --success-bg: light-dark(#e6f9ee, #0a2e1a);
+  --error: light-dark(#c41e3a, #ff6b6b);
+  --error-bg: light-dark(#fde8ec, #2e0a0a);
+  --warning: light-dark(#a85d00, #ffb74d);
+  --highlight: light-dark(#fff3cd, #3d2e00);
+}
+html { color-scheme: light dark; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+}
+.container { max-width: 900px; margin: 0 auto; }
+h1 { font-size: 2rem; color: var(--accent); margin-bottom: 0.5rem; border-bottom: 3px solid var(--accent); padding-bottom: 0.5rem; }
+.subtitle { color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 1.1rem; }
+.score-bar {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.score-bar span { font-weight: 600; }
+.score-correct { color: var(--success); }
+.score-wrong { color: var(--error); }
+.score-total { color: var(--accent); }
+.btn-reset {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1.25rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-reset:hover { opacity: 0.85; }
+.question-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.question-card h3 { color: var(--accent); margin-bottom: 0.75rem; font-size: 1rem; }
+.question-card p { margin-bottom: 1rem; }
+.question-card pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin: 0.5rem 0 1rem;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.85rem;
+  overflow-x: auto;
+}
+.options { list-style: none; padding: 0; }
+.options li {
+  padding: 0.6rem 1rem;
+  margin: 0.4rem 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.options li:hover { background: var(--accent-light); }
+.options li.correct { background: var(--success-bg); border-color: var(--success); }
+.options li.incorrect { background: var(--error-bg); border-color: var(--error); }
+.options li.disabled { pointer-events: none; opacity: 0.7; }
+.options li.correct-answer { border-color: var(--success); border-width: 2px; }
+.explanation {
+  display: none;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: var(--highlight);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+.explanation.show { display: block; }
+code { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.85rem; color: var(--accent); }
+@media (max-width: 768px) { body { padding: 1rem; } .score-bar { flex-direction: column; text-align: center; } }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>SQL Fundamentals - 50 Practice Questions</h1>
+<p class="subtitle">Test your knowledge of window functions, CTEs, MERGE, PIVOT, conditionals, dates, and more</p>
+
+<div class="score-bar">
+  <div>
+    <span class="score-correct" id="correct-count">Correct: 0</span> |
+    <span class="score-wrong" id="wrong-count">Wrong: 0</span> |
+    <span class="score-total" id="total-count">Answered: 0/50</span>
+  </div>
+  <button class="btn-reset" id="reset-btn">Reset All</button>
+</div>
+
+<div id="questions-container"></div>
+</div>
+
+<script>
+const questions = [
+  {q:"What does ROW_NUMBER() return when multiple rows have the same ORDER BY value?",o:["Same number for all tied rows","Unique sequential numbers (non-deterministic for ties)","An error","NULL for tied rows"],a:1,e:"ROW_NUMBER always assigns unique sequential integers. With ties, the assignment is non-deterministic unless a tiebreaker column is added."},
+  {q:"Given values 10, 20, 20, 30 ordered ascending, what does RANK() return?",o:["1, 2, 3, 4","1, 2, 2, 3","1, 2, 2, 4","1, 2, 3, 3"],a:2,e:"RANK assigns the same rank for ties but leaves gaps. After two values at rank 2, the next rank is 4 (skipping 3)."},
+  {q:"What is the default window frame when ORDER BY is specified in OVER()?",o:["ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING","RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW","ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW","RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING"],a:1,e:"The default frame with ORDER BY is RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW. This means SUM() OVER(ORDER BY x) gives a running total."},
+  {q:"Why does LAST_VALUE() often return the current row's value instead of the actual last value?",o:["It's a known Snowflake bug","The default frame ends at CURRENT ROW","LAST_VALUE only works with PARTITION BY","It requires DESC ordering"],a:1,e:"The default frame is RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW, so LAST_VALUE only sees up to the current row. Use ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING."},
+  {q:"Which clause filters window function results in Snowflake?",o:["WHERE","HAVING","QUALIFY","FILTER"],a:2,e:"QUALIFY filters window function results. It executes after window functions are computed. It's a Snowflake extension not in standard SQL."},
+  {q:"In SQL execution order, where does QUALIFY execute?",o:["Before GROUP BY","After HAVING but before window functions","After window functions but before DISTINCT","After ORDER BY"],a:2,e:"Execution order: FROM→WHERE→GROUP BY→HAVING→Window Functions→QUALIFY→DISTINCT→ORDER BY→LIMIT."},
+  {q:"What keyword is required for recursive CTEs in Snowflake?",o:["WITH LOOP","WITH RECURSIVE","WITH ITERATE","No special keyword needed"],a:1,e:"Snowflake requires the RECURSIVE keyword: WITH RECURSIVE cte AS (anchor UNION ALL recursive). The default recursion limit is 100."},
+  {q:"What operator is required in the recursive member of a recursive CTE?",o:["UNION","UNION ALL","INTERSECT","Either UNION or UNION ALL"],a:1,e:"Recursive CTEs require UNION ALL in the recursive member. UNION is not allowed because it would deduplicate and potentially prevent termination detection."},
+  {q:"What happens if MERGE source has duplicate keys matching the same target row?",o:["The last match wins","The first match wins","An error is raised (non-deterministic)","All matches are applied"],a:2,e:"MERGE raises an error if source rows produce non-deterministic results for the same target row. Deduplicate the source before MERGE."},
+  {q:"How many WHEN MATCHED clauses can a MERGE statement have?",o:["1","2","3","Unlimited"],a:1,e:"MERGE supports up to 2 WHEN MATCHED clauses (with different conditions) and 1 WHEN NOT MATCHED clause."},
+  {q:"What does LATERAL allow in a FROM clause?",o:["Parallel execution of subqueries","A subquery to reference columns from preceding tables","Cross-database joins","Recursive self-joins"],a:1,e:"LATERAL enables a subquery or table function in FROM to reference columns from tables that appear earlier in the same FROM clause (correlated inline view)."},
+  {q:"What is LATERAL FLATTEN used for in Snowflake?",o:["Flattening nested transactions","Expanding arrays/objects into rows","Creating pivot tables","Recursive hierarchy traversal"],a:1,e:"LATERAL FLATTEN is the standard pattern for expanding semi-structured data (arrays, objects) into multiple rows, with each element becoming a separate row."},
+  {q:"Which statement about NTILE(4) is true?",o:["It always creates exactly 4 equal groups","It divides rows into 4 buckets as evenly as possible","It returns values 0-3","It requires PARTITION BY"],a:1,e:"NTILE(n) divides the ordered partition into n buckets as evenly as possible. If rows don't divide evenly, earlier buckets get one extra row."},
+  {q:"What does QUALIFY ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC) = 1 return?",o:["All employees","The lowest-paid employee per department","The highest-paid employee per department","An error because ROW_NUMBER isn't in SELECT"],a:2,e:"This returns the top-1 earner per department. QUALIFY can reference window functions even if they don't appear in the SELECT list."},
+  {q:"What is the difference between ROWS and RANGE in window frames?",o:["ROWS is for numbers, RANGE is for dates","ROWS counts physical rows, RANGE considers logical value ranges","ROWS is faster than RANGE","There is no difference"],a:1,e:"ROWS counts exact physical rows. RANGE includes all rows with the same ORDER BY value (handles ties differently). RANGE requires a single ORDER BY column."},
+  {q:"In PIVOT, what must the IN clause contain?",o:["A subquery","Static literal values","Column references","Variable names"],a:1,e:"PIVOT's IN clause must contain static literal values. Dynamic values (subqueries) are not supported natively—use stored procedures for dynamic pivot."},
+  {q:"What does UNPIVOT do with NULL values by default?",o:["Includes them","Excludes them","Converts them to 0","Raises an error"],a:1,e:"UNPIVOT excludes NULLs by default. Use UNPIVOT INCLUDE NULLS to retain NULL values in the output."},
+  {q:"What does SEQ4() return in a GENERATOR query?",o:["Random numbers","A 0-based sequential integer per query","The row count","UUID values"],a:1,e:"SEQ4() generates 0-based sequential 4-byte integers within a single query execution. SEQ8() is the 8-byte version."},
+  {q:"Are Snowflake sequences gap-free?",o:["Yes, always contiguous","No, gaps are normal (rollbacks, multi-node)","Only with INCREMENT = 1","Only within a single transaction"],a:1,e:"Sequences guarantee uniqueness but NOT contiguity. Gaps occur due to rollbacks, caching across nodes, and unused pre-allocated values."},
+  {q:"How does DECODE handle NULL comparisons?",o:["NULL = NULL evaluates to FALSE (standard SQL)","NULL = NULL evaluates to TRUE","NULL values are skipped","An error is raised"],a:1,e:"DECODE treats NULL = NULL as TRUE, unlike the standard = operator where NULL = NULL is UNKNOWN. This makes DECODE useful for NULL-matching."},
+  {q:"What is the key difference between NVL and COALESCE?",o:["NVL takes 2 args, COALESCE takes multiple","NVL handles NULL differently","COALESCE is non-standard SQL","NVL is faster"],a:0,e:"NVL takes exactly 2 arguments. COALESCE takes multiple and returns the first non-NULL. Additionally, COALESCE short-circuits evaluation while NVL evaluates both arguments."},
+  {q:"What does NULLIF(5, 5) return?",o:["5","0","NULL","Error"],a:2,e:"NULLIF returns NULL if the two arguments are equal, otherwise returns the first argument. NULLIF(5,5) = NULL."},
+  {q:"What does SPLIT_PART('a.b.c', '.', -1) return?",o:["a","c","Error","Empty string"],a:1,e:"SPLIT_PART with negative index counts from the end. -1 returns the last part ('c'), -2 returns second-to-last ('b')."},
+  {q:"What does DATEDIFF('year', '2023-12-31', '2024-01-01') return?",o:["0 (less than a full year)","1 (crosses year boundary)","Error","0.003"],a:1,e:"DATEDIFF counts boundary crossings, not complete units. Crossing from 2023 to 2024 counts as 1 year difference even though only 1 day elapsed."},
+  {q:"What does DATE_TRUNC('week', date) use as the week start?",o:["Sunday","Monday (ISO standard)","Saturday","Depends on session parameter"],a:1,e:"DATE_TRUNC('week') uses Monday as the first day of the week per ISO 8601 standard."},
+  {q:"What does SELECT 5/2 return in Snowflake?",o:["2.5","2","3","2.50"],a:1,e:"Integer division in Snowflake truncates toward zero. 5/2 = 2 (not 2.5). Use 5.0/2 or CAST to get decimal results."},
+  {q:"What does TRY_CAST('abc' AS INTEGER) return?",o:["0","Error","NULL","'abc'"],a:2,e:"TRY_CAST returns NULL when conversion fails instead of raising an error. Regular CAST would raise an error for 'abc' to INTEGER."},
+  {q:"What does SAMPLE(10) without the ROWS keyword mean?",o:["10 rows","10 percent of rows","10 micro-partitions","10 megabytes"],a:1,e:"SAMPLE(n) without ROWS means n percent. SAMPLE(10 ROWS) means exactly 10 rows. This distinction is exam-critical."},
+  {q:"What is the difference between SAMPLE BERNOULLI and SAMPLE SYSTEM?",o:["BERNOULLI is row-level uniform; SYSTEM is block-level (faster, less uniform)","BERNOULLI is for small tables; SYSTEM is for large","They are identical","BERNOULLI requires a seed; SYSTEM does not"],a:0,e:"BERNOULLI samples at row level (uniform distribution). SYSTEM samples at micro-partition level (faster for large tables but less uniformly distributed)."},
+  {q:"How many grouping sets does ROLLUP(a, b, c) produce?",o:["3","4","7","8"],a:1,e:"ROLLUP(a,b,c) produces n+1 = 4 sets: (a,b,c), (a,b), (a), (). It creates hierarchical subtotals removing columns from right to left."},
+  {q:"How many grouping sets does CUBE(a, b, c) produce?",o:["4","6","7","8"],a:3,e:"CUBE(a,b,c) produces 2^n = 8 grouping sets: all possible combinations including the empty set (grand total)."},
+  {q:"What does GROUPING(column) return for a subtotal row?",o:["0","1","NULL","The column value"],a:1,e:"GROUPING() returns 1 for subtotal rows (where the column is aggregated away) and 0 for regular grouped rows. Helps distinguish real NULLs from subtotal NULLs."},
+  {q:"Can DDL statements be rolled back in a Snowflake transaction?",o:["Yes, all statements in BEGIN/COMMIT can be rolled back","No, DDL auto-commits and cannot be rolled back","Only DROP can be rolled back via Time Travel","Only if AUTOCOMMIT is OFF"],a:1,e:"DDL statements (CREATE, ALTER, DROP) auto-commit immediately and cannot be rolled back. They effectively break the current transaction."},
+  {q:"What is Snowflake's transaction isolation level?",o:["READ UNCOMMITTED","READ COMMITTED","REPEATABLE READ","SERIALIZABLE"],a:1,e:"Snowflake uses READ COMMITTED isolation exclusively for tables. You cannot change it. Concurrent transactions see only committed data."},
+  {q:"Does Snowflake support nested transactions?",o:["Yes, with savepoints","Yes, fully nested BEGIN/COMMIT","No, nested BEGIN has no effect","Only in stored procedures"],a:2,e:"Snowflake does NOT support nested transactions or savepoints. A BEGIN inside an existing transaction has no effect."},
+  {q:"What does LAG(salary, 2, 0) return for the first row in a partition?",o:["NULL","0","Error","The current row's salary"],a:1,e:"LAG with offset 2 looks 2 rows back. For the first row, there's no row 2 positions back, so it returns the default value (0). Without the default, it returns NULL."},
+  {q:"Which is true about CTEs in Snowflake?",o:["CTEs are always materialized (cached)","CTEs are evaluated once and shared","CTEs may be re-executed per reference (not materialized by default)","CTEs must have column aliases"],a:2,e:"Snowflake CTEs are not materialized by default. The optimizer may re-execute them for each reference. This differs from some databases that materialize CTEs."},
+  {q:"What does DATEADD('month', 1, '2024-01-31'::DATE) return?",o:["2024-02-31 (error)","2024-02-29 (end-of-month adjusted)","2024-03-01","2024-02-28"],a:1,e:"DATEADD handles end-of-month by adjusting to the last valid day. Jan 31 + 1 month = Feb 29 (2024 is a leap year). It would be Feb 28 in non-leap years."},
+  {q:"What happens with COALESCE(NULL, NULL, NULL)?",o:["Empty string","0","NULL","Error"],a:2,e:"COALESCE returns the first non-NULL value. If all arguments are NULL, it returns NULL."},
+  {q:"In MERGE, what does WHEN NOT MATCHED refer to?",o:["Rows in target not in source","Rows in source not in target","Rows that failed the ON condition in both","Rows with NULL join keys"],a:1,e:"WHEN NOT MATCHED means rows exist in the source but have no match in the target (based on ON condition). These are candidates for INSERT."},
+  {q:"Can you use a window function inside another window function?",o:["Yes, they can be nested","No, window functions cannot be nested","Only with QUALIFY","Only ranking functions can be nested"],a:1,e:"Window functions CANNOT be nested. Use a CTE or subquery to apply one window function to the result of another."},
+  {q:"What does REGEXP_LIKE('Hello123', '^[A-Za-z]+$') return?",o:["TRUE","FALSE","'Hello'","NULL"],a:1,e:"The pattern '^[A-Za-z]+$' requires the entire string to be only letters. 'Hello123' contains digits so it returns FALSE."},
+  {q:"In SPLIT_PART, what is the index base?",o:["0-based","1-based","Depends on session parameter","Either (auto-detected)"],a:1,e:"SPLIT_PART uses 1-based indexing. The first part is index 1, the second is 2, etc. Negative indices count from the end."},
+  {q:"What does CONVERT_TIMEZONE('UTC', 'America/New_York', ts) do?",o:["Converts from New York to UTC","Converts from UTC to New York time","Sets the display timezone only","Removes timezone info"],a:1,e:"CONVERT_TIMEZONE(source_tz, target_tz, timestamp) converts from source to target. Here it converts from UTC to America/New_York."},
+  {q:"Which is a valid use of GENERATOR?",o:["SELECT * FROM GENERATOR(10)","SELECT * FROM TABLE(GENERATOR(ROWCOUNT => 10))","SELECT GENERATOR(10)","GENERATE 10 ROWS"],a:1,e:"GENERATOR is a table function requiring TABLE() wrapper and named parameter: TABLE(GENERATOR(ROWCOUNT => n)) or TABLE(GENERATOR(TIMELIMIT => seconds))."},
+  {q:"What does IFF(NULL, 'yes', 'no') return?",o:["'yes'","'no'","NULL","Error"],a:1,e:"IFF evaluates the condition. NULL is falsy (not TRUE), so it returns the false_value ('no'). Only TRUE triggers the true_value."},
+  {q:"What does ZEROIFNULL(NULL) return?",o:["NULL","0","'' (empty string)","Error"],a:1,e:"ZEROIFNULL returns 0 if the input is NULL, otherwise returns the input value unchanged."},
+  {q:"Can QUALIFY reference a window function not in the SELECT list?",o:["No, it must be in SELECT","Yes, QUALIFY can define its own window function","Only with an alias","Only ROW_NUMBER"],a:1,e:"QUALIFY can reference window functions that are not in the SELECT list. You can write QUALIFY ROW_NUMBER() OVER(...) = 1 without having ROW_NUMBER in SELECT."},
+  {q:"What is the maximum default recursion depth for recursive CTEs?",o:["10","50","100","1000"],a:2,e:"The default maximum recursion depth is 100 iterations. Change with ALTER SESSION SET MAX_RECURSIONS = n."},
+  {q:"Does Snowflake MERGE support WHEN NOT MATCHED BY SOURCE?",o:["Yes, for DELETE operations","Yes, for UPDATE operations","No, this clause is not supported","Only in Enterprise edition"],a:2,e:"Snowflake MERGE does NOT support WHEN NOT MATCHED BY SOURCE (unlike SQL Server). You can only use WHEN MATCHED and WHEN NOT MATCHED (by target)."},
+  {q:"What does TO_CHAR(12345.67, '$999,999.99') return?",o:["$12,345.67","12345.67","$12345.67","Error"],a:0,e:"TO_CHAR with format model '$999,999.99' formats the number with dollar sign, thousands separator, and 2 decimal places: '$12,345.67'."}
+];
+
+let state = {correct:0, wrong:0, answered:new Set()};
+
+function renderQuestions() {
+  const container = document.getElementById('questions-container');
+  container.innerHTML = '';
+  questions.forEach((q, idx) => {
+    const card = document.createElement('div');
+    card.className = 'question-card';
+    card.id = 'q-' + idx;
+    let optionsHtml = '<ul class="options">';
+    q.o.forEach((opt, oi) => {
+      optionsHtml += '<li data-q="'+idx+'" data-o="'+oi+'">'+String.fromCharCode(65+oi)+'. '+opt+'</li>';
+    });
+    optionsHtml += '</ul>';
+    card.innerHTML = '<h3>Question '+(idx+1)+' of 50</h3><p>'+q.q+'</p>'+optionsHtml+'<div class="explanation" id="exp-'+idx+'"><strong>Explanation:</strong> '+q.e+'</div>';
+    container.appendChild(card);
+  });
+}
+
+function handleAnswer(e) {
+  const li = e.target.closest('li[data-q]');
+  if (!li) return;
+  const qIdx = parseInt(li.dataset.q);
+  const oIdx = parseInt(li.dataset.o);
+  if (state.answered.has(qIdx)) return;
+  state.answered.add(qIdx);
+  const opts = li.parentElement.querySelectorAll('li');
+  opts.forEach(o => o.classList.add('disabled'));
+  if (oIdx === questions[qIdx].a) {
+    li.classList.add('correct');
+    state.correct++;
+  } else {
+    li.classList.add('incorrect');
+    opts[questions[qIdx].a].classList.add('correct-answer');
+    state.wrong++;
+  }
+  document.getElementById('exp-'+qIdx).classList.add('show');
+  updateScore();
+}
+
+function updateScore() {
+  document.getElementById('correct-count').textContent = 'Correct: ' + state.correct;
+  document.getElementById('wrong-count').textContent = 'Wrong: ' + state.wrong;
+  document.getElementById('total-count').textContent = 'Answered: ' + state.answered.size + '/50';
+}
+
+function resetAll() {
+  state = {correct:0, wrong:0, answered:new Set()};
+  updateScore();
+  renderQuestions();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  renderQuestions();
+  document.getElementById('questions-container').addEventListener('click', handleAnswer);
+  document.getElementById('reset-btn').addEventListener('click', resetAll);
+});
+</script>
+</body>
+</html>

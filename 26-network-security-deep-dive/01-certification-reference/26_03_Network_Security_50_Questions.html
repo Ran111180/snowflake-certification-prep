@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>26.03 Network Security - 50 Questions - Snowflake Certification Prep</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Network Security Deep Dive - 50 Practice Questions",
+  "topic": "Network Policies, Network Rules, Private Connectivity",
+  "category": "certification-prep",
+  "module": "26",
+  "part": "03",
+  "version": "1.0"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#f8f9fa, #1a1d23);
+  --bg-secondary: light-dark(#ffffff, #22262e);
+  --bg-card: light-dark(#ffffff, #282c34);
+  --text-primary: light-dark(#1a1d23, #e8eaed);
+  --text-secondary: light-dark(#4a5568, #a0aab4);
+  --accent: light-dark(#475569, #94a3b8);
+  --accent-bright: light-dark(#334155, #cbd5e1);
+  --border: light-dark(#e2e8f0, #374151);
+  --border-accent: light-dark(#94a3b8, #475569);
+  --success: light-dark(#166534, #4ade80);
+  --danger: light-dark(#991b1b, #f87171);
+  --info: light-dark(#1e40af, #60a5fa);
+  --code-bg: light-dark(#f1f5f9, #1e293b);
+  --shadow: light-dark(0 2px 8px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.3));
+  --correct-bg: light-dark(#f0fdf4, #0a1f12);
+  --incorrect-bg: light-dark(#fef2f2, #1c0f0f);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { color-scheme: light dark; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--accent-bright); }
+.subtitle { color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 1rem; }
+.score-bar {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow);
+}
+.score-bar span { font-weight: 600; }
+#score-display { color: var(--success); font-size: 1.2rem; }
+#progress-display { color: var(--text-secondary); }
+button.reset-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  margin-left: auto;
+}
+button.reset-btn:hover { opacity: 0.85; }
+.question-block {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1.25rem 0;
+  box-shadow: var(--shadow);
+}
+.question-block.answered-correct { border-left: 4px solid var(--success); }
+.question-block.answered-incorrect { border-left: 4px solid var(--danger); }
+.q-number { font-weight: 700; color: var(--accent); font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.5rem; }
+.q-text { font-weight: 500; margin-bottom: 1rem; font-size: 1rem; }
+.options { list-style: none; padding: 0; }
+.options li {
+  padding: 0.7rem 1rem;
+  margin: 0.4rem 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.options li:hover:not(.disabled) { background: var(--code-bg); border-color: var(--accent); }
+.options li.selected { border-color: var(--accent); background: var(--code-bg); font-weight: 500; }
+.options li.correct { background: var(--correct-bg); border-color: var(--success); }
+.options li.incorrect { background: var(--incorrect-bg); border-color: var(--danger); }
+.options li.disabled { cursor: default; opacity: 0.7; }
+.options li.disabled.correct { opacity: 1; }
+.explanation {
+  display: none;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--code-bg);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  border-left: 3px solid var(--info);
+}
+.explanation.visible { display: block; }
+code {
+  background: var(--code-bg);
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.85rem;
+}
+</style>
+</head>
+<body>
+
+<h1>26.03 Network Security - 50 Practice Questions</h1>
+<p class="subtitle">Test your knowledge of Network Policies, Network Rules, and Private Connectivity</p>
+
+<div class="score-bar">
+  <span>Score: <span id="score-display">0/0</span></span>
+  <span id="progress-display">0 of 50 answered</span>
+  <button class="reset-btn" id="reset-btn">Reset All</button>
+</div>
+
+<div id="questions-container"></div>
+
+<script>
+const questions = [
+  {
+    q: "What happens if ALLOWED_IP_LIST is left empty (not specified) in a network policy?",
+    options: ["All IPs are blocked", "All IPs are allowed (unless blocked)", "Only localhost can connect", "The policy is invalid"],
+    answer: 1,
+    explanation: "An empty ALLOWED_IP_LIST means 'allow all IPs.' Only IPs in the BLOCKED_IP_LIST are denied. This is a common exam trap — empty does NOT mean deny-all."
+  },
+  {
+    q: "A user has a user-level network policy AND the account has an account-level policy. Which applies to that user?",
+    options: ["Both policies are evaluated (additive)", "Account-level policy takes precedence", "User-level policy takes precedence", "The more restrictive one wins"],
+    answer: 2,
+    explanation: "User-level policies OVERRIDE (not add to) account-level policies. The user is evaluated ONLY against their user-level policy. The account policy is completely ignored for that user."
+  },
+  {
+    q: "Which SQL command sets a network policy at the account level?",
+    options: ["SET NETWORK_POLICY = 'policy_name'", "ALTER ACCOUNT SET NETWORK_POLICY = 'policy_name'", "CREATE NETWORK POLICY ... AT ACCOUNT", "GRANT NETWORK POLICY TO ACCOUNT"],
+    answer: 1,
+    explanation: "ALTER ACCOUNT SET NETWORK_POLICY = 'policy_name' applies the policy at account level. Only ACCOUNTADMIN can execute this."
+  },
+  {
+    q: "Which edition of Snowflake is required for AWS PrivateLink?",
+    options: ["Standard", "Enterprise", "Business Critical", "Virtual Private Snowflake (VPS)"],
+    answer: 2,
+    explanation: "Private connectivity (PrivateLink, Private Link, Private Service Connect) requires Business Critical edition or higher."
+  },
+  {
+    q: "What type of object is a NETWORK RULE in Snowflake?",
+    options: ["Account-level object", "Schema-level object", "Database-level object", "Integration object"],
+    answer: 1,
+    explanation: "Network rules are schema-level objects (they reside in a database.schema). Network policies, in contrast, are account-level objects."
+  },
+  {
+    q: "Which network rule TYPE is used for egress (outbound) filtering?",
+    options: ["IPV4", "HOST_PORT", "PRIVATE_HOST_PORT", "Both B and C"],
+    answer: 3,
+    explanation: "HOST_PORT is used for egress to public endpoints, and PRIVATE_HOST_PORT for egress to private endpoints. Both support EGRESS mode. IPV4 is only for INGRESS and INTERNAL_STAGE."
+  },
+  {
+    q: "What does SYSTEM$ALLOWLIST() return?",
+    options: ["Your network policy's allowed IPs", "Snowflake's IPs/hostnames your firewall must allow", "Users allowed through the policy", "Private endpoint configurations"],
+    answer: 1,
+    explanation: "SYSTEM$ALLOWLIST() returns a JSON list of Snowflake's IPs and hostnames that your corporate firewall needs to allow for connectivity to Snowflake to work."
+  },
+  {
+    q: "Does enabling PrivateLink automatically block public internet access to Snowflake?",
+    options: ["Yes, public access is disabled immediately", "Yes, but after a 24-hour propagation period", "No, you must set a network policy to block public IPs", "No, but public access is rate-limited"],
+    answer: 2,
+    explanation: "PrivateLink provides a private path but does NOT disable public access. You must create and apply a network policy that only allows the private endpoint IPs to enforce private-only access."
+  },
+  {
+    q: "Which mode on a network rule controls access to internal stages?",
+    options: ["INGRESS", "EGRESS", "INTERNAL_STAGE", "STAGE_ACCESS"],
+    answer: 2,
+    explanation: "INTERNAL_STAGE mode is specifically for restricting which IPs can access internal stage data (user stages, table stages, named stages)."
+  },
+  {
+    q: "What role is required to apply a network policy at the account level?",
+    options: ["SYSADMIN", "SECURITYADMIN", "ACCOUNTADMIN", "USERADMIN"],
+    answer: 2,
+    explanation: "Only ACCOUNTADMIN can execute ALTER ACCOUNT SET NETWORK_POLICY. SECURITYADMIN can create policies and apply them to users, but account-level requires ACCOUNTADMIN."
+  },
+  {
+    q: "If both ALLOWED_IP_LIST contains '10.0.0.0/8' and BLOCKED_IP_LIST contains '10.0.0.5', what happens to IP 10.0.0.5?",
+    options: ["Allowed (allowed list wins)", "Blocked (blocked list wins)", "Error: contradictory configuration", "Depends on which was set first"],
+    answer: 1,
+    explanation: "BLOCKED_IP_LIST takes precedence over ALLOWED_IP_LIST. Even if an IP is in the allowed range, being explicitly blocked means it's denied."
+  },
+  {
+    q: "Are existing sessions affected when a network policy is changed?",
+    options: ["Yes, all existing sessions are terminated", "Yes, but with a 5-minute grace period", "No, only new connections are affected", "No, unless FORCE_DISCONNECT is specified"],
+    answer: 2,
+    explanation: "Network policy changes take effect on NEW connections only. Existing sessions continue until they disconnect naturally."
+  },
+  {
+    q: "What happens if you set a network policy that blocks your own IP?",
+    options: ["The change is rejected automatically", "You are immediately disconnected", "Your current session continues but you cannot reconnect", "A warning is shown but the policy is not applied"],
+    answer: 2,
+    explanation: "Snowflake does NOT prevent you from locking yourself out. Your current session continues, but once it ends, you cannot reconnect. You'll need Snowflake support to recover."
+  },
+  {
+    q: "Which network rule type is used for AWS PrivateLink endpoints?",
+    options: ["IPV4", "HOST_PORT", "PRIVATE_HOST_PORT", "PRIVATELINK"],
+    answer: 2,
+    explanation: "PRIVATE_HOST_PORT is used for private endpoints like AWS PrivateLink VPC endpoints, Azure Private Endpoints, etc."
+  },
+  {
+    q: "What is the maximum number of network policies that can be active at the account level?",
+    options: ["1", "5", "10", "Unlimited"],
+    answer: 0,
+    explanation: "Only ONE network policy can be active at the account level at any time. To change it, you set a different one (the old one is automatically unset)."
+  },
+  {
+    q: "Can network policies be applied to specific roles?",
+    options: ["Yes, using ALTER ROLE SET NETWORK_POLICY", "Yes, using GRANT POLICY TO ROLE", "No, only account-level and user-level", "Yes, in Enterprise edition and above"],
+    answer: 2,
+    explanation: "Network policies can only be applied at account-level or user-level. There is no role-level, warehouse-level, or database-level network policy."
+  },
+  {
+    q: "What does External Access Integration control?",
+    options: ["Which external users can access Snowflake", "Which external IPs are allowed inbound", "Which external endpoints UDFs/procedures can call outbound", "Which external stages are accessible"],
+    answer: 2,
+    explanation: "External Access Integration enables UDFs and stored procedures to make outbound HTTP/HTTPS calls to specified external endpoints. Without it, UDFs have no network egress."
+  },
+  {
+    q: "Which system function returns PrivateLink configuration information?",
+    options: ["SYSTEM$ALLOWLIST()", "SYSTEM$GET_PRIVATELINK_CONFIG()", "SYSTEM$PRIVATELINK_STATUS()", "SYSTEM$GET_NETWORK_CONFIG()"],
+    answer: 1,
+    explanation: "SYSTEM$GET_PRIVATELINK_CONFIG() returns the PrivateLink service name, account URL, OCSP URL, and other configuration needed to set up the private endpoint."
+  },
+  {
+    q: "Does Snowpipe respect network policies?",
+    options: ["Yes, Snowpipe connections are subject to network policies", "Only if the Snowpipe is REST-API based", "No, Snowpipe is not affected by network policies", "Only auto-ingest Snowpipe respects them"],
+    answer: 2,
+    explanation: "Snowpipe uses a different authentication and connection path and is NOT subject to network policies. This is a commonly tested fact."
+  },
+  {
+    q: "What format does SYSTEM$ALLOWLIST() return its data in?",
+    options: ["CSV", "XML", "JSON", "Plain text with newlines"],
+    answer: 2,
+    explanation: "SYSTEM$ALLOWLIST() returns a JSON array of objects, each containing type, host, and port fields."
+  },
+  {
+    q: "Which cloud provider uses 'Private Service Connect' for private connectivity?",
+    options: ["AWS", "Azure", "GCP", "All three use the same name"],
+    answer: 2,
+    explanation: "GCP uses Private Service Connect. AWS uses PrivateLink. Azure uses Azure Private Link. Each has its own terminology and setup process."
+  },
+  {
+    q: "A network policy has ALLOWED_IP_LIST = ('0.0.0.0/0') and BLOCKED_IP_LIST = ('192.168.1.100'). What's the effect?",
+    options: ["All IPs allowed, none blocked (0.0.0.0/0 overrides)", "All IPs allowed EXCEPT 192.168.1.100", "Configuration error", "Only 192.168.1.100 is allowed"],
+    answer: 1,
+    explanation: "0.0.0.0/0 in the allowed list means all IPs are allowed. But 192.168.1.100 is in the blocked list, and blocked takes precedence. So everyone is allowed EXCEPT that one IP."
+  },
+  {
+    q: "Where can you monitor failed login attempts due to network policy?",
+    options: ["QUERY_HISTORY view", "LOGIN_HISTORY view", "ACCESS_HISTORY view", "POLICY_HISTORY view"],
+    answer: 1,
+    explanation: "SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY records all login attempts including those blocked by network policies, with error messages indicating the reason."
+  },
+  {
+    q: "What privilege is needed to create a network rule?",
+    options: ["CREATE NETWORK POLICY on account", "CREATE NETWORK RULE on schema", "MANAGE NETWORK RULES on database", "SECURITYADMIN role"],
+    answer: 1,
+    explanation: "CREATE NETWORK RULE privilege on the schema is required because network rules are schema-level objects."
+  },
+  {
+    q: "If you use ALLOWED_NETWORK_RULE_LIST and ALLOWED_IP_LIST in the same policy, how are they evaluated?",
+    options: ["Only the rule list is used", "Only the IP list is used", "They are merged — IPs from both are allowed", "Error: cannot use both"],
+    answer: 2,
+    explanation: "When both are specified, the IPs from network rules and direct IP list entries are merged together. An IP matching either source is allowed."
+  },
+  {
+    q: "Which URL pattern indicates a PrivateLink connection?",
+    options: ["account.internal.snowflakecomputing.com", "account.region.privatelink.snowflakecomputing.com", "account.private.snowflakecomputing.com", "private-account.region.snowflakecomputing.com"],
+    answer: 1,
+    explanation: "The PrivateLink URL format includes '.privatelink.' in the hostname: account.region.privatelink.snowflakecomputing.com"
+  },
+  {
+    q: "Can you DESCRIBE a network policy with any role?",
+    options: ["No, only SECURITYADMIN and above", "No, only the policy owner", "Yes, any role can DESCRIBE and SHOW network policies", "Only roles with MONITOR privilege"],
+    answer: 2,
+    explanation: "Any role can run DESCRIBE NETWORK POLICY and SHOW NETWORK POLICIES. There is no special privilege required to view policy definitions."
+  },
+  {
+    q: "What is the default behavior for UDFs making outbound HTTP calls (without External Access Integration)?",
+    options: ["Allowed to any endpoint", "Allowed to HTTPS only", "Denied (no network egress)", "Allowed within same cloud region only"],
+    answer: 2,
+    explanation: "Snowflake UDFs/procedures run in a sandbox with NO outbound network access by default. External Access Integration must explicitly enable egress to specific endpoints."
+  },
+  {
+    q: "Which cloud provider technology does AWS use for private connectivity to Snowflake?",
+    options: ["VPC Peering", "AWS PrivateLink (Interface Endpoint)", "AWS Transit Gateway", "AWS Direct Connect"],
+    answer: 1,
+    explanation: "AWS uses PrivateLink via VPC Interface Endpoints. This is not VPC peering (no direct VPC-to-VPC connection) and not Direct Connect (though DC can complement it)."
+  },
+  {
+    q: "What happens if you DROP a network policy that is currently applied to the account?",
+    options: ["The policy is dropped and all restrictions are removed", "Error: cannot drop an active policy", "The policy is dropped but restrictions persist until reboot", "The policy is marked for deletion after all sessions end"],
+    answer: 1,
+    explanation: "You cannot DROP a network policy that is currently in use (applied to account or user). You must UNSET it first, then DROP."
+  },
+  {
+    q: "Which ACCOUNT_USAGE view provides the most relevant data for network security monitoring?",
+    options: ["QUERY_HISTORY", "LOGIN_HISTORY", "SESSIONS", "NETWORK_POLICIES"],
+    answer: 1,
+    explanation: "LOGIN_HISTORY shows all connection attempts with client IP, success/failure, error messages, and authentication methods — essential for network security monitoring."
+  },
+  {
+    q: "In network rule evaluation, what does MODE = EGRESS mean?",
+    options: ["Controls inbound connections to Snowflake", "Controls outbound connections from Snowflake", "Controls stage data access", "Controls replication traffic"],
+    answer: 1,
+    explanation: "EGRESS mode defines what external endpoints Snowflake can connect OUT to (used in External Access Integration for UDFs/procedures calling APIs)."
+  },
+  {
+    q: "A company has offices at 10.0.1.0/24 and 10.0.2.0/24. Their VPN is 172.16.0.0/16. Which configuration allows all three?",
+    options: ["ALLOWED_IP_LIST = ('10.0.0.0/8')", "ALLOWED_IP_LIST = ('10.0.1.0/24', '10.0.2.0/24', '172.16.0.0/16')", "Three separate network policies, one per range", "ALLOWED_IP_LIST = ('10.0.1.0/24') with three policies merged"],
+    answer: 1,
+    explanation: "Multiple CIDR ranges can be listed in a single ALLOWED_IP_LIST. Option A would also work but is overly broad (allows all of 10.x.x.x)."
+  },
+  {
+    q: "What is the latency for LOGIN_HISTORY data in ACCOUNT_USAGE?",
+    options: ["Real-time (no latency)", "Up to 15 minutes", "Up to 45 minutes", "Up to 2 hours"],
+    answer: 2,
+    explanation: "ACCOUNT_USAGE views have up to 45-minute latency. For real-time login data, use the INFORMATION_SCHEMA.LOGIN_HISTORY() table function (7-day retention, no latency)."
+  },
+  {
+    q: "What object type must you create before an External Access Integration?",
+    options: ["Network policy", "Security integration", "Network rule (with MODE = EGRESS)", "API integration"],
+    answer: 2,
+    explanation: "External Access Integration requires a network rule with MODE = EGRESS that specifies the allowed outbound endpoints. This rule is referenced in the integration."
+  },
+  {
+    q: "Can you apply different network policies to different warehouses?",
+    options: ["Yes, using ALTER WAREHOUSE SET NETWORK_POLICY", "Yes, using a tag-based policy", "No, policies are only account-level or user-level", "Yes, in Enterprise edition"],
+    answer: 2,
+    explanation: "Network policies cannot be applied at warehouse level. Only account-level and user-level granularity is supported."
+  },
+  {
+    q: "What is the relationship between a network rule and a network policy?",
+    options: ["They are the same object type", "A rule defines identifiers; a policy consumes rules and is applied to subjects", "A policy defines identifiers; a rule applies them", "Rules replace policies in newer versions"],
+    answer: 1,
+    explanation: "Network rules define WHAT (IP addresses, hostnames). Network policies consume rules and define WHERE to enforce (account, user). Rules enable reuse across multiple policies."
+  },
+  {
+    q: "When using SCIM for user provisioning, what must you consider regarding network policies?",
+    options: ["SCIM bypasses all network policies", "SCIM uses separate network rules", "The IdP's SCIM server IPs must be in the allowed list", "SCIM doesn't work with network policies enabled"],
+    answer: 2,
+    explanation: "SCIM API requests ARE subject to network policies. If the IdP's SCIM provisioning server IP is not allowed, user provisioning will fail."
+  },
+  {
+    q: "What does SYSTEM$ALLOWLIST_PRIVATELINK() return compared to SYSTEM$ALLOWLIST()?",
+    options: ["The same data in a different format", "Private endpoint equivalents for firewall allowlisting", "A list of which IPs are using PrivateLink", "PrivateLink connection health status"],
+    answer: 1,
+    explanation: "SYSTEM$ALLOWLIST_PRIVATELINK() returns the private endpoint hostnames and IPs (instead of public ones) that your firewall needs to allow when using PrivateLink."
+  },
+  {
+    q: "Which of the following is TRUE about network policy evaluation order?",
+    options: ["Allowed list checked first, then blocked list", "Blocked list checked first, then allowed list", "Both lists checked simultaneously", "It depends on the cloud provider"],
+    answer: 1,
+    explanation: "Blocked list is evaluated first. If an IP is in the blocked list, it is denied regardless of the allowed list. Then the allowed list is checked."
+  },
+  {
+    q: "Can a single network rule be referenced by multiple network policies?",
+    options: ["No, rules have one-to-one relationship with policies", "Yes, rules are reusable across multiple policies", "Only if the policies are in the same schema", "Only IPV4 type rules can be shared"],
+    answer: 1,
+    explanation: "Network rules are designed to be reusable. Multiple policies can reference the same rule, enabling DRY (Don't Repeat Yourself) network management."
+  },
+  {
+    q: "What is the private connectivity equivalent in Azure?",
+    options: ["Azure PrivateLink", "Azure Private Link (Private Endpoint)", "Azure ExpressRoute", "Azure VNet Peering"],
+    answer: 1,
+    explanation: "Azure uses Azure Private Link with a Private Endpoint in the customer's subscription connecting to Snowflake's Private Link Service."
+  },
+  {
+    q: "If an account has no network policy set at all, what is the default behavior?",
+    options: ["All connections are blocked (deny-all)", "Only internal IPs are allowed", "All IPs can connect (allow-all)", "Only Snowsight web UI is accessible"],
+    answer: 2,
+    explanation: "With no network policy, Snowflake allows connections from any IP address. Network policies are entirely optional security hardening."
+  },
+  {
+    q: "Which of the following can NEVER be used as a network rule TYPE?",
+    options: ["IPV4", "IPV6", "HOST_PORT", "PRIVATE_HOST_PORT"],
+    answer: 1,
+    explanation: "Snowflake does not support IPv6 in network rules or policies. Only IPV4, HOST_PORT, and PRIVATE_HOST_PORT are valid types."
+  },
+  {
+    q: "You want to allow a UDF to call https://api.stripe.com. What must you create?",
+    options: ["Network policy with ALLOWED_IP_LIST for Stripe IPs", "Network rule (HOST_PORT, EGRESS) + External Access Integration", "API Integration for Stripe", "Security integration with TYPE = EXTERNAL_API"],
+    answer: 1,
+    explanation: "For UDF egress, create a HOST_PORT network rule with MODE=EGRESS listing 'api.stripe.com:443', then create an External Access Integration referencing that rule, then reference the integration in the UDF."
+  },
+  {
+    q: "What happens to Snowflake replication traffic with network policies?",
+    options: ["Replication is blocked by network policies", "Replication traffic uses separate internal channels and is not affected", "You must allowlist replication IPs", "Replication requires PrivateLink"],
+    answer: 1,
+    explanation: "Replication between Snowflake accounts uses internal Snowflake infrastructure and is not subject to customer-configured network policies."
+  },
+  {
+    q: "ALTER NETWORK POLICY my_policy SET BLOCKED_IP_LIST = ('0.0.0.0/0'). What does this do?",
+    options: ["Blocks all IPs (nobody can connect)", "Only blocks 0.0.0.0 literally", "Error: invalid CIDR", "Blocks all IPs except those in ALLOWED_IP_LIST"],
+    answer: 0,
+    explanation: "0.0.0.0/0 represents ALL IPv4 addresses. Putting it in blocked list blocks everyone. Combined with an empty allowed list, this locks out the entire account."
+  },
+  {
+    q: "What is the key security gap if you use PrivateLink WITHOUT a network policy?",
+    options: ["Data is unencrypted", "The private endpoint can be discovered", "Users can still connect via the public internet URL", "PrivateLink has higher latency"],
+    answer: 2,
+    explanation: "Without a network policy, the public URL still works. Anyone can connect over the public internet. The network policy is needed to enforce private-only access."
+  },
+  {
+    q: "Which view would you use for REAL-TIME (no latency) login monitoring?",
+    options: ["ACCOUNT_USAGE.LOGIN_HISTORY", "INFORMATION_SCHEMA.LOGIN_HISTORY()", "READER_ACCOUNT_USAGE.LOGIN_HISTORY", "ORGANIZATION_USAGE.LOGIN_HISTORY"],
+    answer: 1,
+    explanation: "INFORMATION_SCHEMA.LOGIN_HISTORY() is a table function with no latency (real-time) but only 7 days of retention. ACCOUNT_USAGE.LOGIN_HISTORY has up to 45-min latency but 365 days retention."
+  },
+  {
+    q: "Can you use network policies with Snowflake's Snowsight web UI?",
+    options: ["No, Snowsight bypasses network policies", "Yes, Snowsight respects network policies like any other client", "Only in Business Critical edition", "Only if accessed via PrivateLink"],
+    answer: 1,
+    explanation: "Snowsight (web UI) is subject to network policies. The user's browser IP is evaluated against the policy. This is true for all connection methods."
+  },
+  {
+    q: "What is the correct approach to avoid locking yourself out when first setting up network policies?",
+    options: ["Test with ALTER USER on a test account first", "Use ALLOWED_IP_LIST = ('0.0.0.0/0') initially", "Apply to a test user first, verify you can still connect, then apply to account", "Network policies have a 1-hour grace period by default"],
+    answer: 2,
+    explanation: "Best practice: Create the policy, apply to a single test user, verify that user can still connect from expected IPs, THEN apply at account level. Keep a break-glass admin user."
+  }
+];
+
+let score = 0;
+let answered = 0;
+const container = document.getElementById('questions-container');
+const scoreDisplay = document.getElementById('score-display');
+const progressDisplay = document.getElementById('progress-display');
+
+function renderQuestions() {
+  container.innerHTML = '';
+  questions.forEach((q, idx) => {
+    const block = document.createElement('div');
+    block.className = 'question-block';
+    block.id = 'q-' + idx;
+    block.innerHTML = '<div class="q-number">Question ' + (idx + 1) + ' of 50</div>' +
+      '<div class="q-text">' + q.q + '</div>' +
+      '<ul class="options">' + q.options.map((opt, oi) =>
+        '<li data-q="' + idx + '" data-o="' + oi + '">' + String.fromCharCode(65 + oi) + '. ' + opt + '</li>'
+      ).join('') + '</ul>' +
+      '<div class="explanation" id="exp-' + idx + '"><strong>Explanation:</strong> ' + q.explanation + '</div>';
+    container.appendChild(block);
+  });
+  container.addEventListener('click', handleClick);
+}
+
+function handleClick(e) {
+  const li = e.target.closest('li[data-q]');
+  if (!li || li.classList.contains('disabled')) return;
+  const qIdx = parseInt(li.dataset.q);
+  const oIdx = parseInt(li.dataset.o);
+  const q = questions[qIdx];
+  const block = document.getElementById('q-' + qIdx);
+  const allOpts = block.querySelectorAll('.options li');
+  allOpts.forEach(opt => { opt.classList.add('disabled'); });
+  if (oIdx === q.answer) {
+    li.classList.add('correct');
+    block.classList.add('answered-correct');
+    score++;
+  } else {
+    li.classList.add('incorrect');
+    allOpts[q.answer].classList.add('correct');
+    block.classList.add('answered-incorrect');
+  }
+  answered++;
+  scoreDisplay.textContent = score + '/' + answered;
+  progressDisplay.textContent = answered + ' of 50 answered';
+  document.getElementById('exp-' + qIdx).classList.add('visible');
+}
+
+document.getElementById('reset-btn').addEventListener('click', function() {
+  score = 0; answered = 0;
+  scoreDisplay.textContent = '0/0';
+  progressDisplay.textContent = '0 of 50 answered';
+  renderQuestions();
+});
+
+renderQuestions();
+</script>
+</body>
+</html>

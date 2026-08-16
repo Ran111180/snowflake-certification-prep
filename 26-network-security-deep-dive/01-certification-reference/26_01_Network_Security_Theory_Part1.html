@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>26.01 Network Security Theory Part 1 - Snowflake Certification Prep</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Network Security Deep Dive - Theory Part 1",
+  "topic": "Network Policies, Network Rules, Private Connectivity",
+  "category": "certification-prep",
+  "module": "26",
+  "part": "01",
+  "version": "1.0"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#f8f9fa, #1a1d23);
+  --bg-secondary: light-dark(#ffffff, #22262e);
+  --bg-tertiary: light-dark(#f1f3f5, #2a2f38);
+  --bg-card: light-dark(#ffffff, #282c34);
+  --text-primary: light-dark(#1a1d23, #e8eaed);
+  --text-secondary: light-dark(#4a5568, #a0aab4);
+  --text-muted: light-dark(#6b7280, #7a8490);
+  --accent: light-dark(#475569, #94a3b8);
+  --accent-bright: light-dark(#334155, #cbd5e1);
+  --border: light-dark(#e2e8f0, #374151);
+  --border-accent: light-dark(#94a3b8, #475569);
+  --success: light-dark(#166534, #4ade80);
+  --warning: light-dark(#92400e, #fbbf24);
+  --danger: light-dark(#991b1b, #f87171);
+  --info: light-dark(#1e40af, #60a5fa);
+  --code-bg: light-dark(#f1f5f9, #1e293b);
+  --highlight: light-dark(#e2e8f0, #334155);
+  --shadow: light-dark(0 2px 8px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.3));
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { color-scheme: light dark; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--accent-bright); }
+h2 { font-size: 1.5rem; font-weight: 600; margin: 2.5rem 0 1rem; color: var(--accent-bright); border-bottom: 2px solid var(--border-accent); padding-bottom: 0.5rem; }
+h3 { font-size: 1.15rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: var(--text-primary); }
+.subtitle { color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 2rem; }
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  box-shadow: var(--shadow);
+}
+.card-header {
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin-bottom: 0.75rem;
+  color: var(--accent-bright);
+}
+code {
+  background: var(--code-bg);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.88rem;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1.25rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+ul, ol { padding-left: 1.5rem; margin: 0.75rem 0; }
+li { margin: 0.4rem 0; }
+.tag {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.tag-feature { background: light-dark(#dbeafe, #1e3a5f); color: light-dark(#1e40af, #93c5fd); }
+.tag-limitation { background: light-dark(#fef3c7, #422006); color: light-dark(#92400e, #fcd34d); }
+.tag-key { background: light-dark(#dcfce7, #14532d); color: light-dark(#166534, #86efac); }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.25rem; }
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+th, td { padding: 0.75rem; border: 1px solid var(--border); text-align: left; }
+th { background: var(--bg-tertiary); font-weight: 600; }
+.exam-tip {
+  background: light-dark(#f0f9ff, #0c1929);
+  border-left: 4px solid var(--info);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  border-radius: 0 6px 6px 0;
+}
+.warning-box {
+  background: light-dark(#fef2f2, #1c0f0f);
+  border-left: 4px solid var(--danger);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  border-radius: 0 6px 6px 0;
+}
+.section-divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+</style>
+</head>
+<body>
+
+<h1>26.01 Network Security Deep Dive - Theory Part 1</h1>
+<p class="subtitle">Network Policies, Network Rules, and Private Connectivity</p>
+
+<h2>1. Network Policies</h2>
+
+<div class="card">
+<div class="card-header">Core Concept</div>
+<p>Network policies control <strong>who can connect</strong> to your Snowflake account based on IP address. They act as an IP allowlist/blocklist at the Snowflake service layer (not at the network infrastructure level).</p>
+</div>
+
+<h3>CREATE NETWORK POLICY Syntax</h3>
+<pre>
+CREATE [ OR REPLACE ] NETWORK POLICY [ IF NOT EXISTS ] &lt;name&gt;
+  ALLOWED_NETWORK_RULE_LIST = ( '&lt;rule1&gt;', '&lt;rule2&gt;' )
+  BLOCKED_NETWORK_RULE_LIST = ( '&lt;rule3&gt;' )
+  ALLOWED_IP_LIST = ( '&lt;ip1&gt;', '&lt;ip2&gt;' )
+  BLOCKED_IP_LIST = ( '&lt;ip3&gt;' )
+  COMMENT = '&lt;string&gt;';
+</pre>
+
+<h3>ALLOWED_IP_LIST and BLOCKED_IP_LIST</h3>
+<div class="card">
+<ul>
+<li><code>ALLOWED_IP_LIST</code> — Only these IPs can connect. If empty/omitted, all IPs are allowed (unless blocked).</li>
+<li><code>BLOCKED_IP_LIST</code> — These IPs are explicitly denied, even if they appear in the allowed list.</li>
+<li>CIDR notation supported: <code>'192.168.1.0/24'</code></li>
+<li><strong>Evaluation order</strong>: Check blocked list first → then check allowed list.</li>
+<li>If ALLOWED_IP_LIST is populated, any IP NOT in it is implicitly denied.</li>
+</ul>
+</div>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> If ALLOWED_IP_LIST is empty (not specified), it means "allow all IPs" — it does NOT mean "block everything." This is a common trap.
+</div>
+
+<h3>Applying Network Policies</h3>
+
+<h3>Account-Level</h3>
+<pre>
+ALTER ACCOUNT SET NETWORK_POLICY = 'my_policy';
+
+-- Remove
+ALTER ACCOUNT UNSET NETWORK_POLICY;
+</pre>
+
+<h3>User-Level</h3>
+<pre>
+ALTER USER jsmith SET NETWORK_POLICY = 'strict_policy';
+
+-- Remove
+ALTER USER jsmith UNSET NETWORK_POLICY;
+</pre>
+
+<div class="card">
+<div class="card-header">Precedence Rules</div>
+<table>
+<tr><th>Priority</th><th>Level</th><th>Effect</th></tr>
+<tr><td>1 (Highest)</td><td>User-level policy</td><td>Overrides account-level for that specific user</td></tr>
+<tr><td>2</td><td>Account-level policy</td><td>Applies to all users without a user-level policy</td></tr>
+<tr><td>3 (Default)</td><td>No policy</td><td>All IPs allowed</td></tr>
+</table>
+</div>
+
+<div class="warning-box">
+<strong>Critical:</strong> User-level policies OVERRIDE account policies — they are NOT additive. A user with their own policy is evaluated ONLY against that policy, ignoring the account policy entirely.
+</div>
+
+<hr class="section-divider">
+
+<h2>2. Network Rules</h2>
+
+<div class="card">
+<div class="card-header">What are Network Rules?</div>
+<p>Network rules are reusable objects that define network identifiers (IPs, hostnames, ports). They decouple the "what" (identifiers) from the "where" (policies). Multiple policies can reference the same rule.</p>
+</div>
+
+<h3>CREATE NETWORK RULE Syntax</h3>
+<pre>
+CREATE [ OR REPLACE ] NETWORK RULE &lt;name&gt;
+  TYPE = { IPV4 | PRIVATE_HOST_PORT | HOST_PORT }
+  VALUE_LIST = ( '&lt;value1&gt;', '&lt;value2&gt;' )
+  MODE = { INGRESS | INTERNAL_STAGE | EGRESS }
+  COMMENT = '&lt;string&gt;';
+</pre>
+
+<h3>Network Rule Types</h3>
+<table>
+<tr><th>Type</th><th>Description</th><th>Example Values</th><th>Mode</th></tr>
+<tr><td><code>IPV4</code></td><td>IPv4 addresses or CIDR ranges</td><td><code>'192.168.1.0/24'</code></td><td>INGRESS, INTERNAL_STAGE</td></tr>
+<tr><td><code>HOST_PORT</code></td><td>Hostnames (resolved to IPs)</td><td><code>'example.com:443'</code></td><td>EGRESS</td></tr>
+<tr><td><code>PRIVATE_HOST_PORT</code></td><td>Private endpoints (PrivateLink)</td><td><code>'my-s3-endpoint.vpce.amazonaws.com'</code></td><td>INTERNAL_STAGE, EGRESS</td></tr>
+</table>
+
+<h3>Network Rule Modes</h3>
+<table>
+<tr><th>Mode</th><th>Purpose</th><th>Direction</th></tr>
+<tr><td><code>INGRESS</code></td><td>Controls who can connect TO Snowflake</td><td>Inbound</td></tr>
+<tr><td><code>INTERNAL_STAGE</code></td><td>Controls access to internal stages</td><td>Inbound (stage-specific)</td></tr>
+<tr><td><code>EGRESS</code></td><td>Controls where Snowflake can connect OUT to</td><td>Outbound (for UDFs, procedures)</td></tr>
+</table>
+
+<h3>Linking Network Rules to Policies</h3>
+<pre>
+CREATE NETWORK POLICY secure_policy
+  ALLOWED_NETWORK_RULE_LIST = ('db1.schema1.office_ips', 'db1.schema1.vpn_ips')
+  BLOCKED_NETWORK_RULE_LIST = ('db1.schema1.known_bad_ips');
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> Network rules are schema-level objects (they live in a database.schema). Network policies are account-level objects (no schema).
+</div>
+
+<hr class="section-divider">
+
+<h2>3. Private Connectivity</h2>
+
+<div class="card">
+<div class="card-header">What Private Connectivity Does</div>
+<p>Private connectivity routes traffic between your VPC/VNet and Snowflake over the cloud provider's private backbone — <strong>never traversing the public internet</strong>. This addresses compliance requirements and reduces exposure to internet-based threats.</p>
+</div>
+
+<h3>Per-Cloud Implementation</h3>
+<table>
+<tr><th>Cloud</th><th>Technology</th><th>Key Concept</th></tr>
+<tr><td>AWS</td><td>AWS PrivateLink</td><td>VPC Interface Endpoint → Snowflake's VPC Endpoint Service</td></tr>
+<tr><td>Azure</td><td>Azure Private Link</td><td>Private Endpoint → Snowflake's Private Link Service</td></tr>
+<tr><td>GCP</td><td>Private Service Connect</td><td>Forwarding Rule → Snowflake's Service Attachment</td></tr>
+</table>
+
+<h3>How It Works (AWS PrivateLink Example)</h3>
+<div class="card">
+<ol>
+<li>Snowflake provides a <strong>VPC Endpoint Service Name</strong> (e.g., <code>com.amazonaws.vpce.us-east-1.vpce-svc-xxx</code>).</li>
+<li>Customer creates a <strong>VPC Interface Endpoint</strong> in their AWS account pointing to that service.</li>
+<li>DNS is configured so <code>account.privatelink.snowflakecomputing.com</code> resolves to the private endpoint IP.</li>
+<li>Traffic flows: Customer VPC → AWS backbone → Snowflake VPC. Never hits the internet.</li>
+</ol>
+</div>
+
+<h3>Private Connectivity URL Format</h3>
+<pre>
+-- Standard URL
+https://xy12345.us-east-1.snowflakecomputing.com
+
+-- PrivateLink URL
+https://xy12345.us-east-1.privatelink.snowflakecomputing.com
+</pre>
+
+<div class="warning-box">
+<strong>Important:</strong> Enabling PrivateLink does NOT automatically block public access. You still need a network policy to restrict to private IPs only. PrivateLink provides the path; the policy enforces it.
+</div>
+
+<h3>SYSTEM$GET_PRIVATELINK_CONFIG()</h3>
+<pre>
+SELECT SYSTEM$GET_PRIVATELINK_CONFIG();
+
+-- Returns JSON with:
+-- - privatelink-account-name
+-- - privatelink-vpce-id (AWS)
+-- - privatelink-account-url
+-- - privatelink-ocsp-url
+-- - regionless-privatelink-account-url
+</pre>
+
+<hr class="section-divider">
+
+<h2>4. Features (15)</h2>
+
+<div class="grid-2">
+<div class="card">
+<span class="tag tag-feature">Feature 1</span>
+<p>IP-based allowlisting and blocklisting with CIDR notation support</p>
+</div>
+<div class="card">
+<span class="tag tag-feature">Feature 2</span>
+<p>Granular application at account-level or user-level with clear precedence</p>
+</div>
+<div class="card">
+<span class="tag tag-feature">Feature 3</span>
+<p>Network rules separate identifier definitions from policy logic (reusable)</p>
+</div>
+<div class="card">
+<span class="tag tag-feature">Feature 4</span>
+<p>Three rule types: IPV4, HOST_PORT, PRIVATE_HOST_PORT for different scenarios</p>
+</div>
+<div class="card">
+<span class="tag tag-feature">Feature 5</span>
+<p>Three modes: INGRESS (inbound), EGRESS (outbound), INTERNAL_STAGE (stage access)</p>
+</div>
+<div class="card">
+<span class="tag tag-feature">Feature 6</span>
+<p>Private connectivity via AWS PrivateLink, Azure Private Link, GCP Private Service Connect</p>
+</div>
+<div class="card">
+<span class="tag tag-feature">Feature 7</span>
+<p>SYSTEM$GET_PRIVATELINK_CONFIG() to retrieve configuration for setup</p>
+</div>
+<div class="card">
+<span class="tag tag-feature">Feature 8</span>
+<p>SYSTEM$ALLOWLIST() returns IPs/hostnames to whitelist in corporate firewalls</p>
+</div>
+<div class="card">
+<span class="tag tag-feature">Feature 9</span>
+<p>SYSTEM$ALLOWLIST_PRIVATELINK() returns private endpoint info for firewall rules</p>
+</div>
+<div class="card">
+<span class="tag tag-feature">Feature 10</span>
+<p>Network policies apply to all connection methods (JDBC, ODBC, Web UI, SnowSQL, connectors)</p>
+</div>
+<div class="card">
+<span class="tag tag-feature">Feature 11</span>
+<p>Multiple network rules can be combined in a single policy (AND/OR logic via allowed/blocked lists)</p>
+</div>
+<div class="card">
+<span class="tag tag-feature">Feature 12</span>
+<p>External Access Integration enables controlled egress for UDFs and stored procedures</p>
+</div>
+<div class="card">
+<span class="tag tag-feature">Feature 13</span>
+<p>Network policies enforced for SCIM token-based requests (SSO provisioning)</p>
+</div>
+<div class="card">
+<span class="tag tag-feature">Feature 14</span>
+<p>LOGIN_HISTORY / LOGIN_HISTORY_BY_USER for auditing connection attempts and policy enforcement</p>
+</div>
+<div class="card">
+<span class="tag tag-feature">Feature 15</span>
+<p>DESCRIBE NETWORK POLICY and SHOW NETWORK POLICIES for introspection</p>
+</div>
+</div>
+
+<hr class="section-divider">
+
+<h2>5. Limitations (15)</h2>
+
+<div class="grid-2">
+<div class="card">
+<span class="tag tag-limitation">Limitation 1</span>
+<p>Only ONE network policy can be active at account level at a time</p>
+</div>
+<div class="card">
+<span class="tag tag-limitation">Limitation 2</span>
+<p>Only ONE network policy per user — cannot combine multiple policies</p>
+</div>
+<div class="card">
+<span class="tag tag-limitation">Limitation 3</span>
+<p>No IPv6 support — only IPv4 addresses in network rules and policies</p>
+</div>
+<div class="card">
+<span class="tag tag-limitation">Limitation 4</span>
+<p>Network policies do NOT affect Snowpipe (uses separate authentication/path)</p>
+</div>
+<div class="card">
+<span class="tag tag-limitation">Limitation 5</span>
+<p>Cannot apply network policies at role, warehouse, or database level</p>
+</div>
+<div class="card">
+<span class="tag tag-limitation">Limitation 6</span>
+<p>PrivateLink requires Business Critical edition or higher</p>
+</div>
+<div class="card">
+<span class="tag tag-limitation">Limitation 7</span>
+<p>PrivateLink alone does not block public access — needs network policy enforcement</p>
+</div>
+<div class="card">
+<span class="tag tag-limitation">Limitation 8</span>
+<p>Self-service PrivateLink not available for all regions — may require support request</p>
+</div>
+<div class="card">
+<span class="tag tag-limitation">Limitation 9</span>
+<p>Risk of lockout: misconfigured policy can block all users including ACCOUNTADMIN</p>
+</div>
+<div class="card">
+<span class="tag tag-limitation">Limitation 10</span>
+<p>Network rules are schema-level objects requiring database/schema context</p>
+</div>
+<div class="card">
+<span class="tag tag-limitation">Limitation 11</span>
+<p>HOST_PORT type rules only for EGRESS mode — cannot use for ingress filtering</p>
+</div>
+<div class="card">
+<span class="tag tag-limitation">Limitation 12</span>
+<p>External Access Integration is deny-by-default — must explicitly allow each endpoint</p>
+</div>
+<div class="card">
+<span class="tag tag-limitation">Limitation 13</span>
+<p>BLOCKED_IP_LIST cannot use 0.0.0.0/0 when ALLOWED_IP_LIST is also set (contradictory)</p>
+</div>
+<div class="card">
+<span class="tag tag-limitation">Limitation 14</span>
+<p>Changing network policies takes effect on NEW connections — existing sessions continue</p>
+</div>
+<div class="card">
+<span class="tag tag-limitation">Limitation 15</span>
+<p>Private connectivity DNS setup is customer's responsibility — Snowflake does not manage customer DNS</p>
+</div>
+</div>
+
+<hr class="section-divider">
+
+<h2>6. Key SQL Commands Reference</h2>
+
+<pre>
+-- Create/Manage Policies
+CREATE NETWORK POLICY my_policy ALLOWED_IP_LIST=('10.0.0.0/8') BLOCKED_IP_LIST=('10.0.0.99');
+ALTER NETWORK POLICY my_policy SET ALLOWED_IP_LIST=('10.0.0.0/8','172.16.0.0/12');
+DROP NETWORK POLICY my_policy;
+DESCRIBE NETWORK POLICY my_policy;
+SHOW NETWORK POLICIES;
+
+-- Apply Policies
+ALTER ACCOUNT SET NETWORK_POLICY = 'my_policy';
+ALTER USER admin_user SET NETWORK_POLICY = 'admin_strict_policy';
+
+-- System Functions
+SELECT SYSTEM$ALLOWLIST();
+SELECT SYSTEM$ALLOWLIST_PRIVATELINK();
+SELECT SYSTEM$GET_PRIVATELINK_CONFIG();
+
+-- Monitor
+SELECT * FROM SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY
+WHERE IS_SUCCESS = 'NO' AND ERROR_MESSAGE ILIKE '%network policy%'
+ORDER BY EVENT_TIMESTAMP DESC;
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> SECURITYADMIN or higher is required to create and manage network policies. ACCOUNTADMIN is required to set the account-level network policy.
+</div>
+
+</body>
+</html>

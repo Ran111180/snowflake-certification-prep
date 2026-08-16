@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL Fundamentals Edge Cases & Exam Scenarios</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "SQL Fundamentals Edge Cases",
+  "description": "Critical edge cases and tricky exam scenarios for SQL fundamentals including QUALIFY, ROW_NUMBER, MERGE, NULL handling, integer division",
+  "author": "Snowflake Certification Prep",
+  "version": "1.0",
+  "created": "2026-08-15",
+  "topic": "SQL Fundamentals Deep Dive",
+  "module": "24"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#f0f7ff, #0a1929);
+  --bg-secondary: light-dark(#ffffff, #112240);
+  --bg-card: light-dark(#ffffff, #1a2d4d);
+  --text-primary: light-dark(#1a2d4d, #e0eaff);
+  --text-secondary: light-dark(#3a5a8a, #a0b8d8);
+  --accent: light-dark(#0078d4, #4db8ff);
+  --accent-light: light-dark(#e6f3ff, #0d3868);
+  --border: light-dark(#c8ddf0, #1e3a5f);
+  --code-bg: light-dark(#edf4fc, #0d2847);
+  --success: light-dark(#0a7c42, #4cda8a);
+  --warning: light-dark(#a85d00, #ffb74d);
+  --error: light-dark(#c41e3a, #ff6b6b);
+  --highlight: light-dark(#fff3cd, #3d2e00);
+  --danger-bg: light-dark(#fde8ec, #2e0a0a);
+}
+html { color-scheme: light dark; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+}
+.container { max-width: 1100px; margin: 0 auto; }
+h1 { font-size: 2rem; color: var(--accent); margin-bottom: 0.5rem; border-bottom: 3px solid var(--accent); padding-bottom: 0.5rem; }
+h2 { font-size: 1.5rem; color: var(--accent); margin: 2rem 0 1rem; padding-left: 0.75rem; border-left: 4px solid var(--accent); }
+h3 { font-size: 1.15rem; color: var(--text-primary); margin: 1.5rem 0 0.75rem; }
+.subtitle { color: var(--text-secondary); margin-bottom: 2rem; font-size: 1.1rem; }
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem;
+  overflow-x: auto;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.9rem;
+  margin: 0.75rem 0;
+}
+code { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.9rem; color: var(--accent); }
+.trap {
+  background: var(--danger-bg);
+  border-left: 4px solid var(--error);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  border-radius: 0 6px 6px 0;
+}
+.trap strong { color: var(--error); }
+.correct-approach {
+  background: light-dark(#e6f9ee, #0a2e1a);
+  border-left: 4px solid var(--success);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  border-radius: 0 6px 6px 0;
+}
+.correct-approach strong { color: var(--success); }
+.exam-tip {
+  background: var(--highlight);
+  border-left: 4px solid var(--warning);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  border-radius: 0 6px 6px 0;
+}
+.exam-tip strong { color: var(--warning); }
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+th, td { padding: 0.6rem 0.8rem; border: 1px solid var(--border); text-align: left; }
+th { background: var(--accent-light); font-weight: 600; }
+.scenario {
+  background: var(--bg-card);
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+}
+.scenario h3 { color: var(--accent); margin-bottom: 0.5rem; }
+ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+li { margin: 0.3rem 0; }
+@media (max-width: 768px) { body { padding: 1rem; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>SQL Fundamentals - Edge Cases & Exam Scenarios</h1>
+<p class="subtitle">Critical traps, gotchas, and tricky scenarios that appear on the SnowPro certification exam</p>
+
+<h2>Edge Case 1: QUALIFY Execution Order</h2>
+<div class="card">
+<p>QUALIFY executes AFTER window functions but BEFORE DISTINCT and ORDER BY. This creates subtle behaviors:</p>
+<pre>
+-- This works! QUALIFY can reference window functions not in SELECT
+SELECT department, employee, salary
+FROM employees
+QUALIFY ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary DESC) = 1;
+
+-- But WHERE cannot filter window functions (executes too early)
+-- This FAILS:
+SELECT department, employee, salary,
+  ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary DESC) as rn
+FROM employees
+WHERE rn = 1;  -- ERROR: rn not recognized in WHERE
+</pre>
+<div class="trap">
+<strong>Trap:</strong> You cannot use window function results in WHERE (window functions execute after WHERE). You also cannot use them in HAVING. Only QUALIFY or a wrapping subquery works.
+</div>
+<div class="correct-approach">
+<strong>Correct:</strong> Use QUALIFY for filtering window results. It can reference functions inline OR by alias if in SELECT. It's the only clause that directly filters window function output.
+</div>
+</div>
+
+<h2>Edge Case 2: ROW_NUMBER vs RANK with Ties</h2>
+<div class="card">
+<pre>
+-- Data: Alice 90, Bob 90, Carol 80
+-- ROW_NUMBER() OVER (ORDER BY score DESC):
+--   Alice=1, Bob=2 (or Bob=1, Alice=2) — NON-DETERMINISTIC!
+-- RANK() OVER (ORDER BY score DESC):
+--   Alice=1, Bob=1, Carol=3 — DETERMINISTIC, gaps
+-- DENSE_RANK() OVER (ORDER BY score DESC):
+--   Alice=1, Bob=1, Carol=2 — DETERMINISTIC, no gaps
+</pre>
+<div class="trap">
+<strong>Trap:</strong> If an exam question asks "which query gives deterministic results?" and uses ROW_NUMBER without a unique tiebreaker column, the answer is NON-DETERMINISTIC. Running the same query twice may give different results.
+</div>
+<div class="correct-approach">
+<strong>Correct:</strong> Always add a unique tiebreaker: <code>ROW_NUMBER() OVER (ORDER BY score DESC, employee_id ASC)</code>. For "top-N including ties," use RANK() or DENSE_RANK() instead.
+</div>
+</div>
+
+<h2>Edge Case 3: MERGE Clause Order and Duplicate Keys</h2>
+<div class="card">
+<pre>
+-- MERGE processes clauses in ORDER WRITTEN. First match wins.
+MERGE INTO target t USING source s ON t.id = s.id
+WHEN MATCHED AND s.action = 'DELETE' THEN DELETE   -- checked first
+WHEN MATCHED THEN UPDATE SET t.val = s.val;        -- only if not deleted
+
+-- WRONG order (update happens first, delete never reached for non-delete):
+MERGE INTO target t USING source s ON t.id = s.id
+WHEN MATCHED THEN UPDATE SET t.val = s.val         -- always matches first!
+WHEN MATCHED AND s.action = 'DELETE' THEN DELETE;  -- dead code
+</pre>
+<div class="trap">
+<strong>Trap:</strong> The more specific WHEN MATCHED clause must come FIRST. A general WHEN MATCHED without a condition will consume all matches, making subsequent clauses unreachable.
+</div>
+<pre>
+-- Duplicate key trap:
+-- Source: (id=1, val='A'), (id=1, val='B')
+-- Target: (id=1, val='X')
+-- MERGE raises ERROR: duplicate keys detected (non-deterministic)
+
+-- Fix: deduplicate source first
+MERGE INTO target t
+USING (
+  SELECT * FROM source QUALIFY ROW_NUMBER() OVER (PARTITION BY id ORDER BY ts DESC) = 1
+) s ON t.id = s.id
+WHEN MATCHED THEN UPDATE SET t.val = s.val;
+</pre>
+</div>
+
+<h2>Edge Case 4: ROWS vs RANGE — The Subtle Difference</h2>
+<div class="card">
+<pre>
+-- Data: date=Jan 1 amt=10, date=Jan 1 amt=20, date=Jan 2 amt=30
+-- (Two rows share Jan 1)
+
+-- ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW:
+-- Row 1: SUM = 10 (only first physical row)
+-- Row 2: SUM = 30 (first + second physical row)
+-- Row 3: SUM = 60
+
+-- RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW (default!):
+-- Row 1: SUM = 30 (all rows with value <= Jan 1, includes BOTH Jan 1 rows)
+-- Row 2: SUM = 30 (same! all rows with value <= Jan 1)
+-- Row 3: SUM = 60
+</pre>
+<div class="trap">
+<strong>Trap:</strong> With duplicate ORDER BY values, RANGE groups them together while ROWS treats each physically. The DEFAULT frame is RANGE, so running totals may "jump" at tied values rather than incrementing row-by-row.
+</div>
+<div class="correct-approach">
+<strong>Correct:</strong> For a strict row-by-row running total, explicitly use <code>ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>. The default RANGE frame can produce unexpected results with ties.
+</div>
+</div>
+
+<h2>Edge Case 5: NULL Handling Across Functions</h2>
+<div class="card">
+<table>
+<tr><th>Expression</th><th>Result</th><th>Why</th></tr>
+<tr><td><code>NULL = NULL</code></td><td>NULL (unknown)</td><td>Standard SQL three-valued logic</td></tr>
+<tr><td><code>NULL IS NULL</code></td><td>TRUE</td><td>IS NULL is the proper NULL test</td></tr>
+<tr><td><code>DECODE(NULL, NULL, 'match')</code></td><td>'match'</td><td>DECODE treats NULL=NULL as TRUE</td></tr>
+<tr><td><code>NULL + 5</code></td><td>NULL</td><td>Any arithmetic with NULL = NULL</td></tr>
+<tr><td><code>CONCAT('a', NULL)</code></td><td>'a'</td><td>Snowflake CONCAT ignores NULLs</td></tr>
+<tr><td><code>'a' || NULL</code></td><td>NULL</td><td>|| operator propagates NULL</td></tr>
+<tr><td><code>COUNT(*)</code></td><td>Counts all rows</td><td>Includes NULLs</td></tr>
+<tr><td><code>COUNT(column)</code></td><td>Counts non-NULL</td><td>Excludes NULLs</td></tr>
+<tr><td><code>SUM(column) with all NULL</code></td><td>NULL</td><td>Not 0! Aggregates on all-NULL = NULL</td></tr>
+<tr><td><code>NULL IN (1, 2, NULL)</code></td><td>NULL (unknown)</td><td>IN does not use IS NULL logic</td></tr>
+<tr><td><code>NOT IN (1, 2, NULL)</code></td><td>NULL for any value</td><td>Deadly! Always returns NULL/FALSE</td></tr>
+</table>
+<div class="trap">
+<strong>Trap:</strong> <code>WHERE x NOT IN (subquery)</code> returns NO ROWS if the subquery contains any NULL! Use <code>NOT EXISTS</code> or filter NULLs from the subquery. Also: <code>||</code> propagates NULL but <code>CONCAT()</code> ignores NULL — they are NOT equivalent!
+</div>
+</div>
+
+<h2>Edge Case 6: COALESCE vs NVL — Subtle Differences</h2>
+<div class="card">
+<pre>
+-- Difference 1: Argument count
+NVL(a, b)           -- exactly 2 arguments
+COALESCE(a, b, c)   -- unlimited arguments
+
+-- Difference 2: Evaluation behavior
+NVL(expr1, expr2)      -- BOTH arguments always evaluated
+COALESCE(expr1, expr2) -- Short-circuits: stops at first non-NULL
+
+-- Difference 3: Type resolution
+NVL(1, 'text')         -- May error depending on implicit conversion
+COALESCE(1, 'text')    -- Uses SQL standard type precedence rules
+
+-- When it matters (performance):
+NVL(col, expensive_function())      -- function ALWAYS called
+COALESCE(col, expensive_function()) -- function only called if col IS NULL
+</pre>
+<div class="exam-tip">
+<strong>Exam Tip:</strong> For exam purposes: NVL = 2 args, always evaluates both. COALESCE = N args, short-circuits. Functionally NVL(a,b) = COALESCE(a,b) for results, but performance can differ.
+</div>
+</div>
+
+<h2>Edge Case 7: Integer Division (5/2 = 2)</h2>
+<div class="card">
+<pre>
+-- Integer division TRUNCATES in Snowflake
+SELECT 5/2;       -- Returns 2 (not 2.5!)
+SELECT 7/3;       -- Returns 2
+SELECT -5/2;      -- Returns -2 (truncates toward zero)
+
+-- Solutions to get decimal results:
+SELECT 5.0/2;              -- 2.500000 (make one operand decimal)
+SELECT 5/2.0;              -- 2.500000
+SELECT 5::FLOAT/2;         -- 2.5
+SELECT CAST(5 AS FLOAT)/2; -- 2.5
+SELECT DIV0(5, 2);         -- Still 2 (DIV0 is for zero-safe division, not decimal)
+SELECT 5/NULLIF(2, 0);     -- 2 (integer result, but zero-safe)
+</pre>
+<div class="trap">
+<strong>Trap:</strong> Calculating percentages like <code>correct_count / total_count * 100</code> gives 0 if both are integers and correct &lt; total! Always cast: <code>correct_count::FLOAT / total_count * 100</code>.
+</div>
+</div>
+
+<h2>Edge Case 8: REGEXP vs LIKE Pattern Matching</h2>
+<div class="card">
+<table>
+<tr><th>Feature</th><th>LIKE / ILIKE</th><th>REGEXP / RLIKE</th></tr>
+<tr><td>Wildcards</td><td><code>%</code> (any chars), <code>_</code> (one char)</td><td>Full regex: <code>.*</code>, <code>.{1}</code>, <code>[0-9]+</code></td></tr>
+<tr><td>Case sensitivity</td><td>LIKE=sensitive, ILIKE=insensitive</td><td>REGEXP=insensitive by default!</td></tr>
+<tr><td>Anchoring</td><td>Implicit full match</td><td>Partial match by default (use ^ and $)</td></tr>
+<tr><td>Escape</td><td><code>ESCAPE '\'</code></td><td>Double backslash or $$ delimiters</td></tr>
+<tr><td>Performance</td><td>Faster (simple pattern)</td><td>Slower (regex engine)</td></tr>
+</table>
+<pre>
+-- LIKE matches entire string implicitly
+SELECT 'Hello World' LIKE '%World';      -- TRUE
+SELECT 'Hello World' LIKE 'Hello';       -- FALSE (must match entire string)
+
+-- REGEXP matches ANYWHERE by default (partial match!)
+SELECT 'Hello World' REGEXP 'Hello';     -- TRUE (found within string)
+SELECT 'Hello World' REGEXP '^Hello$';   -- FALSE (anchored to exact match)
+
+-- Case sensitivity surprise:
+SELECT 'Hello' LIKE 'hello';             -- FALSE (case-sensitive)
+SELECT 'Hello' REGEXP 'hello';           -- TRUE! (case-insensitive by default)
+SELECT 'Hello' REGEXP 'hello' ;          -- TRUE
+-- Force case-sensitive: REGEXP '(?c)hello' or use REGEXP_LIKE with 'c' flag
+</pre>
+<div class="trap">
+<strong>Trap:</strong> REGEXP is case-INSENSITIVE by default (opposite of LIKE). REGEXP does partial matching (opposite of LIKE which requires full match). These two differences catch many exam takers.
+</div>
+</div>
+
+<h2>10 Exam Scenarios</h2>
+
+<div class="scenario">
+<h3>Scenario 1: Top-N Per Group</h3>
+<p><strong>Question:</strong> Which query returns the 3 highest-paid employees per department?</p>
+<pre>
+-- CORRECT (Snowflake-specific, most concise):
+SELECT * FROM employees
+QUALIFY ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC) <= 3;
+
+-- ALSO CORRECT (standard SQL):
+SELECT * FROM (
+  SELECT *, ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC) rn
+  FROM employees
+) WHERE rn <= 3;
+
+-- WRONG: Cannot filter in WHERE
+SELECT *, ROW_NUMBER() OVER (...) as rn FROM employees WHERE rn <= 3;
+</pre>
+<p><strong>Answer:</strong> QUALIFY is preferred in Snowflake. WHERE cannot access window function results.</p>
+</div>
+
+<div class="scenario">
+<h3>Scenario 2: Running Total with Ties</h3>
+<p><strong>Question:</strong> Given sales data where two orders share the same date, what does <code>SUM(amount) OVER (ORDER BY date)</code> produce?</p>
+<pre>
+-- date=Jan 1, amount=100
+-- date=Jan 1, amount=200
+-- date=Jan 2, amount=50
+
+-- Default frame = RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+-- Row 1: 300 (both Jan 1 rows included due to RANGE)
+-- Row 2: 300 (same! tied dates get same running total)
+-- Row 3: 350
+</pre>
+<p><strong>Answer:</strong> RANGE groups tied values together. Both Jan 1 rows show 300, not 100 and 300. Use ROWS for strict row-by-row accumulation.</p>
+</div>
+
+<div class="scenario">
+<h3>Scenario 3: MERGE with Multiple Sources</h3>
+<p><strong>Question:</strong> A staging table has two rows with id=1. What happens when MERGE matches both to the same target row?</p>
+<p><strong>Answer:</strong> MERGE raises a non-deterministic error. You must deduplicate the source using QUALIFY or GROUP BY before MERGE.</p>
+</div>
+
+<div class="scenario">
+<h3>Scenario 4: Integer Division in Percentage</h3>
+<p><strong>Question:</strong> <code>SELECT passed_count / total_count * 100 as pass_rate</code> where passed=3, total=7. What is the result?</p>
+<p><strong>Answer:</strong> <code>3/7 = 0</code> (integer division truncates), <code>0 * 100 = 0</code>. The pass_rate is 0, not 42.86. Fix: <code>passed_count * 100.0 / total_count</code> or cast to FLOAT.</p>
+</div>
+
+<div class="scenario">
+<h3>Scenario 5: NOT IN with NULL</h3>
+<p><strong>Question:</strong> <code>SELECT * FROM orders WHERE status NOT IN (SELECT status FROM excluded_statuses)</code> — the subquery returns ('cancelled', NULL). How many rows returned?</p>
+<p><strong>Answer:</strong> ZERO rows! <code>NOT IN</code> with NULL in the list always evaluates to NULL/FALSE for every value. Use <code>NOT EXISTS</code> or <code>WHERE status NOT IN (SELECT status FROM excluded_statuses WHERE status IS NOT NULL)</code>.</p>
+</div>
+
+<div class="scenario">
+<h3>Scenario 6: DATEDIFF Boundary Crossing</h3>
+<p><strong>Question:</strong> What is <code>DATEDIFF('month', '2024-01-31', '2024-02-01')</code>?</p>
+<p><strong>Answer:</strong> 1. DATEDIFF counts month boundaries crossed (January to February = 1), even though only 1 day elapsed. This catches people who expect 0 because "a full month hasn't passed."</p>
+</div>
+
+<div class="scenario">
+<h3>Scenario 7: || vs CONCAT with NULL</h3>
+<p><strong>Question:</strong> What is the difference between <code>first_name || ' ' || last_name</code> and <code>CONCAT(first_name, ' ', last_name)</code> when last_name is NULL?</p>
+<pre>
+-- first_name = 'John', last_name = NULL
+SELECT 'John' || ' ' || NULL;          -- NULL (|| propagates NULL)
+SELECT CONCAT('John', ' ', NULL);      -- 'John ' (CONCAT skips NULL)
+</pre>
+<p><strong>Answer:</strong> <code>||</code> returns NULL if any operand is NULL. <code>CONCAT()</code> skips NULLs and concatenates the rest. They are NOT interchangeable.</p>
+</div>
+
+<div class="scenario">
+<h3>Scenario 8: LAST_VALUE Default Frame Trap</h3>
+<p><strong>Question:</strong> Why does <code>LAST_VALUE(salary) OVER (ORDER BY hire_date)</code> return the current row's salary?</p>
+<p><strong>Answer:</strong> The default frame with ORDER BY is <code>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>. LAST_VALUE can only see up to the current row, so it returns the current row's value. Fix: add <code>ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING</code>.</p>
+</div>
+
+<div class="scenario">
+<h3>Scenario 9: DDL Inside Transaction</h3>
+<p><strong>Question:</strong> What happens if you execute <code>CREATE TABLE</code> inside a BEGIN/COMMIT block, then ROLLBACK?</p>
+<pre>
+BEGIN;
+  INSERT INTO log VALUES ('start');
+  CREATE TABLE new_table (id INT);  -- DDL auto-commits HERE
+  INSERT INTO log VALUES ('end');
+ROLLBACK;  -- Only rolls back 'end' insert!
+</pre>
+<p><strong>Answer:</strong> DDL statements auto-commit, breaking the transaction. The CREATE TABLE and 'start' INSERT are committed. Only statements after the DDL can be rolled back.</p>
+</div>
+
+<div class="scenario">
+<h3>Scenario 10: REGEXP Case Sensitivity Surprise</h3>
+<p><strong>Question:</strong> What does <code>SELECT 'HELLO' REGEXP 'hello'</code> return?</p>
+<p><strong>Answer:</strong> TRUE! REGEXP/RLIKE is case-insensitive by default in Snowflake (unlike LIKE which is case-sensitive). Use <code>'(?c)hello'</code> flag for case-sensitive matching, or use <code>REGEXP_LIKE(col, 'hello', 'c')</code>.</p>
+</div>
+
+<h2>Quick Decision Matrix</h2>
+<div class="card">
+<table>
+<tr><th>If you need...</th><th>Use this</th><th>Not this</th></tr>
+<tr><td>Top-N per group</td><td>QUALIFY + ROW_NUMBER</td><td>WHERE on window alias</td></tr>
+<tr><td>Strict row-by-row running total</td><td>ROWS frame</td><td>Default (RANGE) frame</td></tr>
+<tr><td>Deterministic ranking</td><td>RANK/DENSE_RANK or ROW_NUMBER + tiebreaker</td><td>ROW_NUMBER without unique ORDER BY</td></tr>
+<tr><td>NULL-safe equality</td><td>IS NOT DISTINCT FROM / DECODE</td><td>= operator</td></tr>
+<tr><td>Safe type conversion</td><td>TRY_CAST / TRY_TO_*</td><td>CAST / ::</td></tr>
+<tr><td>Decimal division</td><td>col::FLOAT / divisor</td><td>int / int</td></tr>
+<tr><td>NULL-safe NOT IN</td><td>NOT EXISTS</td><td>NOT IN (subquery with NULLs)</td></tr>
+<tr><td>Concatenation with possible NULLs</td><td>CONCAT() or NVL + ||</td><td>Bare || operator</td></tr>
+<tr><td>Case-sensitive pattern match</td><td>LIKE or REGEXP with (?c)</td><td>REGEXP without flag</td></tr>
+<tr><td>Last value in partition</td><td>LAST_VALUE + full frame</td><td>LAST_VALUE with default frame</td></tr>
+</table>
+</div>
+
+</div>
+</body>
+</html>

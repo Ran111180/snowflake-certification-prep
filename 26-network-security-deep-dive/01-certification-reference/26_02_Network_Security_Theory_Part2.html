@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>26.02 Network Security Theory Part 2 - Snowflake Certification Prep</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Network Security Deep Dive - Theory Part 2",
+  "topic": "Integration, External Access, Monitoring, Best Practices",
+  "category": "certification-prep",
+  "module": "26",
+  "part": "02",
+  "version": "1.0"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#f8f9fa, #1a1d23);
+  --bg-secondary: light-dark(#ffffff, #22262e);
+  --bg-tertiary: light-dark(#f1f3f5, #2a2f38);
+  --bg-card: light-dark(#ffffff, #282c34);
+  --text-primary: light-dark(#1a1d23, #e8eaed);
+  --text-secondary: light-dark(#4a5568, #a0aab4);
+  --text-muted: light-dark(#6b7280, #7a8490);
+  --accent: light-dark(#475569, #94a3b8);
+  --accent-bright: light-dark(#334155, #cbd5e1);
+  --border: light-dark(#e2e8f0, #374151);
+  --border-accent: light-dark(#94a3b8, #475569);
+  --success: light-dark(#166534, #4ade80);
+  --warning: light-dark(#92400e, #fbbf24);
+  --danger: light-dark(#991b1b, #f87171);
+  --info: light-dark(#1e40af, #60a5fa);
+  --code-bg: light-dark(#f1f5f9, #1e293b);
+  --highlight: light-dark(#e2e8f0, #334155);
+  --shadow: light-dark(0 2px 8px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.3));
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { color-scheme: light dark; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--accent-bright); }
+h2 { font-size: 1.5rem; font-weight: 600; margin: 2.5rem 0 1rem; color: var(--accent-bright); border-bottom: 2px solid var(--border-accent); padding-bottom: 0.5rem; }
+h3 { font-size: 1.15rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: var(--text-primary); }
+.subtitle { color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 2rem; }
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  box-shadow: var(--shadow);
+}
+.card-header {
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin-bottom: 0.75rem;
+  color: var(--accent-bright);
+}
+code {
+  background: var(--code-bg);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.88rem;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1.25rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+ul, ol { padding-left: 1.5rem; margin: 0.75rem 0; }
+li { margin: 0.4rem 0; }
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+th, td { padding: 0.75rem; border: 1px solid var(--border); text-align: left; }
+th { background: var(--bg-tertiary); font-weight: 600; }
+.exam-tip {
+  background: light-dark(#f0f9ff, #0c1929);
+  border-left: 4px solid var(--info);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  border-radius: 0 6px 6px 0;
+}
+.warning-box {
+  background: light-dark(#fef2f2, #1c0f0f);
+  border-left: 4px solid var(--danger);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  border-radius: 0 6px 6px 0;
+}
+.best-practice {
+  background: light-dark(#f0fdf4, #0a1f12);
+  border-left: 4px solid var(--success);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  border-radius: 0 6px 6px 0;
+}
+.section-divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.25rem; }
+</style>
+</head>
+<body>
+
+<h1>26.02 Network Security Deep Dive - Theory Part 2</h1>
+<p class="subtitle">Integration, External Access, Monitoring, and Best Practices</p>
+
+<h2>1. Network Rules Integration with Policies</h2>
+
+<div class="card">
+<div class="card-header">How Rules and Policies Work Together</div>
+<p>Network rules define <em>what</em> identifiers to allow/block. Network policies consume rules and define <em>where</em> to apply them. This separation enables reuse and cleaner management.</p>
+</div>
+
+<h3>Integration Pattern</h3>
+<pre>
+-- Step 1: Create network rules (schema-level objects)
+CREATE NETWORK RULE my_db.my_schema.corporate_ips
+  TYPE = IPV4
+  VALUE_LIST = ('10.0.0.0/8', '172.16.0.0/12')
+  MODE = INGRESS
+  COMMENT = 'Corporate office IP ranges';
+
+CREATE NETWORK RULE my_db.my_schema.vpn_ips
+  TYPE = IPV4
+  VALUE_LIST = ('203.0.113.0/24')
+  MODE = INGRESS
+  COMMENT = 'VPN gateway IPs';
+
+-- Step 2: Create policy referencing rules (account-level object)
+CREATE NETWORK POLICY corporate_access
+  ALLOWED_NETWORK_RULE_LIST = (
+    'my_db.my_schema.corporate_ips',
+    'my_db.my_schema.vpn_ips'
+  )
+  BLOCKED_NETWORK_RULE_LIST = ();
+
+-- Step 3: Apply
+ALTER ACCOUNT SET NETWORK_POLICY = 'corporate_access';
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> You can mix direct IP lists AND network rules in the same policy. IPs from both sources are merged for evaluation.
+</div>
+
+<h3>Rules in ALLOWED vs BLOCKED Lists</h3>
+<table>
+<tr><th>Policy Property</th><th>Accepts Rules of Mode</th><th>Effect</th></tr>
+<tr><td>ALLOWED_NETWORK_RULE_LIST</td><td>INGRESS, INTERNAL_STAGE</td><td>IPs/hosts in these rules are permitted</td></tr>
+<tr><td>BLOCKED_NETWORK_RULE_LIST</td><td>INGRESS, INTERNAL_STAGE</td><td>IPs/hosts in these rules are denied (takes precedence)</td></tr>
+</table>
+
+<hr class="section-divider">
+
+<h2>2. External Access Integration</h2>
+
+<div class="card">
+<div class="card-header">Purpose</div>
+<p>External Access Integrations allow UDFs and stored procedures to make outbound network calls (HTTP/HTTPS) to specific external endpoints. Without this, Snowflake functions run in a sandboxed environment with <strong>no network egress by default</strong>.</p>
+</div>
+
+<h3>Architecture</h3>
+<pre>
+-- Step 1: Create egress network rule
+CREATE NETWORK RULE my_db.my_schema.api_rule
+  TYPE = HOST_PORT
+  VALUE_LIST = ('api.openai.com:443', 'api.weather.com:443')
+  MODE = EGRESS;
+
+-- Step 2: Create secret for authentication (optional)
+CREATE SECRET my_db.my_schema.api_key
+  TYPE = GENERIC_STRING
+  SECRET_STRING = 'sk-xxxx';
+
+-- Step 3: Create External Access Integration
+CREATE EXTERNAL ACCESS INTEGRATION my_api_access
+  ALLOWED_NETWORK_RULES = (my_db.my_schema.api_rule)
+  ALLOWED_AUTHENTICATION_SECRETS = (my_db.my_schema.api_key)
+  ENABLED = TRUE;
+
+-- Step 4: Use in UDF
+CREATE OR REPLACE FUNCTION call_api(prompt STRING)
+  RETURNS STRING
+  LANGUAGE PYTHON
+  RUNTIME_VERSION = '3.10'
+  EXTERNAL_ACCESS_INTEGRATIONS = (my_api_access)
+  SECRETS = ('api_key' = my_db.my_schema.api_key)
+  PACKAGES = ('requests')
+  HANDLER = 'main'
+AS $$
+import requests
+import _snowflake
+
+def main(prompt):
+    key = _snowflake.get_generic_secret_string('api_key')
+    resp = requests.post('https://api.openai.com/v1/chat/completions',
+        headers={'Authorization': f'Bearer {key}'},
+        json={'model': 'gpt-4', 'messages': [{'role': 'user', 'content': prompt}]})
+    return resp.json()['choices'][0]['message']['content']
+$$;
+</pre>
+
+<div class="warning-box">
+<strong>Key Point:</strong> External access is deny-by-default. Without an External Access Integration, a UDF attempting HTTP calls will fail with a network error. This is a security feature.
+</div>
+
+<hr class="section-divider">
+
+<h2>3. SYSTEM$ALLOWLIST Functions</h2>
+
+<div class="card">
+<div class="card-header">SYSTEM$ALLOWLIST()</div>
+<p>Returns a JSON list of Snowflake's IPs and hostnames that your corporate firewall must allow for Snowflake connectivity to work. Use this when configuring egress rules in your corporate firewall/proxy.</p>
+<pre>
+SELECT SYSTEM$ALLOWLIST();
+-- Returns: SNOWFLAKE_DEPLOYMENT, STAGE, SNOWSIGHT_DEPLOYMENT, etc.
+-- Each entry has: type, host, port
+</pre>
+</div>
+
+<div class="card">
+<div class="card-header">SYSTEM$ALLOWLIST_PRIVATELINK()</div>
+<p>Same concept but returns the private endpoints to allowlist when using PrivateLink. These are the internal DNS names and IPs for your private connectivity path.</p>
+<pre>
+SELECT SYSTEM$ALLOWLIST_PRIVATELINK();
+-- Returns private endpoint equivalents for:
+-- SNOWFLAKE_DEPLOYMENT_PRIVATELINK
+-- STAGE_PRIVATELINK
+-- etc.
+</pre>
+</div>
+
+<hr class="section-divider">
+
+<h2>4. Private Connectivity Setup Per Cloud</h2>
+
+<h3>AWS PrivateLink Setup Flow</h3>
+<div class="card">
+<ol>
+<li>Contact Snowflake support (or self-service for supported regions) to enable PrivateLink on your account</li>
+<li>Run <code>SELECT SYSTEM$GET_PRIVATELINK_CONFIG();</code> to get the AWS VPC Endpoint Service name</li>
+<li>Create a VPC Interface Endpoint in your AWS account targeting that service</li>
+<li>Accept the endpoint connection (may be auto-approved)</li>
+<li>Configure DNS: Private Hosted Zone with <code>*.privatelink.snowflakecomputing.com</code> → endpoint ENI IPs</li>
+<li>Test connectivity using the <code>.privatelink.</code> URL</li>
+<li>Set network policy to restrict to private IPs only</li>
+</ol>
+</div>
+
+<h3>Azure Private Link Setup Flow</h3>
+<div class="card">
+<ol>
+<li>Enable Private Link on Snowflake account (Business Critical+)</li>
+<li>Get Private Link Service ID from <code>SYSTEM$GET_PRIVATELINK_CONFIG()</code></li>
+<li>Create a Private Endpoint in your Azure subscription</li>
+<li>Configure Private DNS Zone: <code>privatelink.snowflakecomputing.com</code></li>
+<li>Approve the connection in Snowflake (if required)</li>
+<li>Validate and set network policy</li>
+</ol>
+</div>
+
+<h3>GCP Private Service Connect</h3>
+<div class="card">
+<ol>
+<li>Get Service Attachment URI from Snowflake</li>
+<li>Create a Forwarding Rule pointing to the service attachment</li>
+<li>Configure Cloud DNS with the private endpoint</li>
+<li>Validate connectivity</li>
+<li>Apply restrictive network policy</li>
+</ol>
+</div>
+
+<hr class="section-divider">
+
+<h2>5. Internal Stages and Network Policies</h2>
+
+<div class="card">
+<div class="card-header">How Internal Stages Interact with Network Policies</div>
+<ul>
+<li>Internal stages (user, table, named) are accessed through Snowflake's cloud storage (S3/Azure Blob/GCS)</li>
+<li>Network policies with <code>INTERNAL_STAGE</code> mode rules can restrict which IPs access stage data</li>
+<li>Stage access uses pre-signed URLs — the network rule restricts which IPs can use those URLs</li>
+<li>Without INTERNAL_STAGE restrictions, anyone with a valid pre-signed URL could download data from any IP</li>
+</ul>
+</div>
+
+<pre>
+-- Restrict stage access to corporate IPs
+CREATE NETWORK RULE my_db.my_schema.stage_access
+  TYPE = IPV4
+  VALUE_LIST = ('10.0.0.0/8')
+  MODE = INTERNAL_STAGE;
+
+CREATE NETWORK POLICY stage_restricted
+  ALLOWED_NETWORK_RULE_LIST = ('my_db.my_schema.stage_access');
+
+-- Apply at account level
+ALTER ACCOUNT SET NETWORK_POLICY = 'stage_restricted';
+</pre>
+
+<hr class="section-divider">
+
+<h2>6. SCIM and Network Policies</h2>
+
+<div class="card">
+<ul>
+<li>SCIM (System for Cross-domain Identity Management) is used for automated user/group provisioning from IdPs</li>
+<li>SCIM API requests ARE subject to network policies</li>
+<li>If you set a restrictive network policy, ensure your IdP's SCIM provisioning IPs are in the allowed list</li>
+<li>Otherwise, user provisioning/deprovisioning will fail silently or with errors</li>
+<li>SCIM uses a bearer token — the IP of the SCIM client matters</li>
+</ul>
+</div>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> When setting up network policies with SSO/SCIM, you must allow IPs for: (1) your IdP's SAML endpoints, (2) your IdP's SCIM provisioning servers, (3) your actual users' IPs.
+</div>
+
+<hr class="section-divider">
+
+<h2>7. MFA + Network Policy Combination</h2>
+
+<div class="card">
+<div class="card-header">Layered Security</div>
+<p>Network policies and MFA are independent controls that layer together:</p>
+<ul>
+<li><strong>Network policy</strong>: "Can this IP reach Snowflake?" (evaluated first)</li>
+<li><strong>MFA</strong>: "Can this person prove their identity?" (evaluated after network passes)</li>
+<li>Both must pass for successful authentication</li>
+<li>A blocked IP never gets to the MFA prompt</li>
+<li>An allowed IP still requires valid credentials + MFA (if configured)</li>
+</ul>
+</div>
+
+<table>
+<tr><th>Network Policy</th><th>MFA</th><th>Result</th></tr>
+<tr><td>IP Blocked</td><td>N/A</td><td>Connection refused immediately</td></tr>
+<tr><td>IP Allowed</td><td>MFA passes</td><td>Access granted</td></tr>
+<tr><td>IP Allowed</td><td>MFA fails</td><td>Authentication denied</td></tr>
+<tr><td>No policy set</td><td>MFA passes</td><td>Access granted</td></tr>
+</table>
+
+<hr class="section-divider">
+
+<h2>8. RBAC for Network Policies</h2>
+
+<div class="card">
+<table>
+<tr><th>Action</th><th>Required Privilege/Role</th></tr>
+<tr><td>CREATE NETWORK POLICY</td><td>SECURITYADMIN or CREATE NETWORK POLICY privilege</td></tr>
+<tr><td>ALTER/DROP NETWORK POLICY</td><td>OWNERSHIP on the policy</td></tr>
+<tr><td>ALTER ACCOUNT SET NETWORK_POLICY</td><td>ACCOUNTADMIN</td></tr>
+<tr><td>ALTER USER SET NETWORK_POLICY</td><td>SECURITYADMIN or OWNERSHIP on user + OWNERSHIP on policy</td></tr>
+<tr><td>CREATE NETWORK RULE</td><td>CREATE NETWORK RULE privilege on schema</td></tr>
+<tr><td>SHOW NETWORK POLICIES</td><td>Any role (sees all policies)</td></tr>
+<tr><td>DESCRIBE NETWORK POLICY</td><td>Any role (sees allowed/blocked lists)</td></tr>
+</table>
+</div>
+
+<div class="warning-box">
+<strong>Risk:</strong> ACCOUNTADMIN can set a network policy that locks out all other AACOUNTADMINs. Snowflake support intervention required to recover from a full lockout.
+</div>
+
+<hr class="section-divider">
+
+<h2>9. LOGIN_HISTORY Monitoring</h2>
+
+<div class="card">
+<div class="card-header">Key Views for Network Security Monitoring</div>
+<pre>
+-- Recent blocked connections (network policy violations)
+SELECT EVENT_TIMESTAMP, USER_NAME, CLIENT_IP, ERROR_CODE, ERROR_MESSAGE,
+       REPORTED_CLIENT_TYPE, FIRST_AUTHENTICATION_FACTOR
+FROM SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY
+WHERE IS_SUCCESS = 'NO'
+  AND ERROR_MESSAGE ILIKE '%IP%not allowed%'
+ORDER BY EVENT_TIMESTAMP DESC
+LIMIT 100;
+
+-- All logins by IP for anomaly detection
+SELECT CLIENT_IP, COUNT(*) AS login_count,
+       COUNT(DISTINCT USER_NAME) AS distinct_users,
+       MIN(EVENT_TIMESTAMP) AS first_seen,
+       MAX(EVENT_TIMESTAMP) AS last_seen
+FROM SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY
+WHERE EVENT_TIMESTAMP > DATEADD('day', -7, CURRENT_TIMESTAMP())
+GROUP BY CLIENT_IP
+ORDER BY login_count DESC;
+
+-- Users connecting from unexpected IPs
+SELECT USER_NAME, CLIENT_IP, EVENT_TIMESTAMP
+FROM SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY
+WHERE IS_SUCCESS = 'YES'
+  AND CLIENT_IP NOT LIKE '10.%'
+  AND CLIENT_IP NOT LIKE '172.16.%'
+ORDER BY EVENT_TIMESTAMP DESC;
+</pre>
+</div>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> LOGIN_HISTORY is in ACCOUNT_USAGE schema (up to 365 days, 45-min latency). For real-time, use <code>INFORMATION_SCHEMA.LOGIN_HISTORY()</code> table function (last 7 days, no latency).
+</div>
+
+<hr class="section-divider">
+
+<h2>10. Best Practices</h2>
+
+<div class="grid-2">
+<div class="best-practice">
+<strong>1. Always test before applying account-wide</strong><br>
+Apply to a test user first. Verify you can still log in. Then apply at account level.
+</div>
+<div class="best-practice">
+<strong>2. Include your current IP in the allowed list</strong><br>
+Before setting a policy, verify your IP is included. Use <code>SELECT CURRENT_CLIENT()</code> or a service to check.
+</div>
+<div class="best-practice">
+<strong>3. Keep an emergency "break glass" user</strong><br>
+Set a separate user-level policy on an emergency admin account with a broader IP range (or no policy) for lockout recovery.
+</div>
+<div class="best-practice">
+<strong>4. Use network rules for maintainability</strong><br>
+Instead of hardcoding IPs in policies, use network rules. When IPs change, update the rule — all referencing policies update automatically.
+</div>
+<div class="best-practice">
+<strong>5. Combine PrivateLink with network policies</strong><br>
+PrivateLink provides the private path; the network policy enforces exclusive use of that path. Both are needed.
+</div>
+<div class="best-practice">
+<strong>6. Monitor LOGIN_HISTORY regularly</strong><br>
+Set up alerts for failed logins due to network policy. This catches both attacks and legitimate users on wrong networks.
+</div>
+<div class="best-practice">
+<strong>7. Account for all access paths</strong><br>
+Remember: Web UI, SnowSQL, JDBC/ODBC, Python connector, Spark connector, SCIM, Snowpipe — verify each.
+</div>
+<div class="best-practice">
+<strong>8. Document your IP ranges</strong><br>
+Maintain a mapping of IP ranges to locations/purposes. Makes policy audits and updates much easier.
+</div>
+<div class="best-practice">
+<strong>9. Review policies quarterly</strong><br>
+IP ranges change. VPNs change. Offices close. Regularly verify that policies still match reality.
+</div>
+<div class="best-practice">
+<strong>10. Use CIDR notation for ranges</strong><br>
+Don't add individual IPs when a CIDR block covers the range. Cleaner, fewer entries, easier to manage.
+</div>
+</div>
+
+</body>
+</html>

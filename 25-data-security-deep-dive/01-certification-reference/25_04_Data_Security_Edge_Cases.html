@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>25_04 Data Security - Edge Cases &amp; Exam Scenarios</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-08-15",
+    "intent": "Snowflake certification prep - Data Security edge cases, tricky behaviors, and 10 exam scenarios",
+    "sections": [
+      { "id": "one-policy-per-column", "title": "One Masking Policy Per Column", "dataSources": [], "producerNotes": "Critical constraint" },
+      { "id": "one-rap-per-table", "title": "One RAP Per Table", "dataSources": [], "producerNotes": "Critical constraint" },
+      { "id": "role-functions", "title": "CURRENT_ROLE vs IS_ROLE_IN_SESSION", "dataSources": [], "producerNotes": "Hierarchy implications" },
+      { "id": "variant-masking", "title": "VARIANT Column Masking", "dataSources": [], "producerNotes": "Whole-column only restriction" },
+      { "id": "shared-data-policies", "title": "Shared Data Policies", "dataSources": [], "producerNotes": "Provider vs consumer behavior" },
+      { "id": "performance", "title": "Performance Impact", "dataSources": [], "producerNotes": "Query optimization considerations" },
+      { "id": "tag-propagation", "title": "Tag Propagation", "dataSources": [], "producerNotes": "No inheritance - explicit only" },
+      { "id": "exam-scenarios", "title": "10 Exam Scenarios", "dataSources": [], "producerNotes": "Complex real-world scenarios" }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+      max-width: 920px; margin: 0 auto; padding: 24px;
+      color: light-dark(#1f2937, #e5e7eb);
+      background: light-dark(#ffffff, #0f1219);
+    }
+    h1 { color: light-dark(#9b1c31, #f87171); border-bottom: 3px solid light-dark(#dc2626, #f87171); padding-bottom: 8px; }
+    h2 { color: light-dark(#b91c1c, #fca5a5); margin-top: 36px; border-left: 4px solid light-dark(#dc2626, #f87171); padding-left: 12px; }
+    h3 { color: light-dark(#991b1b, #fecaca); }
+    .edge-case {
+      background: light-dark(#fff1f2, #1c1017);
+      border: 1px solid light-dark(#fecdd3, #4c1d24);
+      border-radius: 8px; padding: 16px; margin: 16px 0;
+      border-left: 5px solid light-dark(#dc2626, #f87171);
+    }
+    .edge-case h3 { margin-top: 0; }
+    .danger {
+      background: light-dark(#fef2f2, #1a0505);
+      border: 2px solid light-dark(#f87171, #991b1b);
+      border-radius: 6px; padding: 12px 16px; margin: 10px 0;
+    }
+    .danger::before { content: "GOTCHA: "; font-weight: 700; color: light-dark(#dc2626, #f87171); }
+    .syntax {
+      background: light-dark(#1e293b, #0f172a);
+      color: #e2e8f0; padding: 14px 18px; border-radius: 6px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.85rem;
+      overflow-x: auto; white-space: pre; margin: 12px 0;
+      border-left: 3px solid light-dark(#dc2626, #f87171);
+    }
+    .keyword { color: #93c5fd; font-weight: bold; }
+    .comment { color: #6b7280; font-style: italic; }
+    .string { color: #86efac; }
+    .scenario {
+      background: light-dark(#fff1f2, #1c1017);
+      border: 1px solid light-dark(#fecdd3, #4c1d24);
+      border-radius: 8px; margin: 18px 0; overflow: hidden;
+    }
+    .scenario-header {
+      background: light-dark(#ffe4e6, #2a0f14);
+      padding: 12px 18px; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .scenario-header:hover { background: light-dark(#fecdd3, #3d1520); }
+    .scenario-num { font-weight: 700; color: light-dark(#dc2626, #f87171); }
+    .scenario-body { padding: 16px 18px; }
+    .scenario-answer {
+      display: none; padding: 14px 18px;
+      background: light-dark(#f0fdf4, #0a1a0f);
+      border-top: 1px solid light-dark(#bbf7d0, #166534);
+    }
+    .scenario-answer.visible { display: block; }
+    .scenario-answer strong { color: light-dark(#16a34a, #4ade80); }
+    .btn-show {
+      background: light-dark(#dc2626, #991b1b); color: #fff;
+      border: none; padding: 6px 14px; border-radius: 4px;
+      cursor: pointer; font-size: 0.8rem; margin: 0 18px 14px;
+    }
+    .btn-show:hover { background: light-dark(#b91c1c, #7f1d1d); }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { border: 1px solid light-dark(#fecdd3, #4c1d24); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#ffe4e6, #2a0f14); font-weight: 600; color: light-dark(#9b1c31, #fca5a5); }
+    .vs-table { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+    .vs-col {
+      background: light-dark(#fff1f2, #1c1017);
+      border: 1px solid light-dark(#fecdd3, #4c1d24);
+      border-radius: 8px; padding: 14px;
+    }
+    .vs-col h4 { margin-top: 0; color: light-dark(#dc2626, #f87171); }
+  </style>
+</head>
+<body>
+
+  <h1>Data Security - Edge Cases &amp; Exam Scenarios</h1>
+  <p>Critical gotchas, tricky behaviors, and complex scenarios that appear on the certification exam.</p>
+
+  <h2 id="one-policy-per-column">Edge Case 1: Only ONE Masking Policy Per Column</h2>
+  <div class="edge-case">
+    <h3>The Rule</h3>
+    <p>A column can have at most <strong>one</strong> masking policy applied at any time. You cannot layer multiple policies on the same column.</p>
+
+    <h3>What About Tag-Based?</h3>
+    <p>If a column has BOTH a direct policy and a tag-based policy, the <strong>direct policy wins</strong>. The tag-based policy is effectively ignored for that column.</p>
+
+    <div class="danger">If you try to SET a second masking policy on a column that already has one, you get an error. You must UNSET the first policy before applying a new one.</div>
+
+    <div class="syntax"><span class="comment">-- This FAILS if email already has a policy:</span>
+<span class="keyword">ALTER TABLE</span> t <span class="keyword">ALTER COLUMN</span> email <span class="keyword">SET MASKING POLICY</span> new_policy;
+<span class="comment">-- Error: Column 'EMAIL' already has a masking policy</span>
+
+<span class="comment">-- Correct approach: force replace</span>
+<span class="keyword">ALTER TABLE</span> t <span class="keyword">ALTER COLUMN</span> email
+  <span class="keyword">SET MASKING POLICY</span> new_policy <span class="keyword">FORCE</span>;
+<span class="comment">-- OR: unset then set</span>
+<span class="keyword">ALTER TABLE</span> t <span class="keyword">ALTER COLUMN</span> email <span class="keyword">UNSET MASKING POLICY</span>;
+<span class="keyword">ALTER TABLE</span> t <span class="keyword">ALTER COLUMN</span> email <span class="keyword">SET MASKING POLICY</span> new_policy;</div>
+  </div>
+
+  <h2 id="one-rap-per-table">Edge Case 2: Only ONE Row Access Policy Per Table</h2>
+  <div class="edge-case">
+    <h3>The Rule</h3>
+    <p>Each table or view can have at most <strong>one</strong> row access policy. To change it, drop the old one first.</p>
+
+    <div class="danger">You cannot combine multiple RAPs. If you need complex logic, put it all in one policy using AND/OR conditions or mapping tables.</div>
+
+    <div class="syntax"><span class="comment">-- This FAILS if table already has a RAP:</span>
+<span class="keyword">ALTER TABLE</span> t <span class="keyword">ADD ROW ACCESS POLICY</span> rap2 <span class="keyword">ON</span> (col);
+<span class="comment">-- Error: Table already has a row access policy</span>
+
+<span class="comment">-- Must drop first:</span>
+<span class="keyword">ALTER TABLE</span> t <span class="keyword">DROP ROW ACCESS POLICY</span> rap1;
+<span class="keyword">ALTER TABLE</span> t <span class="keyword">ADD ROW ACCESS POLICY</span> rap2 <span class="keyword">ON</span> (col);</div>
+  </div>
+
+  <h2 id="role-functions">Edge Case 3: CURRENT_ROLE() vs IS_ROLE_IN_SESSION()</h2>
+  <div class="edge-case">
+    <h3>The Critical Difference</h3>
+
+    <div class="vs-table">
+      <div class="vs-col">
+        <h4>CURRENT_ROLE()</h4>
+        <ul>
+          <li>Returns the <strong>single active role</strong> name</li>
+          <li>Does NOT check inherited roles</li>
+          <li>String comparison only</li>
+          <li>If role is ANALYST and ANALYST inherits DATA_VIEWER, checking CURRENT_ROLE() = 'DATA_VIEWER' returns <strong>FALSE</strong></li>
+        </ul>
+      </div>
+      <div class="vs-col">
+        <h4>IS_ROLE_IN_SESSION()</h4>
+        <ul>
+          <li>Returns <strong>TRUE/FALSE</strong></li>
+          <li>Checks current role AND all inherited roles</li>
+          <li>Respects full role hierarchy</li>
+          <li>If role is ANALYST and ANALYST inherits DATA_VIEWER, IS_ROLE_IN_SESSION('DATA_VIEWER') returns <strong>TRUE</strong></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="danger">Using CURRENT_ROLE() in masking policies is the #1 source of "my policy doesn't work" bugs. When a user activates a parent role (e.g., SYSADMIN), CURRENT_ROLE() only matches 'SYSADMIN' - not any child roles. IS_ROLE_IN_SESSION() is almost always what you want.</div>
+
+    <div class="syntax"><span class="comment">-- BAD: Breaks when using parent roles</span>
+<span class="keyword">CASE WHEN</span> CURRENT_ROLE() = <span class="string">'DATA_ADMIN'</span> <span class="keyword">THEN</span> val ...
+
+<span class="comment">-- GOOD: Works with role hierarchy</span>
+<span class="keyword">CASE WHEN</span> IS_ROLE_IN_SESSION(<span class="string">'DATA_ADMIN'</span>) <span class="keyword">THEN</span> val ...
+
+<span class="comment">-- Role hierarchy example:</span>
+<span class="comment">-- ACCOUNTADMIN → SYSADMIN → DATA_ADMIN → ANALYST</span>
+<span class="comment">-- If current role is SYSADMIN:</span>
+<span class="comment">--   CURRENT_ROLE() = 'SYSADMIN' ✓</span>
+<span class="comment">--   IS_ROLE_IN_SESSION('SYSADMIN') = TRUE ✓</span>
+<span class="comment">--   IS_ROLE_IN_SESSION('DATA_ADMIN') = TRUE ✓ (inherited)</span>
+<span class="comment">--   CURRENT_ROLE() = 'DATA_ADMIN' → FALSE ✗ (not current!)</span></div>
+  </div>
+
+  <h2 id="variant-masking">Edge Case 4: Policy on VARIANT (Whole Column Only)</h2>
+  <div class="edge-case">
+    <h3>The Constraint</h3>
+    <p>You <strong>cannot</strong> mask individual keys/paths within a VARIANT, OBJECT, or ARRAY column. The masking policy applies to the <strong>entire column</strong>.</p>
+
+    <div class="danger">If you need to mask specific fields inside a VARIANT (e.g., mask $.email but show $.name), you must restructure the data into separate columns, OR use a view that extracts and masks specific paths.</div>
+
+    <div class="syntax"><span class="comment">-- This works: mask entire VARIANT column</span>
+<span class="keyword">CREATE MASKING POLICY</span> variant_mask
+  <span class="keyword">AS</span> (val <span class="keyword">VARIANT</span>) <span class="keyword">RETURNS VARIANT</span> -&gt;
+  <span class="keyword">CASE</span>
+    <span class="keyword">WHEN</span> IS_ROLE_IN_SESSION(<span class="string">'DATA_ADMIN'</span>) <span class="keyword">THEN</span> val
+    <span class="keyword">ELSE</span> NULL  <span class="comment">-- entire VARIANT becomes NULL</span>
+  <span class="keyword">END</span>;
+
+<span class="comment">-- Workaround: Use a secure view with selective extraction</span>
+<span class="keyword">CREATE SECURE VIEW</span> safe_data <span class="keyword">AS</span>
+<span class="keyword">SELECT</span>
+  id,
+  raw_json:<span class="string">"name"</span>::<span class="keyword">VARCHAR</span> <span class="keyword">AS</span> name,     <span class="comment">-- visible</span>
+  <span class="keyword">CASE WHEN</span> IS_ROLE_IN_SESSION(<span class="string">'PII_ADMIN'</span>)
+    <span class="keyword">THEN</span> raw_json:<span class="string">"email"</span>::<span class="keyword">VARCHAR</span>
+    <span class="keyword">ELSE</span> <span class="string">'***'</span>
+  <span class="keyword">END AS</span> email                       <span class="comment">-- masked</span>
+<span class="keyword">FROM</span> raw_table;</div>
+  </div>
+
+  <h2 id="shared-data-policies">Edge Case 5: Shared Data Policies</h2>
+  <div class="edge-case">
+    <h3>Provider vs Consumer</h3>
+    <table>
+      <thead><tr><th>Aspect</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td>Policy ownership</td><td>Provider owns and controls all policies</td></tr>
+        <tr><td>Consumer override</td><td>Consumer CANNOT override or remove provider policies</td></tr>
+        <tr><td>Role evaluation</td><td>Provider's policy evaluates against CONSUMER's roles</td></tr>
+        <tr><td>Mapping tables</td><td>Must be in provider's account (consumer can't access provider tables)</td></tr>
+        <tr><td>IS_ROLE_IN_SESSION()</td><td>Evaluates consumer's session roles</td></tr>
+      </tbody>
+    </table>
+
+    <div class="danger">CURRENT_ROLE() in a shared data masking policy evaluates the CONSUMER's current role, not the provider's. The policy logic must anticipate consumer role names, or use a more flexible approach like mapping tables shared alongside the data.</div>
+  </div>
+
+  <h2 id="performance">Edge Case 6: Performance Impact</h2>
+  <div class="edge-case">
+    <h3>What Impacts Performance</h3>
+    <table>
+      <thead><tr><th>Pattern</th><th>Impact</th><th>Mitigation</th></tr></thead>
+      <tbody>
+        <tr><td>Simple CASE + CURRENT_ROLE()</td><td>Negligible</td><td>None needed</td></tr>
+        <tr><td>IS_ROLE_IN_SESSION()</td><td>Very low</td><td>None needed</td></tr>
+        <tr><td>RAP with subquery on small mapping table</td><td>Low</td><td>Keep mapping table small</td></tr>
+        <tr><td>RAP with subquery on large table</td><td>Moderate to High</td><td>Use small lookup tables, add clustering</td></tr>
+        <tr><td>Masking with SHA2/encryption</td><td>Low-Moderate (compute)</td><td>Acceptable for most workloads</td></tr>
+        <tr><td>External function (tokenization)</td><td>High (network latency)</td><td>Batch queries, cache tokens</td></tr>
+      </tbody>
+    </table>
+
+    <div class="danger">A row access policy with a subquery on a million-row mapping table will be executed FOR EVERY ROW in the target table. Keep mapping tables small!</div>
+  </div>
+
+  <h2 id="tag-propagation">Edge Case 7: Tag Propagation (Not Inherited)</h2>
+  <div class="edge-case">
+    <h3>Tags Are NOT Inherited</h3>
+    <p>A tag on a database does NOT flow down to schemas, tables, or columns within it. Every object must be tagged explicitly.</p>
+
+    <table>
+      <thead><tr><th>Action</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td>Tag database as 'CONFIDENTIAL'</td><td>Only database has the tag; tables/columns do NOT</td></tr>
+        <tr><td>Tag table as 'PII'</td><td>Only the table object has tag; columns do NOT</td></tr>
+        <tr><td>Clone a tagged table</td><td>Clone RETAINS the tag assignments</td></tr>
+        <tr><td>CTAS from a tagged table</td><td>New table does NOT get tags</td></tr>
+        <tr><td>Tag lineage in views</td><td>Tags on base table columns are visible through TAG_REFERENCES on the view</td></tr>
+      </tbody>
+    </table>
+
+    <div class="danger">Many people assume tagging a database = all contents are tagged. This is FALSE. You must tag each object/column individually or use SYSTEM$CLASSIFY with auto_tag for column-level classification.</div>
+  </div>
+
+  <h2 id="exam-scenarios">10 Exam Scenarios</h2>
+
+  <div class="scenario" id="s1">
+    <div class="scenario-header"><span class="scenario-num">Scenario 1</span><span>+</span></div>
+    <div class="scenario-body">
+      <p>A company has role hierarchy: ACCOUNTADMIN > SYSADMIN > DATA_ADMIN > ANALYST. They create this masking policy:</p>
+      <div class="syntax"><span class="keyword">CREATE MASKING POLICY</span> ssn_mask <span class="keyword">AS</span> (val <span class="keyword">VARCHAR</span>) <span class="keyword">RETURNS VARCHAR</span> -&gt;
+<span class="keyword">CASE WHEN</span> CURRENT_ROLE() = <span class="string">'DATA_ADMIN'</span> <span class="keyword">THEN</span> val <span class="keyword">ELSE</span> <span class="string">'XXX-XX-XXXX'</span> <span class="keyword">END</span>;</div>
+      <p><strong>Question:</strong> A user with SYSADMIN as their current role queries the table. Do they see unmasked SSN values?</p>
+    </div>
+    <button class="btn-show" data-target="a1">Show Answer</button>
+    <div class="scenario-answer" id="a1">
+      <strong>NO - they see masked values.</strong> CURRENT_ROLE() returns 'SYSADMIN', which does NOT equal 'DATA_ADMIN'. Even though SYSADMIN inherits DATA_ADMIN, CURRENT_ROLE() does not check hierarchy. The fix is to use IS_ROLE_IN_SESSION('DATA_ADMIN').
+    </div>
+  </div>
+
+  <div class="scenario" id="s2">
+    <div class="scenario-header"><span class="scenario-num">Scenario 2</span><span>+</span></div>
+    <div class="scenario-body">
+      <p>A table has a masking policy applied directly to the EMAIL column. The same column also has a tag (pii_type = 'EMAIL') which has a DIFFERENT masking policy attached to it.</p>
+      <p><strong>Question:</strong> Which masking policy is enforced?</p>
+    </div>
+    <button class="btn-show" data-target="a2">Show Answer</button>
+    <div class="scenario-answer" id="a2">
+      <strong>The direct column policy wins.</strong> When both a direct masking policy and a tag-based masking policy apply to the same column, the direct policy takes precedence. The tag-based policy is effectively ignored for that column.
+    </div>
+  </div>
+
+  <div class="scenario" id="s3">
+    <div class="scenario-header"><span class="scenario-num">Scenario 3</span><span>+</span></div>
+    <div class="scenario-body">
+      <p>An analyst runs: <code>SELECT COUNT(*) FROM sales WHERE region = 'EMEA';</code></p>
+      <p>The table has a row access policy that only shows US data to the ANALYST role.</p>
+      <p><strong>Question:</strong> What does the query return?</p>
+    </div>
+    <button class="btn-show" data-target="a3">Show Answer</button>
+    <div class="scenario-answer" id="a3">
+      <strong>Returns 0 (zero).</strong> The RAP filters out all EMEA rows before the WHERE clause is evaluated. The analyst only sees US rows, so COUNT(*) WHERE region='EMEA' returns 0. There is no error - the rows simply don't exist from the analyst's perspective.
+    </div>
+  </div>
+
+  <div class="scenario" id="s4">
+    <div class="scenario-header"><span class="scenario-num">Scenario 4</span><span>+</span></div>
+    <div class="scenario-body">
+      <p>A developer creates a CTAS:</p>
+      <div class="syntax"><span class="keyword">CREATE TABLE</span> new_customers <span class="keyword">AS SELECT</span> * <span class="keyword">FROM</span> customers;</div>
+      <p>The source table 'customers' has masking policies on email and ssn columns.</p>
+      <p><strong>Question:</strong> Does new_customers have masking policies?</p>
+    </div>
+    <button class="btn-show" data-target="a4">Show Answer</button>
+    <div class="scenario-answer" id="a4">
+      <strong>NO - the new table does NOT have masking policies.</strong> CTAS does not carry policy assignments. Furthermore, if the developer's role doesn't have access to unmasked data, the new table will contain MASKED values as actual data! Double danger: no policies AND potentially masked data stored permanently.
+    </div>
+  </div>
+
+  <div class="scenario" id="s5">
+    <div class="scenario-header"><span class="scenario-num">Scenario 5</span><span>+</span></div>
+    <div class="scenario-body">
+      <p>A table has BOTH a row access policy AND a masking policy on the salary column. An analyst queries the table.</p>
+      <p><strong>Question:</strong> What order are they applied?</p>
+    </div>
+    <button class="btn-show" data-target="a5">Show Answer</button>
+    <div class="scenario-answer" id="a5">
+      <strong>Row access policy FIRST, then masking policy.</strong> Order: (1) RAP filters which rows are visible, (2) Masking policy masks column values on the visible rows. The analyst only sees rows allowed by RAP, and within those rows, salary is masked according to the masking policy.
+    </div>
+  </div>
+
+  <div class="scenario" id="s6">
+    <div class="scenario-header"><span class="scenario-num">Scenario 6</span><span>+</span></div>
+    <div class="scenario-body">
+      <p>Provider shares a table with a masking policy. The consumer's ANALYST role queries it. The masking policy says:</p>
+      <div class="syntax"><span class="keyword">CASE WHEN</span> CURRENT_ROLE() = <span class="string">'DATA_ADMIN'</span> <span class="keyword">THEN</span> val <span class="keyword">ELSE</span> <span class="string">'***'</span> <span class="keyword">END</span></div>
+      <p><strong>Question:</strong> The consumer creates a role called DATA_ADMIN. Can they see unmasked data?</p>
+    </div>
+    <button class="btn-show" data-target="a6">Show Answer</button>
+    <div class="scenario-answer" id="a6">
+      <strong>YES - they CAN see unmasked data!</strong> The policy evaluates CURRENT_ROLE() against the consumer's session. If the consumer creates a role named 'DATA_ADMIN' and uses it, the condition matches. This is a security risk - providers should use INVOKER_SHARE() or more secure patterns instead of role name matching for shared data.
+    </div>
+  </div>
+
+  <div class="scenario" id="s7">
+    <div class="scenario-header"><span class="scenario-num">Scenario 7</span><span>+</span></div>
+    <div class="scenario-body">
+      <p>A masking policy is applied to a column. The column contains some NULL values.</p>
+      <div class="syntax"><span class="keyword">CREATE MASKING POLICY</span> mask <span class="keyword">AS</span> (val <span class="keyword">VARCHAR</span>) <span class="keyword">RETURNS VARCHAR</span> -&gt;
+<span class="keyword">CASE WHEN</span> IS_ROLE_IN_SESSION(<span class="string">'ADMIN'</span>) <span class="keyword">THEN</span> val <span class="keyword">ELSE</span> <span class="string">'HIDDEN'</span> <span class="keyword">END</span>;</div>
+      <p><strong>Question:</strong> What do non-ADMIN users see for NULL values?</p>
+    </div>
+    <button class="btn-show" data-target="a7">Show Answer</button>
+    <div class="scenario-answer" id="a7">
+      <strong>They see 'HIDDEN' (not NULL).</strong> NULL values go through the CASE statement like any other value. Since IS_ROLE_IN_SESSION('ADMIN') is FALSE, the ELSE branch returns 'HIDDEN'. To preserve NULLs: add <code>WHEN val IS NULL THEN NULL</code> before the ELSE.
+    </div>
+  </div>
+
+  <div class="scenario" id="s8">
+    <div class="scenario-header"><span class="scenario-num">Scenario 8</span><span>+</span></div>
+    <div class="scenario-body">
+      <p>A user queries a table using Time Travel: <code>SELECT * FROM customers AT(OFFSET => -3600);</code></p>
+      <p>The masking policy was CHANGED 30 minutes ago (within the 1-hour offset). Previously it allowed ANALYST to see data; now it blocks ANALYST.</p>
+      <p><strong>Question:</strong> Does the ANALYST role see unmasked historical data?</p>
+    </div>
+    <button class="btn-show" data-target="a8">Show Answer</button>
+    <div class="scenario-answer" id="a8">
+      <strong>NO - the CURRENT policy applies to Time Travel data.</strong> Even though the data is from 1 hour ago when the old policy was in effect, Snowflake evaluates the CURRENT version of the masking policy against historical data. There is no "policy time travel."
+    </div>
+  </div>
+
+  <div class="scenario" id="s9">
+    <div class="scenario-header"><span class="scenario-num">Scenario 9</span><span>+</span></div>
+    <div class="scenario-body">
+      <p>A column has data type NUMBER(10,2). A masking policy is created:</p>
+      <div class="syntax"><span class="keyword">CREATE MASKING POLICY</span> num_mask <span class="keyword">AS</span> (val <span class="keyword">NUMBER</span>) <span class="keyword">RETURNS VARCHAR</span> -&gt;
+<span class="keyword">CASE WHEN</span> IS_ROLE_IN_SESSION(<span class="string">'FINANCE'</span>) <span class="keyword">THEN</span> val::<span class="keyword">VARCHAR</span> <span class="keyword">ELSE</span> <span class="string">'***'</span> <span class="keyword">END</span>;</div>
+      <p><strong>Question:</strong> Can this policy be applied to the NUMBER column?</p>
+    </div>
+    <button class="btn-show" data-target="a9">Show Answer</button>
+    <div class="scenario-answer" id="a9">
+      <strong>NO - this will fail.</strong> The input type is NUMBER but the return type is VARCHAR. Input and output types MUST match. The correct approach: <code>AS (val NUMBER) RETURNS NUMBER -> CASE WHEN ... THEN val ELSE NULL END;</code> (return NULL or a sentinel number like -1).
+    </div>
+  </div>
+
+  <div class="scenario" id="s10">
+    <div class="scenario-header"><span class="scenario-num">Scenario 10</span><span>+</span></div>
+    <div class="scenario-body">
+      <p>You tag a database: <code>ALTER DATABASE prod SET TAG sensitivity = 'HIGH';</code></p>
+      <p>Then you create a new table in that database.</p>
+      <p><strong>Question:</strong> Does the new table inherit the 'sensitivity = HIGH' tag?</p>
+    </div>
+    <button class="btn-show" data-target="a10">Show Answer</button>
+    <div class="scenario-answer" id="a10">
+      <strong>NO - tags do NOT inherit/propagate.</strong> The tag is only on the database object itself. New tables, existing tables, schemas, and columns within the database do NOT automatically receive the tag. Each must be tagged explicitly. This is one of the most commonly misunderstood behaviors.
+    </div>
+  </div>
+
+  <script>
+    var buttons = document.querySelectorAll('.btn-show');
+    buttons.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var target = this.getAttribute('data-target');
+        var el = document.getElementById(target);
+        el.classList.toggle('visible');
+        this.textContent = el.classList.contains('visible') ? 'Hide Answer' : 'Show Answer';
+      });
+    });
+  </script>
+
+</body>
+</html>

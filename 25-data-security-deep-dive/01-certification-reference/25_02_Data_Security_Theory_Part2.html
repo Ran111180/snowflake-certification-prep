@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Security Deep Dive - Theory Part 2: Advanced</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "Data Security Deep Dive - Theory Part 2",
+  "topic": "25 - Data Security Advanced",
+  "certification": "SnowPro Core",
+  "version": "1.0",
+  "created": "2026-08-16",
+  "color_scheme": "red-rose"
+}
+</script>
+<style>
+  :root {
+    --bg-primary: light-dark(#fff5f5, #1a0a0a);
+    --bg-secondary: light-dark(#ffe4e6, #2d1215);
+    --bg-card: light-dark(#ffffff, #1f0d0f);
+    --text-primary: light-dark(#1a0a0a, #fce4e8);
+    --text-secondary: light-dark(#4a1520, #e8b4bc);
+    --accent: light-dark(#dc2626, #f87171);
+    --accent-secondary: light-dark(#be123c, #fb7185);
+    --border: light-dark(#fecdd3, #4a1520);
+    --code-bg: light-dark(#fff1f2, #2a1015);
+    --highlight: light-dark(#fef2f2, #2d1215);
+    --shadow: light-dark(rgba(220, 38, 38, 0.1), rgba(0, 0, 0, 0.3));
+  }
+  color-scheme: light dark;
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.7;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 2rem;
+    color: var(--accent);
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  h2 {
+    font-size: 1.5rem;
+    color: var(--accent-secondary);
+    margin: 2rem 0 1rem;
+    padding-left: 0.75rem;
+    border-left: 4px solid var(--accent);
+  }
+  h3 {
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    margin: 1.5rem 0 0.75rem;
+  }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    box-shadow: 0 2px 8px var(--shadow);
+  }
+  .card-header {
+    font-weight: 700;
+    color: var(--accent);
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    margin: 0.75rem 0;
+    white-space: pre-wrap;
+  }
+  code {
+    background: var(--code-bg);
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.85rem;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+  }
+  th {
+    background: var(--bg-secondary);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  tr:nth-child(even) { background: var(--highlight); }
+  ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+  li { margin: 0.4rem 0; }
+  .badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--bg-secondary);
+    color: var(--accent);
+    border: 1px solid var(--border);
+  }
+  .important {
+    background: var(--bg-secondary);
+    border-left: 4px solid var(--accent);
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .important strong { color: var(--accent); }
+  .section-divider {
+    border: none;
+    border-top: 2px dashed var(--border);
+    margin: 2.5rem 0;
+  }
+  .pattern-box {
+    background: var(--code-bg);
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin: 1rem 0;
+  }
+  .pattern-box h4 {
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+  }
+  .workflow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+    background: var(--bg-card);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .step-num {
+    background: var(--accent);
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<h1>25 - Data Security Deep Dive: Theory Part 2 (Advanced)</h1>
+<p><span class="badge">SnowPro Core</span> <span class="badge">Tag-Based Policies</span> <span class="badge">External Tokenization</span> <span class="badge">Governance Admin</span></p>
+
+<h2>1. Tag-Based Masking Policies</h2>
+
+<div class="card">
+  <div class="card-header">How Tag-Based Masking Works</div>
+  <p>Instead of assigning a masking policy to each column individually, you assign the policy to a <strong>tag</strong>. Any column that has that tag applied will automatically be masked by the tag's policy.</p>
+  <ol>
+    <li>Create a tag (e.g., <code>pii_type</code>)</li>
+    <li>Create a masking policy</li>
+    <li>Attach the masking policy to the tag: <code>ALTER TAG ... SET MASKING POLICY</code></li>
+    <li>Tag columns: <code>ALTER TABLE ... ALTER COLUMN ... SET TAG pii_type = 'email'</code></li>
+    <li>Done! All tagged columns are now masked</li>
+  </ol>
+</div>
+
+<pre>
+-- Step 1: Create tags
+CREATE TAG governance_db.tags.pii_type
+  ALLOWED_VALUES 'email', 'phone', 'ssn', 'name', 'dob';
+
+-- Step 2: Create a conditional masking policy
+CREATE OR REPLACE MASKING POLICY governance_db.policies.mask_by_pii_tag
+  AS (val VARCHAR) RETURNS VARCHAR ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('DATA_STEWARD') THEN val
+    WHEN SYSTEM$GET_TAG_ON_CURRENT_COLUMN('governance_db.tags.pii_type') = 'email'
+      THEN REGEXP_REPLACE(val, '.+@', '****@')
+    WHEN SYSTEM$GET_TAG_ON_CURRENT_COLUMN('governance_db.tags.pii_type') = 'phone'
+      THEN CONCAT('***-***-', RIGHT(val, 4))
+    WHEN SYSTEM$GET_TAG_ON_CURRENT_COLUMN('governance_db.tags.pii_type') = 'ssn'
+      THEN CONCAT('***-**-', RIGHT(val, 4))
+    ELSE '********'
+  END;
+
+-- Step 3: Attach policy to tag
+ALTER TAG governance_db.tags.pii_type
+  SET MASKING POLICY governance_db.policies.mask_by_pii_tag;
+
+-- Step 4: Tag columns (policy automatically applies!)
+ALTER TABLE customers ALTER COLUMN email SET TAG governance_db.tags.pii_type = 'email';
+ALTER TABLE customers ALTER COLUMN phone SET TAG governance_db.tags.pii_type = 'phone';
+ALTER TABLE employees ALTER COLUMN ssn SET TAG governance_db.tags.pii_type = 'ssn';
+</pre>
+
+<div class="important">
+  <strong>SYSTEM$GET_TAG_ON_CURRENT_COLUMN:</strong> This function can be used inside a tag-based masking policy to read the tag value of the column currently being evaluated. This enables ONE policy to mask differently based on the tag value (email vs phone vs SSN).
+</div>
+
+<hr class="section-divider">
+
+<h2>2. Masking Policy Patterns</h2>
+
+<div class="pattern-box">
+  <h4>Pattern 1: Full Mask</h4>
+<pre>
+CREATE MASKING POLICY full_mask AS (val VARCHAR) RETURNS VARCHAR ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('ADMIN') THEN val
+    ELSE '**MASKED**'
+  END;
+</pre>
+</div>
+
+<div class="pattern-box">
+  <h4>Pattern 2: Partial Mask (Show Last 4)</h4>
+<pre>
+CREATE MASKING POLICY partial_mask AS (val VARCHAR) RETURNS VARCHAR ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('ADMIN') THEN val
+    ELSE CONCAT(REPEAT('*', LENGTH(val) - 4), RIGHT(val, 4))
+  END;
+</pre>
+</div>
+
+<div class="pattern-box">
+  <h4>Pattern 3: Conditional by Multiple Roles</h4>
+<pre>
+CREATE MASKING POLICY tiered_mask AS (val VARCHAR) RETURNS VARCHAR ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('FULL_ACCESS') THEN val
+    WHEN IS_ROLE_IN_SESSION('PARTIAL_ACCESS') THEN LEFT(val, 3) || '***'
+    ELSE '**REDACTED**'
+  END;
+</pre>
+</div>
+
+<div class="pattern-box">
+  <h4>Pattern 4: SHA2 Tokenization (Consistent Hash)</h4>
+<pre>
+-- Useful for joins/analytics without seeing real values
+CREATE MASKING POLICY sha2_mask AS (val VARCHAR) RETURNS VARCHAR ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('DATA_STEWARD') THEN val
+    ELSE SHA2(val, 256)
+  END;
+-- Same input always produces same hash → can still JOIN/GROUP BY
+</pre>
+</div>
+
+<div class="pattern-box">
+  <h4>Pattern 5: NULL Mask (for numeric/date columns)</h4>
+<pre>
+CREATE MASKING POLICY null_mask_number AS (val NUMBER) RETURNS NUMBER ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('FINANCE') THEN val
+    ELSE NULL
+  END;
+
+CREATE MASKING POLICY null_mask_date AS (val DATE) RETURNS DATE ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('HR_ADMIN') THEN val
+    ELSE NULL
+  END;
+</pre>
+</div>
+
+<hr class="section-divider">
+
+<h2>3. Row Access Policy Patterns</h2>
+
+<div class="pattern-box">
+  <h4>Pattern 1: Role-Based Filtering</h4>
+<pre>
+CREATE ROW ACCESS POLICY rap_role_filter
+  AS (department VARCHAR) RETURNS BOOLEAN ->
+  IS_ROLE_IN_SESSION('ADMIN')
+  OR (IS_ROLE_IN_SESSION('HR') AND department = 'HR')
+  OR (IS_ROLE_IN_SESSION('FINANCE') AND department = 'FINANCE');
+</pre>
+</div>
+
+<div class="pattern-box">
+  <h4>Pattern 2: Mapping Table (Most Flexible)</h4>
+<pre>
+-- Mapping table: ROLE_NAME | ALLOWED_VALUE
+CREATE ROW ACCESS POLICY rap_mapping
+  AS (region VARCHAR) RETURNS BOOLEAN ->
+  EXISTS (
+    SELECT 1 FROM governance_db.public.access_mapping
+    WHERE role_name = CURRENT_ROLE()
+      AND allowed_region = region
+  )
+  OR IS_ROLE_IN_SESSION('SYSADMIN');
+
+-- Mapping table allows dynamic changes without altering the policy!
+</pre>
+</div>
+
+<div class="pattern-box">
+  <h4>Pattern 3: Multi-Tenant Isolation</h4>
+<pre>
+-- Each user only sees their company's data
+CREATE ROW ACCESS POLICY rap_multi_tenant
+  AS (tenant_id NUMBER) RETURNS BOOLEAN ->
+  tenant_id = (
+    SELECT t.tenant_id
+    FROM governance_db.public.user_tenant_map t
+    WHERE t.user_name = CURRENT_USER()
+  )
+  OR IS_ROLE_IN_SESSION('PLATFORM_ADMIN');
+</pre>
+</div>
+
+<div class="pattern-box">
+  <h4>Pattern 4: Time-Based Access</h4>
+<pre>
+-- Only show records created within the last 90 days for non-admins
+CREATE ROW ACCESS POLICY rap_time_based
+  AS (created_date DATE) RETURNS BOOLEAN ->
+  IS_ROLE_IN_SESSION('ADMIN')
+  OR created_date >= DATEADD('day', -90, CURRENT_DATE());
+</pre>
+</div>
+
+<hr class="section-divider">
+
+<h2>4. Policy Administration & Privileges</h2>
+
+<div class="card">
+  <div class="card-header">Separation of Duties</div>
+  <p>Snowflake enforces separation between policy creation and policy application. This is a security design — the person who creates a policy may not be the person who decides where it's applied.</p>
+  <table>
+    <tr><th>Privilege</th><th>What It Allows</th><th>Typical Role</th></tr>
+    <tr><td>CREATE MASKING POLICY</td><td>Create/replace masking policies in a schema</td><td>Security Admin / Policy Admin</td></tr>
+    <tr><td>APPLY MASKING POLICY (account-level)</td><td>Set/unset masking policies on any column</td><td>Data Steward</td></tr>
+    <tr><td>CREATE ROW ACCESS POLICY</td><td>Create/replace RAPs in a schema</td><td>Security Admin</td></tr>
+    <tr><td>APPLY ROW ACCESS POLICY (account-level)</td><td>Add/drop RAPs on any table</td><td>Data Steward</td></tr>
+    <tr><td>CREATE TAG</td><td>Create tags in a schema</td><td>Governance Admin</td></tr>
+    <tr><td>APPLY TAG (account-level)</td><td>Assign tags to any object</td><td>Data Steward</td></tr>
+  </table>
+</div>
+
+<pre>
+-- Grant policy administration privileges
+GRANT CREATE MASKING POLICY ON SCHEMA governance_db.policies TO ROLE security_admin;
+GRANT APPLY MASKING POLICY ON ACCOUNT TO ROLE data_steward;
+
+GRANT CREATE ROW ACCESS POLICY ON SCHEMA governance_db.policies TO ROLE security_admin;
+GRANT APPLY ROW ACCESS POLICY ON ACCOUNT TO ROLE data_steward;
+
+GRANT CREATE TAG ON SCHEMA governance_db.tags TO ROLE governance_admin;
+GRANT APPLY TAG ON ACCOUNT TO ROLE data_steward;
+</pre>
+
+<div class="important">
+  <strong>EXAM TIP:</strong> APPLY privileges are <strong>account-level</strong> privileges, not schema or database level. You grant them ON ACCOUNT. This means once granted, the role can apply policies/tags anywhere.
+</div>
+
+<hr class="section-divider">
+
+<h2>5. Governance Views & Functions</h2>
+
+<div class="card">
+  <div class="card-header">Key Governance Functions</div>
+  <table>
+    <tr><th>Function/View</th><th>Purpose</th><th>Usage</th></tr>
+    <tr><td><code>POLICY_REFERENCES()</code></td><td>Find where a policy is applied</td><td>Table function — shows all objects a policy is attached to</td></tr>
+    <tr><td><code>TAG_REFERENCES()</code></td><td>Find where a tag is assigned</td><td>Table function — shows all objects with a specific tag</td></tr>
+    <tr><td><code>TAG_REFERENCES_ALL_COLUMNS()</code></td><td>Find all tagged columns</td><td>Shows all columns with any tag in a given domain</td></tr>
+    <tr><td><code>INFORMATION_SCHEMA.POLICY_REFERENCES</code></td><td>Account-level policy view</td><td>View in ACCOUNT_USAGE (latency up to 2 hours)</td></tr>
+    <tr><td><code>ACCESS_HISTORY</code></td><td>Audit who accessed what data</td><td>Account Usage view — tracks column-level read/write</td></tr>
+    <tr><td><code>SYSTEM$GET_TAG()</code></td><td>Get a tag value on an object</td><td>Returns the tag value for a specific object</td></tr>
+  </table>
+</div>
+
+<pre>
+-- Find all columns where a masking policy is applied
+SELECT *
+FROM TABLE(INFORMATION_SCHEMA.POLICY_REFERENCES(
+  POLICY_NAME => 'mask_ssn'
+));
+
+-- Find all objects with a specific tag
+SELECT *
+FROM TABLE(INFORMATION_SCHEMA.TAG_REFERENCES(
+  'governance_db.tags.pii_type', 'COLUMN'
+));
+
+-- Get the tag value on a specific column
+SELECT SYSTEM$GET_TAG(
+  'governance_db.tags.pii_type',
+  'my_db.public.customers.email',
+  'COLUMN'
+);
+
+-- Audit: who read sensitive data in the last 7 days?
+SELECT query_id, user_name, direct_objects_accessed
+FROM SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY
+WHERE query_start_time >= DATEADD('day', -7, CURRENT_TIMESTAMP())
+  AND ARRAY_SIZE(direct_objects_accessed) > 0;
+</pre>
+
+<hr class="section-divider">
+
+<h2>6. Data Classification Workflow</h2>
+
+<div class="card">
+  <div class="card-header">End-to-End Classification Process</div>
+
+  <div class="workflow-step">
+    <div class="step-num">1</div>
+    <div><strong>Detect:</strong> Run SYSTEM$CLASSIFY or EXTRACT_SEMANTIC_CATEGORIES on tables to identify sensitive columns automatically.</div>
+  </div>
+
+  <div class="workflow-step">
+    <div class="step-num">2</div>
+    <div><strong>Review:</strong> Examine classification results (semantic_category, privacy_category, probability). Accept or override recommendations.</div>
+  </div>
+
+  <div class="workflow-step">
+    <div class="step-num">3</div>
+    <div><strong>Apply Tags:</strong> Use ASSOCIATE_SEMANTIC_CATEGORY_TAGS to apply Snowflake system tags, or apply custom tags manually.</div>
+  </div>
+
+  <div class="workflow-step">
+    <div class="step-num">4</div>
+    <div><strong>Attach Policies:</strong> Create masking/row access policies and attach them to tags (tag-based) or directly to columns.</div>
+  </div>
+
+  <div class="workflow-step">
+    <div class="step-num">5</div>
+    <div><strong>Monitor:</strong> Use POLICY_REFERENCES, TAG_REFERENCES, and ACCESS_HISTORY to audit and verify coverage.</div>
+  </div>
+</div>
+
+<pre>
+-- Complete workflow example:
+
+-- 1. Detect
+SELECT * FROM TABLE(
+  EXTRACT_SEMANTIC_CATEGORIES('prod_db.public.customers')
+);
+
+-- 2. Review (examine output)
+-- Column: email → semantic: EMAIL, privacy: IDENTIFIER, prob: 0.98
+-- Column: age → semantic: AGE, privacy: QUASI_IDENTIFIER, prob: 0.85
+
+-- 3. Apply system tags
+CALL ASSOCIATE_SEMANTIC_CATEGORY_TAGS(
+  'prod_db.public.customers',
+  EXTRACT_SEMANTIC_CATEGORIES('prod_db.public.customers')
+);
+
+-- 4. Create tag-based masking policy
+CREATE MASKING POLICY mask_identifiers AS (val VARCHAR) RETURNS VARCHAR ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('GOVERNANCE_ADMIN') THEN val
+    ELSE '***MASKED***'
+  END;
+
+-- Attach to system tag
+ALTER TAG SNOWFLAKE.CORE.PRIVACY_CATEGORY
+  SET MASKING POLICY mask_identifiers;
+
+-- 5. Verify
+SELECT * FROM TABLE(INFORMATION_SCHEMA.POLICY_REFERENCES(
+  POLICY_NAME => 'mask_identifiers'
+));
+</pre>
+
+<hr class="section-divider">
+
+<h2>7. External Tokenization</h2>
+
+<div class="card">
+  <div class="card-header">What is External Tokenization?</div>
+  <p>External tokenization replaces sensitive values with tokens using an external service (e.g., Protegrity, Voltage, Thales). Snowflake uses <strong>External Functions</strong> (via API integrations) combined with <strong>Secure UDFs</strong> to tokenize/detokenize data.</p>
+  <ul>
+    <li>Tokenized data is stored in Snowflake (token replaces real value)</li>
+    <li>Detokenization requires calling the external service</li>
+    <li>Masking policy wraps the external function — only authorized roles can detokenize</li>
+    <li>Tokens are format-preserving (SSN token looks like an SSN)</li>
+  </ul>
+</div>
+
+<pre>
+-- External function for tokenization
+CREATE EXTERNAL FUNCTION tokenize(val VARCHAR)
+  RETURNS VARCHAR
+  API_INTEGRATION = tokenization_api
+  AS 'https://tokenize-service.example.com/tokenize';
+
+CREATE EXTERNAL FUNCTION detokenize(val VARCHAR)
+  RETURNS VARCHAR
+  API_INTEGRATION = tokenization_api
+  AS 'https://tokenize-service.example.com/detokenize';
+
+-- Masking policy using external detokenization
+CREATE MASKING POLICY token_policy AS (val VARCHAR) RETURNS VARCHAR ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('PII_ACCESS')
+      THEN detokenize(val)  -- authorized users see real data
+    ELSE val  -- everyone else sees the token (already tokenized at rest)
+  END;
+
+-- Apply to column containing tokenized data
+ALTER TABLE customers ALTER COLUMN ssn_token SET MASKING POLICY token_policy;
+</pre>
+
+<div class="important">
+  <strong>Key Difference:</strong> With dynamic masking, real data is stored and masked at query time. With tokenization, tokens are stored at rest, and real data is only retrieved via the external service for authorized users. Tokenization provides stronger protection for data at rest.
+</div>
+
+<hr class="section-divider">
+
+<h2>8. RBAC for Governance</h2>
+
+<div class="card">
+  <div class="card-header">Recommended Role Hierarchy for Data Governance</div>
+<pre>
+ACCOUNTADMIN
+  └── SECURITYADMIN
+        └── GOVERNANCE_ADMIN (custom)
+              ├── POLICY_ADMIN (creates policies)
+              ├── TAG_ADMIN (creates/manages tags)
+              └── DATA_STEWARD (applies policies & tags to objects)
+                    └── ANALYST (uses data, sees masked values)
+</pre>
+  <table>
+    <tr><th>Role</th><th>Responsibilities</th></tr>
+    <tr><td>GOVERNANCE_ADMIN</td><td>Oversees all data governance activities</td></tr>
+    <tr><td>POLICY_ADMIN</td><td>Creates masking policies and row access policies</td></tr>
+    <tr><td>TAG_ADMIN</td><td>Creates tags, defines allowed values, manages tag taxonomy</td></tr>
+    <tr><td>DATA_STEWARD</td><td>Applies policies/tags to objects, runs classification, reviews results</td></tr>
+    <tr><td>ANALYST</td><td>Queries data — sees masked values based on their role</td></tr>
+  </table>
+</div>
+
+<hr class="section-divider">
+
+<h2>9. Production Best Practices</h2>
+
+<div class="card">
+  <div class="card-header">Best Practices for Data Security Policies</div>
+  <ol>
+    <li><strong>Use IS_ROLE_IN_SESSION()</strong> instead of CURRENT_ROLE() — respects hierarchy</li>
+    <li><strong>Use tag-based policies</strong> for scalability — avoid per-column policy assignment</li>
+    <li><strong>Centralize governance objects</strong> in a dedicated database (e.g., GOVERNANCE_DB)</li>
+    <li><strong>Use mapping tables</strong> for row access policies — allows dynamic changes without DDL</li>
+    <li><strong>Run SYSTEM$CLASSIFY regularly</strong> as new tables are created</li>
+    <li><strong>Monitor with POLICY_REFERENCES</strong> to ensure complete coverage</li>
+    <li><strong>Test policies</strong> by switching roles: <code>USE ROLE analyst; SELECT * FROM table;</code></li>
+    <li><strong>Document policy intent</strong> using COMMENT on the policy object</li>
+    <li><strong>Separate creation from application</strong> (different roles for each)</li>
+    <li><strong>Performance: avoid subqueries in RAP</strong> that hit large mapping tables without proper indexing</li>
+    <li><strong>Use conditional logic</strong> in one policy rather than multiple policies (only 1 allowed per column)</li>
+    <li><strong>Audit regularly</strong> with ACCESS_HISTORY to verify policies work as intended</li>
+  </ol>
+</div>
+
+<div class="card">
+  <div class="card-header">Common Mistakes to Avoid</div>
+  <ul>
+    <li>Using CURRENT_ROLE() and expecting hierarchy to work (it won't!)</li>
+    <li>Trying to stack multiple masking policies on one column</li>
+    <li>Expecting tags to propagate from schema to tables automatically</li>
+    <li>Forgetting that masking uses SET and RAP uses ADD</li>
+    <li>Not granting APPLY privileges (creating policy is not enough)</li>
+    <li>Testing only with ACCOUNTADMIN (always test with the analyst role)</li>
+    <li>Masking a column then wondering why a JOIN stops working (hash pattern helps)</li>
+    <li>Ignoring RAP performance impact on large tables with complex subqueries</li>
+  </ul>
+</div>
+
+</body>
+</html>

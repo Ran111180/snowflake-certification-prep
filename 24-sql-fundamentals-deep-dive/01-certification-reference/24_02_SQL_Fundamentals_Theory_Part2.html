@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL Fundamentals Theory Part 2 - PIVOT, Generator, Conditionals, Dates, Transactions</title>
+<script type="application/json" id="snowflake-report-metadata">
+{
+  "title": "SQL Fundamentals Theory Part 2",
+  "description": "PIVOT/UNPIVOT, GENERATOR, conditionals, string functions, date functions, type conversion, SAMPLE, GROUPING SETS, transactions",
+  "author": "Snowflake Certification Prep",
+  "version": "1.0",
+  "created": "2026-08-15",
+  "topic": "SQL Fundamentals Deep Dive",
+  "module": "24"
+}
+</script>
+<style>
+:root {
+  --bg-primary: light-dark(#f0f7ff, #0a1929);
+  --bg-secondary: light-dark(#ffffff, #112240);
+  --bg-card: light-dark(#ffffff, #1a2d4d);
+  --text-primary: light-dark(#1a2d4d, #e0eaff);
+  --text-secondary: light-dark(#3a5a8a, #a0b8d8);
+  --accent: light-dark(#0078d4, #4db8ff);
+  --accent-light: light-dark(#e6f3ff, #0d3868);
+  --border: light-dark(#c8ddf0, #1e3a5f);
+  --code-bg: light-dark(#edf4fc, #0d2847);
+  --success: light-dark(#0a7c42, #4cda8a);
+  --warning: light-dark(#a85d00, #ffb74d);
+  --highlight: light-dark(#fff3cd, #3d2e00);
+}
+html { color-scheme: light dark; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding: 2rem;
+}
+.container { max-width: 1100px; margin: 0 auto; }
+h1 { font-size: 2rem; color: var(--accent); margin-bottom: 0.5rem; border-bottom: 3px solid var(--accent); padding-bottom: 0.5rem; }
+h2 { font-size: 1.5rem; color: var(--accent); margin: 2rem 0 1rem; padding-left: 0.75rem; border-left: 4px solid var(--accent); }
+h3 { font-size: 1.2rem; color: var(--text-primary); margin: 1.5rem 0 0.75rem; }
+.subtitle { color: var(--text-secondary); margin-bottom: 2rem; font-size: 1.1rem; }
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem;
+  overflow-x: auto;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.9rem;
+  margin: 0.75rem 0;
+}
+code { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.9rem; color: var(--accent); }
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+th, td { padding: 0.6rem 0.8rem; border: 1px solid var(--border); text-align: left; }
+th { background: var(--accent-light); font-weight: 600; }
+tr:nth-child(even) { background: var(--bg-secondary); }
+.exam-tip {
+  background: var(--highlight);
+  border-left: 4px solid var(--warning);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  border-radius: 0 6px 6px 0;
+}
+.exam-tip strong { color: var(--warning); }
+ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+li { margin: 0.3rem 0; }
+@media (max-width: 768px) { body { padding: 1rem; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>SQL Fundamentals Theory - Part 2</h1>
+<p class="subtitle">PIVOT/UNPIVOT, GENERATOR, Conditionals, Strings, Dates, Type Conversion, SAMPLE, GROUPING SETS, Transactions</p>
+
+<h2>1. PIVOT and UNPIVOT</h2>
+<div class="card">
+<h3>PIVOT: Rows to Columns</h3>
+<pre>
+-- PIVOT syntax
+SELECT *
+FROM monthly_sales
+  PIVOT (
+    SUM(amount) FOR month IN ('Jan', 'Feb', 'Mar', 'Apr')
+  ) AS p (product, jan_sales, feb_sales, mar_sales, apr_sales);
+
+-- Dynamic pivot is NOT supported natively — IN list must be static literals
+-- Workaround: generate SQL dynamically with a stored procedure
+</pre>
+
+<h3>UNPIVOT: Columns to Rows</h3>
+<pre>
+-- UNPIVOT syntax
+SELECT product, quarter, revenue
+FROM quarterly_revenue
+  UNPIVOT (
+    revenue FOR quarter IN (q1_revenue, q2_revenue, q3_revenue, q4_revenue)
+  );
+
+-- Note: UNPIVOT excludes NULLs by default
+-- Use: UNPIVOT INCLUDE NULLS (...) to keep NULL values
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> PIVOT IN list must contain literal values (not subqueries). UNPIVOT removes NULLs by default — add <code>INCLUDE NULLS</code> if needed. The aggregate in PIVOT must be a single aggregate function.
+</div>
+</div>
+
+<h2>2. GENERATOR and SEQUENCE</h2>
+<div class="card">
+<h3>GENERATOR: Create Rows from Nothing</h3>
+<pre>
+-- Generate exactly 10 rows
+SELECT SEQ4() as row_num
+FROM TABLE(GENERATOR(ROWCOUNT => 10));
+
+-- Generate date series (last 30 days)
+SELECT DATEADD('day', -SEQ4(), CURRENT_DATE()) as date_val
+FROM TABLE(GENERATOR(ROWCOUNT => 30))
+ORDER BY date_val;
+
+-- Generate with time limit (rows generated in N seconds)
+SELECT SEQ4() FROM TABLE(GENERATOR(TIMELIMIT => 1));
+
+-- Combine GENERATOR with ROW_NUMBER
+SELECT ROW_NUMBER() OVER (ORDER BY SEQ4()) - 1 as n
+FROM TABLE(GENERATOR(ROWCOUNT => 100));
+</pre>
+
+<h3>SEQUENCE: Auto-incrementing Values</h3>
+<pre>
+-- Create sequence
+CREATE OR REPLACE SEQUENCE my_seq
+  START = 1
+  INCREMENT = 1;
+
+-- Use in INSERT
+INSERT INTO my_table (id, name)
+SELECT my_seq.NEXTVAL, 'Product_' || SEQ4()::VARCHAR
+FROM TABLE(GENERATOR(ROWCOUNT => 5));
+
+-- Sequences are NOT gap-free (gaps on rollback, multi-node)
+-- Sequences guarantee uniqueness, not contiguity
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> GENERATOR + SEQ4()/SEQ8() is the Snowflake pattern for generating test data. SEQ4() returns 0-based sequence per query. Sequences guarantee uniqueness but NOT contiguity (gaps are normal).
+</div>
+</div>
+
+<h2>3. Conditional Expressions</h2>
+<div class="card">
+<table>
+<tr><th>Function</th><th>Syntax</th><th>Purpose</th></tr>
+<tr><td><code>IFF</code></td><td>IFF(cond, true_val, false_val)</td><td>Simple if-then-else (3 args only)</td></tr>
+<tr><td><code>CASE</code></td><td>CASE WHEN cond THEN val ... END</td><td>Multi-condition branching</td></tr>
+<tr><td><code>DECODE</code></td><td>DECODE(expr, val1, res1, ..., default)</td><td>Equality matching (like Oracle)</td></tr>
+<tr><td><code>NVL</code></td><td>NVL(expr, replacement)</td><td>Replace NULL with value (2 args)</td></tr>
+<tr><td><code>COALESCE</code></td><td>COALESCE(expr1, expr2, ...)</td><td>First non-NULL from list</td></tr>
+<tr><td><code>NULLIF</code></td><td>NULLIF(expr1, expr2)</td><td>Returns NULL if expr1 = expr2</td></tr>
+<tr><td><code>ZEROIFNULL</code></td><td>ZEROIFNULL(expr)</td><td>Returns 0 if NULL</td></tr>
+<tr><td><code>IFNULL</code></td><td>IFNULL(expr, replacement)</td><td>Same as NVL</td></tr>
+</table>
+
+<pre>
+-- IFF: ternary operator
+SELECT IFF(salary > 100000, 'High', 'Standard') as band FROM employees;
+
+-- CASE: searched vs simple
+SELECT CASE
+  WHEN score >= 90 THEN 'A'
+  WHEN score >= 80 THEN 'B'
+  ELSE 'C'
+END as grade;
+
+SELECT CASE department   -- simple CASE
+  WHEN 'ENG' THEN 'Engineering'
+  WHEN 'MKT' THEN 'Marketing'
+  ELSE 'Other'
+END;
+
+-- DECODE: NULL-safe equality comparison
+SELECT DECODE(status, 'A', 'Active', 'I', 'Inactive', 'Unknown');
+-- DECODE treats NULL = NULL as TRUE (unlike normal comparison!)
+
+-- COALESCE vs NVL
+SELECT COALESCE(phone, mobile, email, 'No Contact') as contact;
+SELECT NVL(phone, 'No Phone');  -- only 2 arguments
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> DECODE considers NULL = NULL as TRUE (unlike = operator). NVL evaluates both arguments always; COALESCE short-circuits. NULLIF is useful to convert empty strings or zero to NULL before aggregation.
+</div>
+</div>
+
+<h2>4. String Functions</h2>
+<div class="card">
+<pre>
+-- SPLIT_PART: extract part of delimited string
+SELECT SPLIT_PART('a.b.c.d', '.', 2);  -- Returns 'b'
+SELECT SPLIT_PART('a.b.c.d', '.', -1); -- Returns 'd' (from end)
+
+-- SPLIT_TO_TABLE: one row per token
+SELECT t.value
+FROM TABLE(SPLIT_TO_TABLE('a,b,c', ',')) t;
+
+-- REGEXP functions
+SELECT REGEXP_LIKE('Hello123', '[A-Za-z]+[0-9]+');  -- TRUE
+SELECT REGEXP_SUBSTR('Price: $45.99', '\\$[0-9.]+'); -- '$45.99'
+SELECT REGEXP_REPLACE('Hello   World', '\\s+', ' '); -- 'Hello World'
+SELECT REGEXP_COUNT('aaa bbb aaa', 'aaa');           -- 2
+SELECT REGEXP_INSTR('abc 123 def', '[0-9]+');        -- 5
+
+-- Other useful string functions
+SELECT INITCAP('hello world');          -- 'Hello World'
+SELECT REPEAT('ab', 3);                 -- 'ababab'
+SELECT LPAD('42', 5, '0');              -- '00042'
+SELECT TRIM('  hello  ');               -- 'hello'
+SELECT POSITION('world' IN 'hello world'); -- 7
+SELECT REPLACE('foo-bar-baz', '-', '_'); -- 'foo_bar_baz'
+SELECT CONCAT_WS('-', '2024', '01', '15'); -- '2024-01-15'
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> SPLIT_PART uses 1-based indexing. Negative index counts from the end. REGEXP in Snowflake uses backslash escaping in single-quoted strings (double backslash: <code>'\\d+'</code>). Use $$ delimiters to avoid: <code>$$\d+$$</code>.
+</div>
+</div>
+
+<h2>5. Date and Time Functions</h2>
+<div class="card">
+<pre>
+-- DATEDIFF: difference between two dates
+SELECT DATEDIFF('day', '2024-01-01', '2024-03-15');     -- 74
+SELECT DATEDIFF('month', '2024-01-15', '2024-03-01');   -- 2
+SELECT DATEDIFF('year', '2023-12-31', '2024-01-01');    -- 1 (crosses year boundary)
+
+-- DATEADD: add interval to date
+SELECT DATEADD('month', 3, '2024-01-31');  -- 2024-04-30 (end-of-month adjusted)
+SELECT DATEADD('day', -7, CURRENT_DATE()); -- 7 days ago
+
+-- DATE_TRUNC: truncate to specified precision
+SELECT DATE_TRUNC('month', '2024-03-15'::DATE);  -- 2024-03-01
+SELECT DATE_TRUNC('week', '2024-03-15'::DATE);   -- 2024-03-11 (Monday)
+SELECT DATE_TRUNC('quarter', CURRENT_TIMESTAMP());
+
+-- EXTRACT / DATE_PART
+SELECT EXTRACT(year FROM '2024-03-15'::DATE);      -- 2024
+SELECT DATE_PART('dow', '2024-03-15'::DATE);       -- 5 (0=Sunday)
+SELECT DAYNAME('2024-03-15'::DATE);                -- 'Fri'
+SELECT LAST_DAY('2024-02-15'::DATE);               -- 2024-02-29
+SELECT LAST_DAY('2024-02-15'::DATE, 'month');      -- 2024-02-29
+
+-- Timestamp functions
+SELECT CURRENT_TIMESTAMP();          -- session timezone
+SELECT CONVERT_TIMEZONE('UTC', 'America/New_York', CURRENT_TIMESTAMP());
+SELECT TO_TIMESTAMP('2024-03-15 10:30:00', 'YYYY-MM-DD HH24:MI:SS');
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> DATEDIFF counts boundaries crossed, not complete units. DATEDIFF('year', '2023-12-31', '2024-01-01') = 1 even though it's only 1 day apart! DATE_TRUNC('week',...) uses Monday as week start by default (ISO).
+</div>
+</div>
+
+<h2>6. Type Conversion</h2>
+<div class="card">
+<pre>
+-- :: operator (Snowflake shorthand for CAST)
+SELECT '42'::INTEGER;           -- 42
+SELECT '2024-01-15'::DATE;      -- 2024-01-15
+SELECT 3.14159::DECIMAL(5,2);   -- 3.14
+
+-- CAST function (standard SQL)
+SELECT CAST('42' AS INTEGER);
+SELECT CAST(price AS DECIMAL(10,2));
+
+-- TRY_CAST: returns NULL on failure instead of error
+SELECT TRY_CAST('abc' AS INTEGER);    -- NULL (no error!)
+SELECT TRY_CAST('42' AS INTEGER);     -- 42
+SELECT CAST('abc' AS INTEGER);        -- ERROR!
+
+-- TRY_ variants for safe conversion
+SELECT TRY_TO_NUMBER('$42.50', '$99.99');  -- 42.50
+SELECT TRY_TO_DATE('not-a-date');          -- NULL
+SELECT TRY_TO_TIMESTAMP('invalid');        -- NULL
+
+-- TO_ conversion functions
+SELECT TO_VARCHAR(CURRENT_DATE(), 'YYYY-MM-DD');
+SELECT TO_NUMBER('42.5', '99.9');
+SELECT TO_DATE('15/03/2024', 'DD/MM/YYYY');
+SELECT TO_CHAR(12345.67, '$999,999.99');   -- '$12,345.67'
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> TRY_CAST and TRY_TO_* functions are critical for handling dirty data — they return NULL instead of raising errors. The :: operator is Snowflake shorthand identical to CAST. Integer division truncates: <code>5/2 = 2</code> not 2.5!
+</div>
+</div>
+
+<h2>7. SAMPLE / TABLESAMPLE</h2>
+<div class="card">
+<pre>
+-- Row-based sampling (percentage)
+SELECT * FROM large_table SAMPLE (10);       -- ~10% of rows
+SELECT * FROM large_table TABLESAMPLE (10);  -- same thing
+
+-- Fixed row count
+SELECT * FROM large_table SAMPLE (100 ROWS); -- exactly 100 rows
+
+-- Block-based sampling (faster for large tables, less uniform)
+SELECT * FROM large_table SAMPLE BLOCK (10); -- ~10% of micro-partitions
+
+-- Seed for reproducibility
+SELECT * FROM large_table SAMPLE (10) SEED(42);
+SELECT * FROM large_table SAMPLE (10) REPEATABLE(42); -- same as SEED
+
+-- Bernoulli (row) vs System (block)
+SELECT * FROM t SAMPLE BERNOULLI (10);  -- row-level, uniform
+SELECT * FROM t SAMPLE SYSTEM (10);     -- block-level, faster
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> SAMPLE(n) without ROWS keyword means n percent. With ROWS keyword means exact count. BERNOULLI = row-level sampling (uniform). SYSTEM = block/micro-partition level (faster but less uniform). SEED makes sampling reproducible.
+</div>
+</div>
+
+<h2>8. GROUPING SETS, CUBE, ROLLUP</h2>
+<div class="card">
+<pre>
+-- GROUPING SETS: specify exact grouping combinations
+SELECT region, product, SUM(sales) as total_sales
+FROM sales_data
+GROUP BY GROUPING SETS (
+  (region, product),  -- group by both
+  (region),           -- subtotal by region
+  (product),          -- subtotal by product
+  ()                  -- grand total
+);
+
+-- ROLLUP: hierarchical subtotals (n+1 grouping sets)
+SELECT region, city, SUM(sales)
+FROM sales_data
+GROUP BY ROLLUP (region, city);
+-- Equivalent to: GROUPING SETS ((region, city), (region), ())
+
+-- CUBE: all possible combinations (2^n grouping sets)
+SELECT region, product, SUM(sales)
+FROM sales_data
+GROUP BY CUBE (region, product);
+-- Equivalent to: GROUPING SETS ((region, product), (region), (product), ())
+
+-- GROUPING() function: identifies subtotal rows (0=real, 1=subtotal)
+SELECT 
+  region, product, SUM(sales),
+  GROUPING(region) as is_region_subtotal,
+  GROUPING(product) as is_product_subtotal
+FROM sales_data
+GROUP BY CUBE (region, product);
+</pre>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> ROLLUP(a, b, c) produces 4 grouping sets: (a,b,c), (a,b), (a), (). CUBE(a, b, c) produces 8 (2^3). Use GROUPING() to distinguish NULLs from data vs NULLs from subtotals. GROUPING returns 1 for subtotal rows.
+</div>
+</div>
+
+<h2>9. Transactions</h2>
+<div class="card">
+<pre>
+-- Explicit transaction
+BEGIN TRANSACTION;
+  INSERT INTO orders VALUES (1, 'Widget', 100);
+  INSERT INTO audit_log VALUES (1, CURRENT_TIMESTAMP(), 'INSERT');
+COMMIT;
+
+-- Rollback on error
+BEGIN;
+  UPDATE accounts SET balance = balance - 500 WHERE id = 1;
+  UPDATE accounts SET balance = balance + 500 WHERE id = 2;
+  -- If any statement fails, rollback everything:
+ROLLBACK;  -- or COMMIT if successful
+
+-- Auto-commit behavior (default)
+-- Each DML statement is its own transaction unless BEGIN is used
+-- DDL statements auto-commit (cannot be rolled back)
+
+-- Scoped transactions in stored procedures
+CREATE PROCEDURE transfer(from_id INT, to_id INT, amount NUMBER)
+RETURNS VARCHAR
+LANGUAGE SQL
+AS
+BEGIN
+  BEGIN TRANSACTION;
+    UPDATE accounts SET balance = balance - amount WHERE id = :from_id;
+    UPDATE accounts SET balance = balance + amount WHERE id = :to_id;
+  COMMIT;
+  RETURN 'Success';
+EXCEPTION
+  WHEN OTHER THEN
+    ROLLBACK;
+    RETURN 'Failed: ' || SQLERRM;
+END;
+</pre>
+
+<h3>Transaction Rules in Snowflake</h3>
+<table>
+<tr><th>Property</th><th>Behavior</th></tr>
+<tr><td>Default isolation</td><td>READ COMMITTED</td></tr>
+<tr><td>DDL in transaction</td><td>Auto-commits (breaks transaction)</td></tr>
+<tr><td>Timeout</td><td>Default 4 hours (STATEMENT_TIMEOUT_IN_SECONDS)</td></tr>
+<tr><td>Lock scope</td><td>Table-level for DML (partition-level internally)</td></tr>
+<tr><td>Nested transactions</td><td>Not supported (BEGIN inside BEGIN has no effect)</td></tr>
+<tr><td>AUTOCOMMIT</td><td>Default ON — each statement auto-commits if no explicit BEGIN</td></tr>
+</table>
+
+<div class="exam-tip">
+<strong>Exam Tip:</strong> DDL statements (CREATE, DROP, ALTER) cannot be rolled back — they auto-commit. Snowflake does NOT support nested transactions or savepoints. Isolation level is always READ COMMITTED (no SERIALIZABLE option for tables).
+</div>
+</div>
+
+<h2>10. Summary: Function Categories</h2>
+<div class="card">
+<table>
+<tr><th>Category</th><th>Key Functions</th><th>Common Trap</th></tr>
+<tr><td>Conditional</td><td>IFF, CASE, DECODE, NVL, COALESCE</td><td>DECODE treats NULL=NULL as true</td></tr>
+<tr><td>String</td><td>SPLIT_PART, REGEXP_*, CONCAT_WS</td><td>1-based indexing in SPLIT_PART</td></tr>
+<tr><td>Date</td><td>DATEDIFF, DATEADD, DATE_TRUNC</td><td>DATEDIFF counts boundaries, not complete units</td></tr>
+<tr><td>Conversion</td><td>CAST, ::, TRY_CAST, TO_*</td><td>Integer division truncates (5/2=2)</td></tr>
+<tr><td>Sampling</td><td>SAMPLE, TABLESAMPLE</td><td>Without ROWS = percentage</td></tr>
+<tr><td>Grouping</td><td>GROUPING SETS, CUBE, ROLLUP</td><td>NULL in output = subtotal row</td></tr>
+<tr><td>Generation</td><td>GENERATOR, SEQUENCE, SEQ4/SEQ8</td><td>Sequences have gaps</td></tr>
+<tr><td>Transform</td><td>PIVOT, UNPIVOT</td><td>PIVOT IN must be static literals</td></tr>
+</table>
+</div>
+
+</div>
+</body>
+</html>
